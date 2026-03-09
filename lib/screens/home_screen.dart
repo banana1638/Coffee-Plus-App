@@ -21,7 +21,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _dashboardData = _apiService.fetchDashboard();
+    _refreshData();
+  }
+
+  void _refreshData({String? search}) {
+    setState(() {
+      _dashboardData = _apiService.fetchDashboard(
+        search: search,
+        category: _selectedCategory,
+      );
+    });
   }
 
   @override
@@ -65,8 +74,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
           final Map<String, dynamic> user = snapshot.data!['user'] ?? {};
           final String userName = user['name'] ?? 'User';
-          final double tankOz = (user['tangki_oz'] ?? 0).toDouble();
-          final double balance = (user['tangki_balance'] ?? 0.0).toDouble();
+          final double tankOz = (user['oz'] ?? 0).toDouble();
+          final double balance = (user['balance'] ?? 0.0).toDouble();
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,6 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
             setState(() {
               _selectedCategory = id;
             });
+            _refreshData();
           }
         },
         backgroundColor: Colors.white,
@@ -330,7 +340,9 @@ class _HomeScreenState extends State<HomeScreen> {
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(vertical: 15, horizontal: 20),
         ),
-        onChanged: (value) {},
+        onChanged: (value) {
+          _refreshData(search: value);
+        },
       ),
     );
   }

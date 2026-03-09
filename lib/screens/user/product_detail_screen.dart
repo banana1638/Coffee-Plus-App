@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
 import '../../models/product_model.dart';
+import '../../services/api_service.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -11,11 +12,13 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
+  final ApiService _apiService = ApiService();
   // 对应 Web 端的表单状态
   String selectedSize = 'Regular';
   String selectedIce = 'Normal Ice';
   String selectedSugar = 'Normal Sugar';
   int quantity = 1;
+  bool _isAdding = false;
 
   @override
   Widget build(BuildContext context) {
@@ -207,7 +210,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           // 加入购物车按钮
           Expanded(
             child: ElevatedButton(
-              onPressed: () => _handleAddToCart(),
+              onPressed: _isAdding ? null : () => _handleAddToCart(),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 18),
@@ -229,13 +232,37 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  void _handleAddToCart() {
-    // 这里实现类似 Web 端 fetch(route('cart.add')) 的逻辑
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Added to Cart!"),
-        backgroundColor: Colors.green,
-      ),
-    );
+  Future<void> _handleAddToCart() async {
+    setState(() => _isAdding = true);
+    try {
+      await _apiService.addToCart(
+        productId: widget.product.id,
+        quantity: quantity,
+        options: {
+          'Size': selectedSize,
+          'Ice': selectedIce,
+          'Sugar': selectedSugar,
+        },
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Added to Cart!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed to add: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isAdding = false);
+    }
   }
 }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
 import '../../widgets/tank_visualization.dart';
+import '../../services/api_service.dart';
+import '../../models/transaction_model.dart';
+import '../../models/user_model.dart';
 
 class TangkiScreen extends StatefulWidget {
   const TangkiScreen({super.key});
@@ -10,24 +13,22 @@ class TangkiScreen extends StatefulWidget {
 }
 
 class _TangkiScreenState extends State<TangkiScreen> {
+  final ApiService _apiService = ApiService();
   final TextEditingController _amountController = TextEditingController();
+  late Future<Map<String, dynamic>> _tangkiData;
   bool _isLoading = false;
 
-  // Mock data for transactions based on Blade view
-  final List<Map<String, dynamic>> _transactions = [
-    {
-      'description': 'Refilled Tank',
-      'created_at': 'Mar 08, 2026 • 10:00 AM',
-      'oz_delta': 200,
-      'bill_id': 'BILL001',
-    },
-    {
-      'description': 'Coffee Purchase',
-      'created_at': 'Mar 07, 2026 • 02:30 PM',
-      'oz_delta': -12,
-      'bill_id': 'BILL002',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _refreshData();
+  }
+
+  void _refreshData() {
+    setState(() {
+      _tangkiData = _apiService.fetchTangki();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,22 +40,42 @@ class _TangkiScreenState extends State<TangkiScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Tank Visualization Section
-            _buildTankCard(2500, 100, 25.50), // Mock values for now
-            const SizedBox(height: 24),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _tangkiData,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          } else if (!snapshot.hasData) {
+            return const Center(child: Text('Data not available'));
+          }
 
-            // Refill Section
-            _buildRefillSection(),
-            const SizedBox(height: 24),
+          final List transactionsJson = snapshot.data!['transactions'] ?? [];
+          final List<Transaction> transactions = transactionsJson
+              .map((j) => Transaction.fromJson(j))
+              .toList();
 
-            // Recent Transactions
-            _buildTransactionList(),
-          ],
-        ),
+          final User user = User.fromJson(snapshot.data!['user'] ?? {});
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                // Tank Visualization Section
+                _buildTankCard(user.oz.toDouble(), 100, user.balance),
+                const SizedBox(height: 24),
+
+                // Refill Section
+                _buildRefillSection(),
+                const SizedBox(height: 24),
+
+                // Recent Transactions
+                _buildTransactionList(transactions),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -183,7 +204,7 @@ class _TangkiScreenState extends State<TangkiScreen> {
     );
   }
 
-  Widget _buildTransactionList() {
+  Widget _buildTransactionList(List<Transaction> transactions) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -222,7 +243,7 @@ class _TangkiScreenState extends State<TangkiScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          ..._transactions.map((trx) => _buildTransactionItem(trx)),
+          ...transactions.map((trx) => _buildTransactionItem(trx)),
           const SizedBox(height: 16),
           OutlinedButton(
             onPressed: () {},
@@ -242,8 +263,8 @@ class _TangkiScreenState extends State<TangkiScreen> {
     );
   }
 
-  Widget _buildTransactionItem(Map<String, dynamic> trx) {
-    bool isCredit = trx['oz_delta'] > 0;
+  Widget _buildTransactionItem(Transaction trx) {
+    bool isCredit = trx.type == 'refill' || trx.ozDelta.startsWith('+');
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Row(
@@ -268,14 +289,14 @@ class _TangkiScreenState extends State<TangkiScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  trx['description'],
+                  trx.description,
                   style: const TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: 14,
                   ),
                 ),
                 Text(
-                  trx['created_at'],
+                  trx.time,
                   style: const TextStyle(
                     color: AppColors.textMuted,
                     fontSize: 10,
@@ -285,7 +306,7 @@ class _TangkiScreenState extends State<TangkiScreen> {
             ),
           ),
           Text(
-            "${isCredit ? '+' : ''}${trx['oz_delta']} oz",
+            "${trx.ozDelta} oz",
             style: TextStyle(
               fontWeight: FontWeight.w900,
               color: isCredit ? Colors.green : AppColors.primary,
@@ -319,17 +340,23 @@ class _TangkiScreenState extends State<TangkiScreen> {
     );
   }
 
-  void _handleRefill(double amount) {
+  void _handleRefill(double amount) async {
     if (amount <= 0) return;
     setState(() => _isLoading = true);
-    Future.delayed(const Duration(seconds: 1), () {
+    try {
+      final result = await _apiService.refillTangki(amount);
       if (!mounted) return;
-      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Processing refill of RM ${amount.toStringAsFixed(2)}"),
-        ),
+        SnackBar(content: Text(result['message'] ?? "Refill successful!")),
       );
-    });
+      _refreshData();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Refill failed: $e")));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 }

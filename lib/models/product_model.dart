@@ -6,6 +6,8 @@ class Product {
   final double price;
   final bool isAvailable;
 
+  final Map<String, dynamic>? options;
+
   Product({
     required this.id,
     required this.name,
@@ -13,6 +15,7 @@ class Product {
     required this.imageUrl,
     required this.price,
     required this.isAvailable,
+    this.options,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -23,6 +26,7 @@ class Product {
       imageUrl: json['image_url'] ?? '',
       price: (json['base_price'] ?? 0).toDouble(),
       isAvailable: json['is_available'] ?? true,
+      options: json['options'],
     );
   }
 }

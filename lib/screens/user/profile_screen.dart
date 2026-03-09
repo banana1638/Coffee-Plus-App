@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
+import '../../services/api_service.dart';
+import '../../models/user_model.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -9,66 +11,147 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final _nameController = TextEditingController(
-    text: "User Name",
-  ); // Mock initial value
-  final _emailController = TextEditingController(
-    text: "user@example.com",
-  ); // Mock initial value
+  final ApiService _apiService = ApiService();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  User? _user;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    setState(() => _isLoading = true);
+    try {
+      final result = await _apiService.fetchProfile();
+      if (mounted) {
+        setState(() {
+          _user = User.fromJson(result['user']);
+          _nameController.text = _user?.name ?? '';
+          _emailController.text = _user?.email ?? '';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Failed to load profile: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleUpdateProfile() async {
+    setState(() => _isLoading = true);
+    try {
+      final result = await _apiService.updateProfile(
+        name: _nameController.text,
+        email: _emailController.text,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? "Profile updated!")),
+        );
+        _fetchProfile();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Update failed: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleDeleteAccount(String password) async {
+    setState(() => _isLoading = true);
+    try {
+      final result = await _apiService.deleteAccount(password);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? "Account deleted.")),
+        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close subpage/sheet
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Deletion failed: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('PROFILE'), centerTitle: true),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // User Summary Card
-            _buildUserSummaryCard(),
-            const SizedBox(height: 24),
+      body: _isLoading && _user == null
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  // User Summary Card
+                  _buildUserSummaryCard(),
+                  const SizedBox(height: 24),
 
-            // Navigation / Quick Links (Simulating the sidebar in Web)
-            _buildQuickLinks(),
-            const SizedBox(height: 24),
+                  // Navigation / Quick Links (Simulating the sidebar in Web)
+                  _buildQuickLinks(),
+                  const SizedBox(height: 24),
 
-            // Profile Information Form
-            _buildSection(
-              title: "Profile Information",
-              subtitle:
-                  "Update your account's profile information and email address.",
-              child: _buildProfileInfoForm(),
+                  // Profile Information Form
+                  _buildSection(
+                    title: "Profile Information",
+                    subtitle:
+                        "Update your account's profile information and email address.",
+                    child: _buildProfileInfoForm(),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Update Password Form
+                  _buildSection(
+                    title: "Update Password",
+                    subtitle:
+                        "Ensure your account is using a long, random password to stay secure.",
+                    child: _buildUpdatePasswordForm(),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Delete Account Section
+                  _buildSection(
+                    title: "Delete Account",
+                    subtitle:
+                        "Once your account is deleted, all of its resources and data will be permanently deleted.",
+                    isDanger: true,
+                    child: _buildDeleteAccountSection(),
+                  ),
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
-            const SizedBox(height: 24),
-
-            // Update Password Form
-            _buildSection(
-              title: "Update Password",
-              subtitle:
-                  "Ensure your account is using a long, random password to stay secure.",
-              child: _buildUpdatePasswordForm(),
-            ),
-            const SizedBox(height: 24),
-
-            // Delete Account Section
-            _buildSection(
-              title: "Delete Account",
-              subtitle:
-                  "Once your account is deleted, all of its resources and data will be permanently deleted.",
-              isDanger: true,
-              child: _buildDeleteAccountSection(),
-            ),
-            const SizedBox(height: 40),
-          ],
-        ),
-      ),
     );
   }
 
   Widget _buildUserSummaryCard() {
+    String firstLetter = (_user?.name.isNotEmpty ?? false)
+        ? _user!.name[0].toUpperCase()
+        : "U";
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -81,9 +164,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           CircleAvatar(
             radius: 40,
             backgroundColor: AppColors.primary,
-            child: const Text(
-              "U", // First letter of name
-              style: TextStyle(
+            child: Text(
+              firstLetter,
+              style: const TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.w900,
                 color: Colors.white,
@@ -91,25 +174,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            "User Name",
-            style: TextStyle(
+          Text(
+            _user?.name ?? "Loading...",
+            style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w900,
               color: AppColors.textMain,
             ),
           ),
-          const Text(
-            "user@example.com",
-            style: TextStyle(color: AppColors.textMuted, fontSize: 14),
+          Text(
+            _user?.email ?? "...",
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 14),
           ),
           const SizedBox(height: 24),
           Row(
             children: [
-              Expanded(child: _buildMiniStat("Balance", "RM 25.50")),
+              Expanded(
+                child: _buildMiniStat(
+                  "Balance",
+                  "RM ${(_user?.balance ?? 0.0).toStringAsFixed(2)}",
+                ),
+              ),
               Container(width: 1, height: 30, color: AppColors.border),
               Expanded(
-                child: _buildMiniStat("Storage", "2500 oz", isPrimary: true),
+                child: _buildMiniStat(
+                  "Storage",
+                  "${_user?.oz ?? 0} oz",
+                  isPrimary: true,
+                ),
               ),
             ],
           ),
@@ -245,7 +337,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: () {},
+            onPressed: _isLoading ? null : _handleUpdateProfile,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
@@ -395,7 +487,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 24),
             _buildTextField(
               "Password",
-              TextEditingController(),
+              _confirmPasswordController,
               isPassword: true,
             ),
             const SizedBox(height: 32),
@@ -419,7 +511,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: _isLoading
+                        ? null
+                        : () => _handleDeleteAccount(
+                            _confirmPasswordController.text,
+                          ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,

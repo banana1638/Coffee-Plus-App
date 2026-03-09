@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
+import '../../services/api_service.dart';
+import '../../models/cart_item_model.dart';
+import '../../models/user_model.dart';
 
 class CartIndexScreen extends StatefulWidget {
   const CartIndexScreen({super.key});
@@ -9,48 +12,115 @@ class CartIndexScreen extends StatefulWidget {
 }
 
 class _CartIndexScreenState extends State<CartIndexScreen> {
-  // 模拟从后端/数据库获取的数据
-  double userOzBalance = 500; // 对应 Web 端的 $user->tangki_oz
+  final ApiService _apiService = ApiService();
 
-  List<Map<String, dynamic>> cartItems = [
-    {
-      'id': 1,
-      'name': 'Spanish Latte',
-      'price': 15.0,
-      'oz_needed': 150,
-      'is_oz': false,
-      'quantity': 1,
-    },
-    {
-      'id': 2,
-      'name': 'Americano',
-      'price': 10.0,
-      'oz_needed': 100,
-      'is_oz': true,
-      'quantity': 2,
-    },
-    {
-      'id': 3,
-      'name': 'Caramel Macchiato',
-      'price': 18.0,
-      'oz_needed': 180,
-      'is_oz': false,
-      'quantity': 1,
-    },
-  ];
+  User? _user;
+  List<CartItem> _cartItems = [];
+  bool _isLoading = false;
 
-  // 计算当前已使用的总 OZ (对应 Web 端的 totalOzUsed)
-  int get totalOzUsed {
-    return cartItems
-        .where((item) => item['is_oz'] == true)
-        .fold(0, (sum, item) => sum + (item['oz_needed'] as num).toInt());
+  @override
+  void initState() {
+    super.initState();
+    _refreshData();
   }
 
-  // 计算需要支付的现金总额 (对应 Web 端的 currentTotalCash)
+  Future<void> _refreshData() async {
+    setState(() => _isLoading = true);
+    try {
+      final cartResult = await _apiService.fetchCart();
+      final userResult = await _apiService.fetchProfile();
+
+      if (mounted) {
+        setState(() {
+          _user = User.fromJson(userResult['user']);
+          _cartItems = (cartResult['cartItems'] as List)
+              .map((item) => CartItem.fromJson(item))
+              .toList();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Failed to load cart: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleRemoveItem(int productId) async {
+    setState(() => _isLoading = true);
+    try {
+      await _apiService.removeFromCart(productId);
+      await _refreshData();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Delete failed: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // 计算当前已使用的总 OZ
+  int get totalOzUsed {
+    return _cartItems
+        .where((item) => item.isOz)
+        .fold(0, (sum, item) => sum + item.ozNeeded);
+  }
+
+  // 计算需要支付的现金总额
   double get totalCashPrice {
-    return cartItems
-        .where((item) => item['is_oz'] == false)
-        .fold(0.0, (sum, item) => sum + (item['price'] as num).toDouble());
+    return _cartItems
+        .where((item) => !item.isOz)
+        .fold(0.0, (sum, item) => sum + item.totalItemPrice);
+  }
+
+  Future<void> _handleCheckout() async {
+    if (_user == null) return;
+
+    if (totalCashPrice > _user!.balance) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Insufficient Cash Balance"),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      // Logic for checkout might need 'use_oz' parameters if the API supports it.
+      // For now, let's check API definition. Checkout route doesn't seem to take params in api.php
+      // but the Blade form sends use_oz[]. I should probably update ApiService.checkout.
+
+      final useOzIds = _cartItems
+          .where((item) => item.isOz)
+          .map((item) => item.id)
+          .toList();
+
+      // I'll call update checkout with the IDs
+      final result = await _apiService.checkoutWithOz(useOzIds);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? "Order placed!")),
+        );
+        Navigator.pop(context); // Go back to Home
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Checkout failed: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -65,31 +135,38 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: Column(
-        children: [
-          // 1. OZ 余额顶部卡片 (复刻 Web 端顶部的余额展示)
-          _buildOzBalanceHeader(),
+      body: _isLoading && _cartItems.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                // 1. OZ 余额顶部卡片 (复刻 Web 端顶部的余额展示)
+                _buildOzBalanceHeader(),
 
-          // 2. 购物车列表
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: cartItems.length,
-              itemBuilder: (context, index) => _buildCartItem(cartItems[index]),
+                // 2. 购物车列表
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _refreshData,
+                    child: _cartItems.isEmpty
+                        ? const Center(child: Text("Cart is empty"))
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: _cartItems.length,
+                            itemBuilder: (context, index) =>
+                                _buildCartItem(_cartItems[index]),
+                          ),
+                  ),
+                ),
+
+                // 3. 底部结算栏 (复刻 Web 端的结算逻辑)
+                _buildBottomCheckout(),
+              ],
             ),
-          ),
-
-          // 3. 底部结算栏 (复刻 Web 端的结算逻辑)
-          _buildBottomCheckout(),
-        ],
-      ),
     );
   }
 
   Widget _buildOzBalanceHeader() {
-    double progress = (userOzBalance > 0)
-        ? (userOzBalance - totalOzUsed) / userOzBalance
-        : 0;
+    double balance = _user?.oz.toDouble() ?? 0.0;
+    double progress = (balance > 0) ? (balance - totalOzUsed) / balance : 0;
     return Container(
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(24),
@@ -116,7 +193,7 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            "${(userOzBalance - totalOzUsed).toInt()} OZ",
+            "${((_user?.oz ?? 0) - totalOzUsed).toInt()} OZ",
             style: const TextStyle(
               fontSize: 40,
               fontWeight: FontWeight.w900,
@@ -140,12 +217,12 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
     );
   }
 
-  Widget _buildCartItem(Map<String, dynamic> item) {
-    bool isOz = item['is_oz'];
-    int needed = (item['oz_needed'] as num).toInt();
+  Widget _buildCartItem(CartItem item) {
+    bool isOz = item.isOz;
+    int needed = item.ozNeeded;
 
     // 核心逻辑：如果未勾选，且 (当前已用 + 本项所需) > 余额，则禁用
-    bool canToggle = isOz || (totalOzUsed + needed <= userOzBalance);
+    bool canToggle = isOz || (totalOzUsed + needed <= (_user?.oz ?? 0));
 
     return Opacity(
       opacity: canToggle ? 1.0 : 0.3, // 复刻 Web 端的 opacity-20
@@ -163,7 +240,7 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
             GestureDetector(
               onTap: canToggle
                   ? () {
-                      setState(() => item['is_oz'] = !isOz);
+                      setState(() => item.isOz = !isOz);
                     }
                   : null,
               child: Container(
@@ -187,7 +264,7 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item['name'],
+                    item.product.name,
                     style: const TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 16,
@@ -198,7 +275,7 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
                     children: [
                       if (isOz) ...[
                         Text(
-                          "RM ${item['price']}",
+                          "RM ${item.unitPrice}",
                           style: const TextStyle(
                             decoration: TextDecoration.lineThrough,
                             color: AppColors.textMuted,
@@ -216,7 +293,7 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
                         ),
                       ] else
                         Text(
-                          "RM ${item['price'].toStringAsFixed(2)}",
+                          "RM ${item.unitPrice.toStringAsFixed(2)}",
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: AppColors.textMain,
@@ -228,12 +305,21 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
               ),
             ),
             Text(
-              "${item['oz_needed']} OZ",
+              "${item.ozNeeded} OZ",
               style: const TextStyle(
                 color: AppColors.textMuted,
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
               ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(
+                Icons.delete_outline,
+                color: Colors.red,
+                size: 20,
+              ),
+              onPressed: () => _handleRemoveItem(item.product.id),
             ),
           ],
         ),
@@ -287,9 +373,9 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
           ),
           const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: () {
-              // 下单逻辑
-            },
+            onPressed: (_isLoading || _cartItems.isEmpty)
+                ? null
+                : _handleCheckout,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               minimumSize: const Size(double.infinity, 60),

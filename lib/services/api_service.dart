@@ -36,10 +36,17 @@ class ApiService {
     );
   }
 
-  // 获取首页数据
-  Future<Map<String, dynamic>> fetchDashboard() async {
+  // 获取仪表盘数据
+  Future<Map<String, dynamic>> fetchDashboard({
+    String? search,
+    String? category,
+  }) async {
     try {
-      final response = await _dio.get('/dashboard');
+      final response = await _dio.get(
+        '/dashboard',
+        queryParameters: {'search': search, 'category': category}
+          ..removeWhere((key, value) => value == null),
+      );
       if (response.statusCode == 200) {
         return response.data;
       } else {
@@ -47,6 +54,198 @@ class ApiService {
       }
     } catch (e) {
       debugPrint("Dashboard Error: $e");
+      rethrow;
+    }
+  }
+
+  // 获取储水箱数据
+  Future<Map<String, dynamic>> fetchTangki() async {
+    try {
+      final response = await _dio.get('/tangki');
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw Exception('Tangki Loading Error');
+      }
+    } catch (e) {
+      debugPrint("Tangki Error: $e");
+      rethrow;
+    }
+  }
+
+  // 充值储水箱
+  Future<Map<String, dynamic>> refillTangki(double amount) async {
+    try {
+      final response = await _dio.post(
+        '/tangki/refill',
+        data: {'amount': amount},
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return response.data;
+      } else {
+        throw Exception(response.data['message'] ?? 'Refill Error');
+      }
+    } catch (e) {
+      debugPrint("Refill Error: $e");
+      rethrow;
+    }
+  }
+
+  // 获取个人资料
+  Future<Map<String, dynamic>> fetchProfile() async {
+    try {
+      final response = await _dio.get('/profile');
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw Exception('Profile Loading Error');
+      }
+    } catch (e) {
+      debugPrint("Profile Error: $e");
+      rethrow;
+    }
+  }
+
+  // 更新个人资料
+  Future<Map<String, dynamic>> updateProfile({
+    String? name,
+    String? email,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/profile/update',
+        data: {'name': name, 'email': email}
+          ..removeWhere((_, value) => value == null),
+      );
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw Exception(response.data['message'] ?? 'Update Error');
+      }
+    } catch (e) {
+      debugPrint("Profile Update Error: $e");
+      rethrow;
+    }
+  }
+
+  // 注销账号
+  Future<Map<String, dynamic>> deleteAccount(String password) async {
+    try {
+      final response = await _dio.post(
+        '/profile/delete',
+        data: {'password': password},
+      );
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw Exception(response.data['message'] ?? 'Delete Error');
+      }
+    } catch (e) {
+      debugPrint("Account Delete Error: $e");
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchCart() async {
+    try {
+      final response = await _dio.get('/cart');
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw Exception('Cart Loading Error');
+      }
+    } catch (e) {
+      debugPrint("Cart Fetch Error: $e");
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> addToCart({
+    required int productId,
+    required int quantity,
+    required Map<String, dynamic> options,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/cart/add',
+        data: {
+          'product_id': productId,
+          'quantity': quantity,
+          'options': options,
+        },
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return response.data;
+      } else {
+        throw Exception(response.data['message'] ?? 'Add to Cart Error');
+      }
+    } catch (e) {
+      debugPrint("Cart Add Error: $e");
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> updateCartItem(
+    int productId,
+    int quantity,
+  ) async {
+    try {
+      final response = await _dio.post(
+        '/cart/update',
+        data: {'product_id': productId, 'quantity': quantity},
+      );
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw Exception(response.data['message'] ?? 'Update Cart Error');
+      }
+    } catch (e) {
+      debugPrint("Cart Update Error: $e");
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> removeFromCart(int productId) async {
+    try {
+      final response = await _dio.post(
+        '/cart/remove',
+        data: {'product_id': productId},
+      );
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw Exception(response.data['message'] ?? 'Remove From Cart Error');
+      }
+    } catch (e) {
+      debugPrint("Cart Remove Error: $e");
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> checkout() async {
+    try {
+      final response = await _dio.post('/checkout');
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw Exception(response.data['message'] ?? 'Checkout Error');
+      }
+    } catch (e) {
+      debugPrint("Checkout Error: $e");
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> checkoutWithOz(List<int> useOzIds) async {
+    try {
+      final response = await _dio.post('/checkout', data: {'use_oz': useOzIds});
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        throw Exception(response.data['message'] ?? 'Checkout Error');
+      }
+    } catch (e) {
+      debugPrint("Checkout Error: $e");
       rethrow;
     }
   }
