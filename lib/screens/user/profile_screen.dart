@@ -100,7 +100,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('PROFILE'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('PROFILE'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.red),
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              await _apiService.logout();
+              navigator.pushNamedAndRemoveUntil('/login', (route) => false);
+            },
+          ),
+        ],
+      ),
       body: _isLoading && _user == null
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(

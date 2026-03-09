@@ -3,32 +3,95 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
-  // 真机调试使用: 你的电脑局域网 IP (例如 192.168.1.104)
-  // 注意：通过 IP 访问通常需要指向项目的 public 目录
+  static final ApiService _instance = ApiService._internal();
+  factory ApiService() => _instance;
+
   final String baseUrl = "http://192.168.1.104/coffee_plus/public/api";
+  final String baseImageUrl =
+      "http://192.168.1.104/coffee_plus/public/images/products/";
   final Dio _dio = Dio();
   final _storage = const FlutterSecureStorage();
 
-  ApiService() {
-    _dio.options.baseUrl = baseUrl;
-    _dio.options.connectTimeout = const Duration(seconds: 5);
-    _dio.options.receiveTimeout = const Duration(seconds: 3);
+  // Observable cart count
+  final ValueNotifier<int> cartCountNotifier = ValueNotifier<int>(0);
 
-    // 添加拦截器来自动附加 Token
+  Future<void> updateCartCount() async {
+    try {
+      final cartData = await fetchCart();
+      cartCountNotifier.value = (cartData['cartItems'] as List).length;
+    } catch (e) {
+      debugPrint("Error updating cart count: $e");
+    }
+  }
+
+  String getFullImageUrl(dynamic relativePath) {
+    if (relativePath == null || relativePath.toString().isEmpty) return "";
+
+    // 1. 去除两端可能存在的空格
+    String path = relativePath.toString().trim();
+
+    // 2. 将 Windows 反斜杠替换为标准斜杠
+    path = path.replaceAll('\\', '/');
+
+    // 如果数据库存的是完整路径 "images/products/coffee.jpg"，而 baseImageUrl 已经包含此路径
+    // 可能会导致重复。确保这里只获取最后的文件名。
+    if (path.contains('/')) {
+      path = path.split('/').last;
+    }
+
+    return "$baseImageUrl$path";
+  }
+
+  ApiService._internal() {
+    debugPrint("Initializing ApiService singleton with baseUrl: $baseUrl");
+    _dio.options.baseUrl = baseUrl;
+    _dio.options.connectTimeout = const Duration(seconds: 10);
+    _dio.options.receiveTimeout = const Duration(seconds: 10);
+
+    // 添加 LogInterceptor 以在控制台查看完整请求/响应
+    _dio.interceptors.add(
+      LogInterceptor(
+        request: true,
+        requestHeader: true,
+        requestBody: true,
+        responseHeader: true,
+        responseBody: true,
+        error: true,
+        logPrint: (obj) => debugPrint('DEBUG_DIO: $obj'),
+      ),
+    );
+
+    // 添加拦截器来自动附加 Token 和进行基础调试
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
           String? token = await _storage.read(key: 'auth_token');
+          debugPrint(
+            ">>> API REQUEST: [${options.method}] ${options.baseUrl}${options.path}",
+          );
+          debugPrint(">>> HEADERS: ${options.headers}");
+          if (options.data != null) debugPrint(">>> DATA: ${options.data}");
+
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
           options.headers['Accept'] = 'application/json';
+          options.headers['Content-Type'] = 'application/json';
           return handler.next(options);
         },
+        onResponse: (response, handler) {
+          debugPrint(
+            "<<< API RESPONSE: [${response.statusCode}] ${response.realUri}",
+          );
+          return handler.next(response);
+        },
         onError: (DioException e, handler) {
-          if (e.response?.statusCode == 401) {
-            // Token 过期处理逻辑可以放在这里
-            debugPrint("Unauthorized: Token might be expired.");
+          debugPrint("!!! API ERROR: ${e.type}");
+          debugPrint("!!! MESSAGE: ${e.message}");
+          debugPrint("!!! URI: ${e.requestOptions.uri}");
+          if (e.response != null) {
+            debugPrint("!!! STATUS CODE: ${e.response?.statusCode}");
+            debugPrint("!!! ERROR DATA: ${e.response?.data}");
           }
           return handler.next(e);
         },
@@ -50,7 +113,9 @@ class ApiService {
       if (response.statusCode == 200) {
         return response.data;
       } else {
-        throw Exception('Loading Error');
+        throw Exception(
+          'Dashboard Error (${response.statusCode}): ${response.data}',
+        );
       }
     } catch (e) {
       debugPrint("Dashboard Error: $e");
@@ -65,7 +130,9 @@ class ApiService {
       if (response.statusCode == 200) {
         return response.data;
       } else {
-        throw Exception('Tangki Loading Error');
+        throw Exception(
+          'Tangki Error (${response.statusCode}): ${response.data}',
+        );
       }
     } catch (e) {
       debugPrint("Tangki Error: $e");
@@ -83,7 +150,9 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return response.data;
       } else {
-        throw Exception(response.data['message'] ?? 'Refill Error');
+        throw Exception(
+          'Refill Error (${response.statusCode}): ${response.data}',
+        );
       }
     } catch (e) {
       debugPrint("Refill Error: $e");
@@ -98,7 +167,9 @@ class ApiService {
       if (response.statusCode == 200) {
         return response.data;
       } else {
-        throw Exception('Profile Loading Error');
+        throw Exception(
+          'Profile Error (${response.statusCode}): ${response.data}',
+        );
       }
     } catch (e) {
       debugPrint("Profile Error: $e");
@@ -120,7 +191,9 @@ class ApiService {
       if (response.statusCode == 200) {
         return response.data;
       } else {
-        throw Exception(response.data['message'] ?? 'Update Error');
+        throw Exception(
+          'Profile Update Error (${response.statusCode}): ${response.data}',
+        );
       }
     } catch (e) {
       debugPrint("Profile Update Error: $e");
@@ -152,7 +225,9 @@ class ApiService {
       if (response.statusCode == 200) {
         return response.data;
       } else {
-        throw Exception('Cart Loading Error');
+        throw Exception(
+          'Cart Error (${response.statusCode}): ${response.data}',
+        );
       }
     } catch (e) {
       debugPrint("Cart Fetch Error: $e");
@@ -160,28 +235,60 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> addToCart({
+  Future<void> addToCart({
     required int productId,
     required int quantity,
-    required Map<String, dynamic> options,
+    required String size,
+    required String temp,
+    required List<String> addons,
   }) async {
     try {
+      final token = await _storage.read(key: 'auth_token');
+
       final response = await _dio.post(
         '/cart/add',
         data: {
           'product_id': productId,
           'quantity': quantity,
-          'options': options,
+          'size': size,
+          'temp': temp,
+          'addons': addons,
         },
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        ),
       );
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return response.data;
+
+      debugPrint("Add to Cart Success: ${response.data}");
+      updateCartCount(); // 刷新购物车计数
+    } on DioException catch (e) {
+      String errorMessage = "Failed to add to cart";
+
+      if (e.response != null) {
+        // 捕获 422 验证错误
+        if (e.response?.statusCode == 422) {
+          final data = e.response?.data;
+          if (data is Map && data['errors'] != null) {
+            // 提取具体的错误信息，例如 {"errors": {"size": ["The size field is required"]}}
+            Map<String, dynamic> validationErrors = data['errors'];
+            errorMessage = validationErrors.values.first[0].toString();
+          } else if (data['message'] != null) {
+            errorMessage = data['message'];
+          }
+        } else {
+          errorMessage = "Server error: ${e.response?.statusCode}";
+        }
+
+        // 在开发阶段打印出来，极其重要！
+        debugPrint("Detailed Error Response: ${e.response?.data}");
       } else {
-        throw Exception(response.data['message'] ?? 'Add to Cart Error');
+        errorMessage = "Network error: ${e.message}";
       }
-    } catch (e) {
-      debugPrint("Cart Add Error: $e");
-      rethrow;
+
+      throw Exception(errorMessage);
     }
   }
 
@@ -212,6 +319,7 @@ class ApiService {
         data: {'product_id': productId},
       );
       if (response.statusCode == 200) {
+        updateCartCount();
         return response.data;
       } else {
         throw Exception(response.data['message'] ?? 'Remove From Cart Error');
@@ -226,6 +334,7 @@ class ApiService {
     try {
       final response = await _dio.post('/checkout');
       if (response.statusCode == 200) {
+        updateCartCount();
         return response.data;
       } else {
         throw Exception(response.data['message'] ?? 'Checkout Error');
@@ -240,6 +349,7 @@ class ApiService {
     try {
       final response = await _dio.post('/checkout', data: {'use_oz': useOzIds});
       if (response.statusCode == 200) {
+        updateCartCount();
         return response.data;
       } else {
         throw Exception(response.data['message'] ?? 'Checkout Error');
@@ -287,11 +397,26 @@ class ApiService {
     }
   }
 
-  Future<void> logout() async {
+  Future<Map<String, dynamic>> logout() async {
     try {
       await _dio.post('/logout');
+      return {'success': true};
     } finally {
       await _storage.delete(key: 'auth_token');
+    }
+  }
+
+  // 新增：检查连接方法
+  Future<bool> checkConnection() async {
+    try {
+      debugPrint("Checking connection to $baseUrl...");
+      // 尝试访问一个简单的端点或直接 baseUrl
+      final response = await _dio.get('/dashboard');
+      debugPrint("Connection check success: ${response.statusCode}");
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint("Connection check failed: $e");
+      return false;
     }
   }
 }

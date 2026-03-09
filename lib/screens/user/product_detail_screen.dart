@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/app_colors.dart';
 import '../../models/product_model.dart';
 import '../../services/api_service.dart';
@@ -37,9 +38,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     borderRadius: const BorderRadius.vertical(
                       bottom: Radius.circular(40),
                     ),
-                    child: Image.network(
-                      widget.product.imageUrl,
+                    child: CachedNetworkImage(
+                      imageUrl: ApiService().getFullImageUrl(
+                        widget.product.imageUrl,
+                      ),
                       fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: AppColors.background,
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: AppColors.background,
+                        child: const Icon(
+                          Icons.coffee,
+                          color: AppColors.textMuted,
+                          size: 50,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -233,16 +248,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _handleAddToCart() async {
+    if (!widget.product.isAvailable) {
+      debugPrint("警告：代码逻辑认为该商品已售罄");
+      // 如果你依然想测试添加功能，可以先注释掉下面的 return（如果有的话）
+    }
+
     setState(() => _isAdding = true);
+    // Normalize size (e.g., "Large (+RM 3.00)" -> "Large")
+    String sizeValue = selectedSize.contains(' (')
+        ? selectedSize.split(' (')[0]
+        : selectedSize;
+
+    // Convert Ice/Sugar into 'temp' field expected by backend (or just one of them)
+    // The backend config says 'Hot', 'Iced'. Let's map accordingly.
+    String tempValue = selectedIce.contains('No') ? 'Hot' : 'Iced';
+
     try {
       await _apiService.addToCart(
         productId: widget.product.id,
         quantity: quantity,
-        options: {
-          'Size': selectedSize,
-          'Ice': selectedIce,
-          'Sugar': selectedSugar,
-        },
+        size: sizeValue,
+        temp: tempValue,
+        addons: [], // Currently UI doesn't have addon selection
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

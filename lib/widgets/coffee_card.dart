@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../services/api_service.dart';
 import '../models/product_model.dart';
 import '../core/app_colors.dart';
 
@@ -36,7 +37,7 @@ class CoffeeCard extends StatelessWidget {
               child: Stack(
                 children: [
                   CachedNetworkImage(
-                    imageUrl: product.imageUrl,
+                    imageUrl: ApiService().getFullImageUrl(product.imageUrl),
                     width: double.infinity,
                     height: double.infinity,
                     fit: BoxFit.cover,

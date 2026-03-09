@@ -110,7 +110,8 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(result['message'] ?? "Order placed!")),
         );
-        Navigator.pop(context); // Go back to Home
+        // Redirect to main screen instead of popping (which causes black screen in tab view)
+        Navigator.pushReplacementNamed(context, '/main');
       }
     } catch (e) {
       if (mounted) {
@@ -132,6 +133,8 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
           'My Cart',
           style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24),
         ),
+        centerTitle: true,
+        automaticallyImplyLeading: false,
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),

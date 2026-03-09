@@ -25,7 +25,12 @@ class Product {
       description: json['description'] ?? '',
       imageUrl: json['image_url'] ?? '',
       price: (json['base_price'] ?? 0).toDouble(),
-      isAvailable: json['is_available'] ?? true,
+
+      isAvailable:
+          json['is_available'] == 1 ||
+          json['is_available'] == true ||
+          json['is_available'].toString() == "1",
+
       options: json['options'],
     );
   }

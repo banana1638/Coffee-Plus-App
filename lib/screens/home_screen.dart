@@ -36,23 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('COFFEE PLUS+'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () => Navigator.pushNamed(context, '/profile'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              final navigator = Navigator.of(context);
-              await _apiService.logout();
-              navigator.pushReplacementNamed('/login');
-            },
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('COFFEE PLUS+'), centerTitle: true),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _dashboardData,
         builder: (context, snapshot) {

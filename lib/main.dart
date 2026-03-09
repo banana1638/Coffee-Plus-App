@@ -6,6 +6,8 @@ import 'screens/user/cart_index_screen.dart';
 import 'screens/user/tangki_screen.dart';
 import 'screens/user/profile_screen.dart';
 
+import 'screens/main_wrapper.dart';
+
 void main() {
   runApp(const CoffeePlusApp());
 }
@@ -22,6 +24,7 @@ class CoffeePlusApp extends StatelessWidget {
       initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginScreen(),
+        '/main': (context) => const MainWrapper(),
         '/home': (context) => const HomeScreen(),
         '/cart': (context) => const CartIndexScreen(),
         '/tangki': (context) => const TangkiScreen(),

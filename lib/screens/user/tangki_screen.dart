@@ -33,13 +33,7 @@ class _TangkiScreenState extends State<TangkiScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('TANGKI MANAGEMENT'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      appBar: AppBar(title: const Text('TANGKI MANAGEMENT'), centerTitle: true),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _tangkiData,
         builder: (context, snapshot) {
