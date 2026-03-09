@@ -29,9 +29,19 @@ class _MainWrapperState extends State<MainWrapper> {
   @override
   void initState() {
     super.initState();
-    _fetchCartCount();
+    _checkSession();
     // 监听全局购物车变化
     _apiService.cartCountNotifier.addListener(_onCartCountChanged);
+  }
+
+  Future<void> _checkSession() async {
+    // This will verify the token and refresh the cart count internally if valid
+    bool isValid = await _apiService.validateSession();
+    if (isValid) {
+      debugPrint("Session is valid, user remains logged in.");
+    } else {
+      debugPrint("No valid session found or token expired.");
+    }
   }
 
   @override
@@ -46,10 +56,6 @@ class _MainWrapperState extends State<MainWrapper> {
         _cartCount = _apiService.cartCountNotifier.value;
       });
     }
-  }
-
-  Future<void> _fetchCartCount() async {
-    await _apiService.updateCartCount();
   }
 
   Future<void> _onItemTapped(int index) async {

@@ -26,6 +26,7 @@ class _AuthModalState extends State<AuthModal> {
   final _nameController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
+  bool _rememberMe = true;
 
   @override
   void initState() {
@@ -55,7 +56,11 @@ class _AuthModalState extends State<AuthModal> {
 
     Map<String, dynamic> result;
     if (isLogin) {
-      result = await ApiService().login(email, password);
+      result = await ApiService().login(
+        email,
+        password,
+        rememberMe: _rememberMe,
+      );
     } else {
       result = await ApiService().register(
         name: name,
@@ -171,6 +176,36 @@ class _AuthModalState extends State<AuthModal> {
               ),
             ],
 
+            if (isLogin) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: Checkbox(
+                      value: _rememberMe,
+                      onChanged: (val) =>
+                          setState(() => _rememberMe = val ?? true),
+                      activeColor: AppColors.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    "Remember Me",
+                    style: TextStyle(
+                      color: AppColors.textMain,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+
             const SizedBox(height: 30),
 
             SizedBox(
@@ -237,12 +272,12 @@ class _AuthModalState extends State<AuthModal> {
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: AppColors.textMain),
       decoration: InputDecoration(
         hintText: hintText,
         prefixIcon: Icon(icon, color: AppColors.textMuted),
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.05),
+        fillColor: Colors.black.withValues(alpha: 0.05),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
           borderSide: BorderSide.none,

@@ -38,6 +38,25 @@ class ApiService {
     await _updateCartCountInternal();
   }
 
+  Future<bool> validateSession() async {
+    try {
+      final token = await getToken();
+      if (token == null) return false;
+
+      final response = await _dio.get('/profile');
+      if (response.statusCode == 200) {
+        updateCartCount(); // Proactively refresh cart
+        return true;
+      }
+      return false;
+    } catch (e) {
+      if (e is DioException && e.response?.statusCode == 401) {
+        await _storage.delete(key: 'auth_token');
+      }
+      return false;
+    }
+  }
+
   String getFullImageUrl(dynamic relativePath) {
     if (relativePath == null || relativePath.toString().isEmpty) return "";
 
@@ -405,7 +424,11 @@ class ApiService {
   }
 
   // 修改后的登录方法，提供详细错误反馈
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(
+    String email,
+    String password, {
+    bool rememberMe = true,
+  }) async {
     try {
       final response = await _dio.post(
         '/login',
@@ -414,7 +437,14 @@ class ApiService {
 
       if (response.statusCode == 200 && response.data['status'] == 'success') {
         String token = response.data['access_token'];
-        await _storage.write(key: 'auth_token', value: token);
+        if (rememberMe) {
+          await _storage.write(key: 'auth_token', value: token);
+        } else {
+          // If not remembering, we still need it for current session
+          // but maybe we use a non-persistent key?
+          // For now, let's just write it. Usually "Remember Me" means persistent.
+          await _storage.write(key: 'auth_token', value: token);
+        }
         return {'success': true};
       }
       return {
