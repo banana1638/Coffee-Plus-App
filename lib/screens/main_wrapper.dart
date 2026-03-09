@@ -5,6 +5,7 @@ import 'user/cart_index_screen.dart';
 import 'user/tangki_screen.dart';
 import 'user/profile_screen.dart';
 import '../services/api_service.dart';
+import '../widgets/auth_modal.dart';
 
 class MainWrapper extends StatefulWidget {
   const MainWrapper({super.key});
@@ -51,7 +52,18 @@ class _MainWrapperState extends State<MainWrapper> {
     await _apiService.updateCartCount();
   }
 
-  void _onItemTapped(int index) {
+  Future<void> _onItemTapped(int index) async {
+    // 检查是否点击了受限标签 (Tangki, Cart, Profile)
+    if (index > 0) {
+      String? token = await _apiService.getToken();
+      if (token == null) {
+        if (mounted) {
+          AuthModal.show(context);
+        }
+        return;
+      }
+    }
+
     setState(() {
       _selectedIndex = index;
     });
@@ -66,7 +78,7 @@ class _MainWrapperState extends State<MainWrapper> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 20,
               offset: const Offset(0, -5),
             ),

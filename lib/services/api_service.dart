@@ -12,16 +12,27 @@ class ApiService {
   final Dio _dio = Dio();
   final _storage = const FlutterSecureStorage();
 
+  Future<String?> getToken() async => await _storage.read(key: 'auth_token');
+
   // Observable cart count
   final ValueNotifier<int> cartCountNotifier = ValueNotifier<int>(0);
 
-  Future<void> updateCartCount() async {
+  Future<void> _updateCartCountInternal() async {
     try {
+      final token = await getToken();
+      if (token == null) {
+        cartCountNotifier.value = 0;
+        return;
+      }
       final cartData = await fetchCart();
       cartCountNotifier.value = (cartData['cartItems'] as List).length;
     } catch (e) {
       debugPrint("Error updating cart count: $e");
     }
+  }
+
+  Future<void> updateCartCount() async {
+    await _updateCartCountInternal();
   }
 
   String getFullImageUrl(dynamic relativePath) {
@@ -394,6 +405,53 @@ class ApiService {
         'success': false,
         'message': 'Network error: Please check your IP or Wi-Fi',
       };
+    }
+  }
+
+  Future<Map<String, dynamic>> register({
+    required String name,
+    required String email,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/register',
+        data: {
+          'name': name,
+          'email': email,
+          'password': password,
+          'password_confirmation': passwordConfirmation,
+        },
+      );
+
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          response.data['status'] == 'success') {
+        String token = response.data['access_token'];
+        await _storage.write(key: 'auth_token', value: token);
+        return {'success': true};
+      }
+      return {
+        'success': false,
+        'message': response.data['message'] ?? 'Registration failed',
+      };
+    } catch (e) {
+      debugPrint("Register Error: $e");
+      if (e is DioException && e.response != null) {
+        final data = e.response?.data;
+        String message = 'Registration failed';
+        if (data is Map) {
+          if (data.containsKey('errors')) {
+            // Get first validation error
+            var errors = data['errors'] as Map;
+            message = errors.values.first[0].toString();
+          } else if (data.containsKey('message')) {
+            message = data['message'];
+          }
+        }
+        return {'success': false, 'message': message};
+      }
+      return {'success': false, 'message': 'Network error during registration'};
     }
   }
 

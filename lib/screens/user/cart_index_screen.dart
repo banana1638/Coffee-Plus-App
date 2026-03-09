@@ -25,6 +25,12 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
   }
 
   Future<void> _refreshData() async {
+    final token = await _apiService.getToken();
+    if (token == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       final cartResult = await _apiService.fetchCart();

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'core/app_theme.dart';
 import 'screens/home_screen.dart';
-import 'screens/login_screen.dart';
+// import 'screens/login_screen.dart';
 import 'screens/user/cart_index_screen.dart';
 import 'screens/user/tangki_screen.dart';
 import 'screens/user/profile_screen.dart';
@@ -21,9 +21,8 @@ class CoffeePlusApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Coffee Plus+',
       theme: AppTheme.darkTheme,
-      initialRoute: '/login',
+      initialRoute: '/main',
       routes: {
-        '/login': (context) => const LoginScreen(),
         '/main': (context) => const MainWrapper(),
         '/home': (context) => const HomeScreen(),
         '/cart': (context) => const CartIndexScreen(),

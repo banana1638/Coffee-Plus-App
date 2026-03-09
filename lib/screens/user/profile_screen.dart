@@ -28,6 +28,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _fetchProfile() async {
+    final token = await _apiService.getToken();
+    if (token == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       final result = await _apiService.fetchProfile();

@@ -26,7 +26,12 @@ class _TangkiScreenState extends State<TangkiScreen> {
 
   void _refreshData() {
     setState(() {
-      _tangkiData = _apiService.fetchTangki();
+      _tangkiData = _apiService.getToken().then((token) {
+        if (token == null) {
+          return {'transactions': [], 'user': {}};
+        }
+        return _apiService.fetchTangki();
+      });
     });
   }
 

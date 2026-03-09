@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/app_colors.dart';
 import '../../models/product_model.dart';
 import '../../services/api_service.dart';
+import '../../widgets/auth_modal.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -254,6 +255,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     setState(() => _isAdding = true);
+
+    // 检查登录状态
+    String? token = await _apiService.getToken();
+    if (token == null) {
+      setState(() => _isAdding = false);
+      if (mounted) {
+        AuthModal.show(context);
+      }
+      return;
+    }
     // Normalize size (e.g., "Large (+RM 3.00)" -> "Large")
     String sizeValue = selectedSize.contains(' (')
         ? selectedSize.split(' (')[0]
