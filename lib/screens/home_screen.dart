@@ -1,5 +1,6 @@
 import 'package:coffee_plus_app/screens/user/product_detail_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import '../models/category_model.dart';
 import '../services/api_service.dart';
 import '../widgets/coffee_card.dart';
@@ -17,6 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ApiService _apiService = ApiService();
   late Future<Map<String, dynamic>> _dashboardData;
   String _selectedCategory = 'all';
+  CancelToken? _cancelToken;
 
   @override
   void initState() {
@@ -24,13 +26,25 @@ class _HomeScreenState extends State<HomeScreen> {
     _refreshData();
   }
 
-  void _refreshData({String? search}) {
+  void _refreshData({String? search, bool forceRefresh = false}) {
+    // Cancel previous request if any
+    _cancelToken?.cancel();
+    _cancelToken = CancelToken();
+
     setState(() {
       _dashboardData = _apiService.fetchDashboard(
         search: search,
         category: _selectedCategory,
+        cancelToken: _cancelToken,
+        forceRefresh: forceRefresh,
       );
     });
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
   }
 
   @override

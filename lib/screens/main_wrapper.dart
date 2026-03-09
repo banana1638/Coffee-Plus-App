@@ -53,6 +53,8 @@ class _MainWrapperState extends State<MainWrapper> {
   }
 
   Future<void> _onItemTapped(int index) async {
+    if (_selectedIndex == index) return;
+
     // 检查是否点击了受限标签 (Tangki, Cart, Profile)
     if (index > 0) {
       String? token = await _apiService.getToken();

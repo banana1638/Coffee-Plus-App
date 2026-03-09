@@ -41,6 +41,7 @@ class CoffeeCard extends StatelessWidget {
                     width: double.infinity,
                     height: double.infinity,
                     fit: BoxFit.cover,
+                    memCacheWidth: 400, // Memory optimization for thumbnails
                     placeholder: (context, url) => Container(
                       color: AppColors.background,
                       child: const Center(

@@ -17,6 +17,9 @@ class ApiService {
   // Observable cart count
   final ValueNotifier<int> cartCountNotifier = ValueNotifier<int>(0);
 
+  // Simple In-memory cache
+  final Map<String, dynamic> _cache = {};
+
   Future<void> _updateCartCountInternal() async {
     try {
       final token = await getToken();
@@ -59,18 +62,31 @@ class ApiService {
     _dio.options.connectTimeout = const Duration(seconds: 10);
     _dio.options.receiveTimeout = const Duration(seconds: 10);
 
-    // 添加 LogInterceptor 以在控制台查看完整请求/响应
-    _dio.interceptors.add(
-      LogInterceptor(
-        request: true,
-        requestHeader: true,
-        requestBody: true,
-        responseHeader: true,
-        responseBody: true,
-        error: true,
-        logPrint: (obj) => debugPrint('DEBUG_DIO: $obj'),
-      ),
-    );
+    // Disable logging in release mode for performance
+    if (!kDebugMode) {
+      _dio.interceptors.add(
+        LogInterceptor(
+          request: false,
+          requestHeader: false,
+          requestBody: false,
+          responseHeader: false,
+          responseBody: false,
+          error: true,
+        ),
+      );
+    } else {
+      _dio.interceptors.add(
+        LogInterceptor(
+          request: true,
+          requestHeader: true,
+          requestBody: true,
+          responseHeader: true,
+          responseBody: true,
+          error: true,
+          logPrint: (obj) => debugPrint('DEBUG_DIO: $obj'),
+        ),
+      );
+    }
 
     // 添加拦截器来自动附加 Token 和进行基础调试
     _dio.interceptors.add(
@@ -110,18 +126,29 @@ class ApiService {
     );
   }
 
-  // 获取仪表盘数据
+  // 获取仪表盘数据 (With Cache and Cancellation)
   Future<Map<String, dynamic>> fetchDashboard({
     String? search,
     String? category,
+    CancelToken? cancelToken,
+    bool forceRefresh = false,
   }) async {
+    final cacheKey = 'dashboard_${search ?? ""}_${category ?? ""}';
+
+    if (!forceRefresh && _cache.containsKey(cacheKey)) {
+      debugPrint("Serving Dashboard from cache: $cacheKey");
+      return _cache[cacheKey];
+    }
+
     try {
       final response = await _dio.get(
         '/dashboard',
         queryParameters: {'search': search, 'category': category}
           ..removeWhere((key, value) => value == null),
+        cancelToken: cancelToken,
       );
       if (response.statusCode == 200) {
+        _cache[cacheKey] = response.data;
         return response.data;
       } else {
         throw Exception(
@@ -129,10 +156,16 @@ class ApiService {
         );
       }
     } catch (e) {
-      debugPrint("Dashboard Error: $e");
+      if (e is DioException && e.type == DioExceptionType.cancel) {
+        debugPrint("Dashboard request cancelled");
+      } else {
+        debugPrint("Dashboard Error: $e");
+      }
       rethrow;
     }
   }
+
+  void clearCache() => _cache.clear();
 
   // 获取储水箱数据
   Future<Map<String, dynamic>> fetchTangki() async {
