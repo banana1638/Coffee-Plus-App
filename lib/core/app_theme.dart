@@ -2,19 +2,18 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
 class AppTheme {
-  static ThemeData lightTheme = ThemeData(
+  static final ThemeData lightTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
     scaffoldBackgroundColor: AppColors.background,
     primaryColor: AppColors.primary,
-    colorScheme: ColorScheme.light(
+    colorScheme: const ColorScheme.light(
       primary: AppColors.primary,
       secondary: AppColors.accent,
       surface: AppColors.surface,
       onSurface: AppColors.textMain,
     ),
 
-    // 卡片风格：白色背景，轻微阴影，大圆角 (20px)
     cardTheme: CardThemeData(
       color: AppColors.surface,
       elevation: 2,
@@ -25,7 +24,6 @@ class AppTheme {
       ),
     ),
 
-    // 按钮风格：蓝色填充，高度 48-56，圆角 12
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primary,
@@ -41,7 +39,6 @@ class AppTheme {
       ),
     ),
 
-    // 输入框风格：背景灰色，聚焦蓝色边框
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: Colors.white,
@@ -74,6 +71,5 @@ class AppTheme {
     ),
   );
 
-  // 为了向后兼容，保留 darkTheme 但指向 light（或者如果需要深色可以另外定义）
   static ThemeData get darkTheme => lightTheme;
 }

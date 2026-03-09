@@ -48,18 +48,18 @@ class _HomeScreenState extends State<HomeScreen> {
             return const Center(child: Text('Data not available'));
           }
 
-          final List menusJson = snapshot.data!['menus'] ?? [];
-          final List<Category> categories = menusJson
+          final menusJson = snapshot.data!['menus'] as List? ?? [];
+          final categories = menusJson
               .map((j) => Category.fromJson(j))
               .toList();
-          final List<String> allCategoryNames = List<String>.from(
+          final allCategoryNames = List<String>.from(
             snapshot.data!['allCategoryNames'] ?? [],
           );
 
-          final Map<String, dynamic> user = snapshot.data!['user'] ?? {};
-          final String userName = user['name'] ?? 'User';
-          final double tankOz = (user['oz'] ?? 0).toDouble();
-          final double balance = (user['balance'] ?? 0.0).toDouble();
+          final user = snapshot.data!['user'] as Map<String, dynamic>? ?? {};
+          final userName = user['name'] as String? ?? 'User';
+          final tankOz = (user['oz'] ?? 0).toDouble();
+          final balance = (user['balance'] ?? 0.0).toDouble();
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -199,11 +199,11 @@ class _HomeScreenState extends State<HomeScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(32),
         border: Border.all(color: AppColors.border),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black12,
             blurRadius: 10,
-            offset: const Offset(0, 4),
+            offset: Offset(0, 4),
           ),
         ],
       ),

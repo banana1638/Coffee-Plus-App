@@ -50,12 +50,15 @@ class _TangkiScreenState extends State<TangkiScreen> {
             return const Center(child: Text('Data not available'));
           }
 
-          final List transactionsJson = snapshot.data!['transactions'] ?? [];
-          final List<Transaction> transactions = transactionsJson
+          final transactionsJson =
+              snapshot.data!['transactions'] as List? ?? [];
+          final transactions = transactionsJson
               .map((j) => Transaction.fromJson(j))
               .toList();
 
-          final User user = User.fromJson(snapshot.data!['user'] ?? {});
+          final user = User.fromJson(
+            snapshot.data!['user'] as Map<String, dynamic>? ?? {},
+          );
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),

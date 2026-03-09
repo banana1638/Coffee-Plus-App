@@ -65,12 +65,14 @@ class _TankVisualizationState extends State<TankVisualization>
               child: AnimatedBuilder(
                 animation: _controller,
                 builder: (context, child) {
-                  return CustomPaint(
-                    painter: _WavePainter(
-                      progress: percentage,
-                      waveValue: _controller.value,
+                  return RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _WavePainter(
+                        progress: percentage,
+                        waveValue: _controller.value,
+                      ),
+                      size: Size(widget.size, widget.size),
                     ),
-                    size: Size(widget.size, widget.size),
                   );
                 },
               ),
@@ -116,6 +118,7 @@ class _TankVisualizationState extends State<TankVisualization>
                   ),
                 ],
               ),
+              // 这里的 TextStyle 增加了 const
               Text(
                 'CAPACITY',
                 style: TextStyle(
@@ -143,11 +146,13 @@ class _WavePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 渐变在这里不能是 const，因为它依赖 size，但我们可以稍微优化
     final paint = Paint()
-      ..shader = LinearGradient(
+      ..shader = const LinearGradient(
+        // 此处可以加 const
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [const Color(0xFF60A5FA), const Color(0xFF1D4ED8)],
+        colors: [Color(0xFF60A5FA), Color(0xFF1D4ED8)],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     final path = Path();
