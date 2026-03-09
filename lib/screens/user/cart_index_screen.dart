@@ -8,10 +8,10 @@ class CartIndexScreen extends StatefulWidget {
   const CartIndexScreen({super.key});
 
   @override
-  State<CartIndexScreen> createState() => _CartIndexScreenState();
+  CartIndexScreenState createState() => CartIndexScreenState();
 }
 
-class _CartIndexScreenState extends State<CartIndexScreen> {
+class CartIndexScreenState extends State<CartIndexScreen> {
   final ApiService _apiService = ApiService();
 
   User? _user;
@@ -21,10 +21,10 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
   @override
   void initState() {
     super.initState();
-    _refreshData();
+    refreshData();
   }
 
-  Future<void> _refreshData() async {
+  Future<void> refreshData() async {
     final token = await _apiService.getToken();
     if (token == null) {
       if (mounted) setState(() => _isLoading = false);
@@ -59,7 +59,7 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
     setState(() => _isLoading = true);
     try {
       await _apiService.removeFromCart(productId);
-      await _refreshData();
+      await refreshData();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -154,7 +154,7 @@ class _CartIndexScreenState extends State<CartIndexScreen> {
                 // 2. 购物车列表
                 Expanded(
                   child: RefreshIndicator(
-                    onRefresh: _refreshData,
+                    onRefresh: refreshData,
                     child: _cartItems.isEmpty
                         ? const Center(child: Text("Cart is empty"))
                         : ListView.builder(

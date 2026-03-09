@@ -146,10 +146,8 @@ class _WavePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 渐变在这里不能是 const，因为它依赖 size，但我们可以稍微优化
     final paint = Paint()
       ..shader = const LinearGradient(
-        // 此处可以加 const
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [Color(0xFF60A5FA), Color(0xFF1D4ED8)],

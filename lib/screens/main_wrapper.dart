@@ -19,11 +19,18 @@ class _MainWrapperState extends State<MainWrapper> {
   final ApiService _apiService = ApiService();
   int _cartCount = 0;
 
-  final List<Widget> _screens = [
+  final GlobalKey<TangkiScreenState> _tangkiTabKey =
+      GlobalKey<TangkiScreenState>();
+  final GlobalKey<CartIndexScreenState> _cartTabKey =
+      GlobalKey<CartIndexScreenState>();
+  final GlobalKey<ProfileScreenState> _profileTabKey =
+      GlobalKey<ProfileScreenState>();
+
+  late final List<Widget> _screens = [
     const HomeScreen(),
-    const TangkiScreen(),
-    const CartIndexScreen(),
-    const ProfileScreen(),
+    TangkiScreen(key: _tangkiTabKey),
+    CartIndexScreen(key: _cartTabKey),
+    ProfileScreen(key: _profileTabKey),
   ];
 
   @override
@@ -66,15 +73,27 @@ class _MainWrapperState extends State<MainWrapper> {
       String? token = await _apiService.getToken();
       if (token == null) {
         if (mounted) {
-          AuthModal.show(context);
+          await AuthModal.show(context);
+          // 重新检查是否已登录 (模态框关闭后)
+          token = await _apiService.getToken();
         }
-        return;
       }
+
+      // 如果仍然未登录 (例如用户取消了登录模态框)，则取消跳转
+      if (token == null) return;
     }
 
     setState(() {
       _selectedIndex = index;
     });
+
+    if (index == 1) {
+      _tangkiTabKey.currentState?.refreshData();
+    } else if (index == 2) {
+      _cartTabKey.currentState?.refreshData();
+    } else if (index == 3) {
+      _profileTabKey.currentState?.refreshData();
+    }
   }
 
   @override

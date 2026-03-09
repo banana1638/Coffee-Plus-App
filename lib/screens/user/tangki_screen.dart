@@ -9,10 +9,10 @@ class TangkiScreen extends StatefulWidget {
   const TangkiScreen({super.key});
 
   @override
-  State<TangkiScreen> createState() => _TangkiScreenState();
+  TangkiScreenState createState() => TangkiScreenState();
 }
 
-class _TangkiScreenState extends State<TangkiScreen> {
+class TangkiScreenState extends State<TangkiScreen> {
   final ApiService _apiService = ApiService();
   final TextEditingController _amountController = TextEditingController();
   late Future<Map<String, dynamic>> _tangkiData;
@@ -21,10 +21,24 @@ class _TangkiScreenState extends State<TangkiScreen> {
   @override
   void initState() {
     super.initState();
-    _refreshData();
+    refreshData();
+    _apiService.authStateNotifier.addListener(_onAuthChanged);
   }
 
-  void _refreshData() {
+  void _onAuthChanged() {
+    if (mounted) {
+      refreshData();
+    }
+  }
+
+  @override
+  void dispose() {
+    _apiService.authStateNotifier.removeListener(_onAuthChanged);
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  void refreshData() {
     setState(() {
       _tangkiData = _apiService.getToken().then((token) {
         if (token == null) {
@@ -351,7 +365,7 @@ class _TangkiScreenState extends State<TangkiScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result['message'] ?? "Refill successful!")),
       );
-      _refreshData();
+      refreshData();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(

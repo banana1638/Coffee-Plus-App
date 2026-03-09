@@ -24,6 +24,13 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _refreshData();
+    _apiService.authStateNotifier.addListener(_onAuthChanged);
+  }
+
+  void _onAuthChanged() {
+    if (mounted) {
+      _refreshData(forceRefresh: true);
+    }
   }
 
   void _refreshData({String? search, bool forceRefresh = false}) {
@@ -43,6 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _apiService.authStateNotifier.removeListener(_onAuthChanged);
     _cancelToken?.cancel();
     super.dispose();
   }

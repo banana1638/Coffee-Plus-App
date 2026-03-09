@@ -7,10 +7,10 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
+  ProfileScreenState createState() => ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class ProfileScreenState extends State<ProfileScreen> {
   final ApiService _apiService = ApiService();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -24,10 +24,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchProfile();
+    refreshData();
+    _apiService.authStateNotifier.addListener(_onAuthChanged);
   }
 
-  Future<void> _fetchProfile() async {
+  void _onAuthChanged() {
+    if (mounted) {
+      refreshData();
+    }
+  }
+
+  @override
+  void dispose() {
+    _apiService.authStateNotifier.removeListener(_onAuthChanged);
+    _nameController.dispose();
+    _emailController.dispose();
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> refreshData() async {
     final token = await _apiService.getToken();
     if (token == null) {
       if (mounted) setState(() => _isLoading = false);
@@ -66,7 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(result['message'] ?? "Profile updated!")),
         );
-        _fetchProfile();
+        refreshData();
       }
     } catch (e) {
       if (mounted) {

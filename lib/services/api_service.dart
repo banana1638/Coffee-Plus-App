@@ -12,10 +12,18 @@ class ApiService {
   final Dio _dio = Dio();
   final _storage = const FlutterSecureStorage();
 
-  Future<String?> getToken() async => await _storage.read(key: 'auth_token');
+  String? _sessionToken;
+
+  Future<String?> getToken() async {
+    if (_sessionToken != null) return _sessionToken;
+    return await _storage.read(key: 'auth_token');
+  }
 
   // Observable cart count
   final ValueNotifier<int> cartCountNotifier = ValueNotifier<int>(0);
+
+  // Observable auth state
+  final ValueNotifier<bool> authStateNotifier = ValueNotifier<bool>(false);
 
   // Simple In-memory cache
   final Map<String, dynamic> _cache = {};
@@ -46,13 +54,16 @@ class ApiService {
       final response = await _dio.get('/profile');
       if (response.statusCode == 200) {
         updateCartCount(); // Proactively refresh cart
+        authStateNotifier.value = true;
         return true;
       }
+      authStateNotifier.value = false;
       return false;
     } catch (e) {
       if (e is DioException && e.response?.statusCode == 401) {
         await _storage.delete(key: 'auth_token');
       }
+      authStateNotifier.value = false;
       return false;
     }
   }
@@ -440,11 +451,14 @@ class ApiService {
         if (rememberMe) {
           await _storage.write(key: 'auth_token', value: token);
         } else {
-          // If not remembering, we still need it for current session
-          // but maybe we use a non-persistent key?
-          // For now, let's just write it. Usually "Remember Me" means persistent.
-          await _storage.write(key: 'auth_token', value: token);
+          // Keep in memory for this session only
+          _sessionToken = token;
         }
+
+        // Notify auth changed (force value change even if already true)
+        authStateNotifier.value = false;
+        authStateNotifier.value = true;
+
         return {'success': true};
       }
       return {
@@ -492,6 +506,10 @@ class ApiService {
           response.data['status'] == 'success') {
         String token = response.data['access_token'];
         await _storage.write(key: 'auth_token', value: token);
+
+        authStateNotifier.value = false;
+        authStateNotifier.value = true;
+
         return {'success': true};
       }
       return {
@@ -520,10 +538,16 @@ class ApiService {
 
   Future<Map<String, dynamic>> logout() async {
     try {
-      await _dio.post('/logout');
+      String? token = await getToken();
+      if (token != null) {
+        await _dio.post('/logout');
+      }
       return {'success': true};
     } finally {
+      _sessionToken = null;
       await _storage.delete(key: 'auth_token');
+      cartCountNotifier.value = 0;
+      authStateNotifier.value = false;
     }
   }
 
