@@ -12,12 +12,14 @@ import 'package:coffee_plus_app/main.dart';
 void main() {
   testWidgets('App builds smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const CoffeePlusApp());
+    // Use runAsync because of the network calls in initState
+    await tester.runAsync(() async {
+      await tester.pumpWidget(const CoffeePlusApp());
+      // Wait for the app to settle
+      await tester.pump(const Duration(milliseconds: 500));
+    });
 
     // Verify that the title appears
-    expect(
-      find.text('COFFEE PLUS+'),
-      findsOneWidget,
-    ); // It's in the home screen which is loaded later in wrapper
+    expect(find.text('COFFEE PLUS+'), findsOneWidget);
   });
 }
