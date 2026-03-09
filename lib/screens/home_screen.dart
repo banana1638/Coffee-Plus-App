@@ -1,8 +1,10 @@
+import 'package:coffee_plus_app/screens/user/product_detail_screen.dart';
 import 'package:flutter/material.dart';
 import '../models/category_model.dart';
 import '../services/api_service.dart';
 import '../widgets/coffee_card.dart';
 import '../core/app_colors.dart';
+import '../widgets/tank_visualization.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,6 +30,10 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('COFFEE PLUS+'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.person_outline),
+            onPressed: () => Navigator.pushNamed(context, '/profile'),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
@@ -57,9 +63,29 @@ class _HomeScreenState extends State<HomeScreen> {
             snapshot.data!['allCategoryNames'] ?? [],
           );
 
+          final Map<String, dynamic> user = snapshot.data!['user'] ?? {};
+          final String userName = user['name'] ?? 'User';
+          final double tankOz = (user['tangki_oz'] ?? 0).toDouble();
+          final double balance = (user['tangki_balance'] ?? 0.0).toDouble();
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Dashboard Header
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: _buildDashboardHeader(userName, tankOz, balance),
+              ),
+
+              // Search Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 8.0,
+                ),
+                child: _buildSearchBar(),
+              ),
+
               // 分类切换栏 (复刻 Web 端)
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -80,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // 产品列表
               Expanded(
                 child: ListView.builder(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: categories.length,
                   itemBuilder: (context, index) {
                     final category = categories[index];
@@ -111,8 +137,18 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                           itemCount: category.products.length,
                           itemBuilder: (context, pIndex) {
+                            final product = category.products[pIndex];
                             return CoffeeCard(
-                              product: category.products[pIndex],
+                              product: product,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        ProductDetailScreen(product: product),
+                                  ),
+                                );
+                              },
                             );
                           },
                         ),
@@ -140,8 +176,6 @@ class _HomeScreenState extends State<HomeScreen> {
           if (selected) {
             setState(() {
               _selectedCategory = id;
-              // 实际开发中可以通过 API 参数刷新，这里暂作简单的 UI 状态切换（如果 API 支持全量返回）
-              // 或者调用 _apiService.fetchDashboard(category: id)
             });
           }
         },
@@ -160,6 +194,143 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         showCheckmark: false,
+      ),
+    );
+  }
+
+  Widget _buildDashboardHeader(String name, double tankOz, double balance) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          TankVisualization(currentOz: tankOz, size: 80),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStatItem(
+                  "Current Storage",
+                  "${tankOz.toInt()} oz",
+                  AppColors.primary,
+                ),
+                const SizedBox(height: 12),
+                _buildStatItem(
+                  "Account Balance",
+                  "RM ${balance.toStringAsFixed(2)}",
+                  AppColors.textMain,
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                "Welcome,",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textMain.withValues(alpha: 0.8),
+                ),
+              ),
+              Text(
+                name,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/tangki');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEFF6FF),
+                  foregroundColor: AppColors.primary,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  minimumSize: Size.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  "MANAGE TANK",
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, Color valueColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
+            color: AppColors.textMuted,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: valueColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: TextField(
+        decoration: const InputDecoration(
+          hintText: "Search coffee...",
+          hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 14),
+          prefixIcon: Icon(Icons.search, color: AppColors.textMuted),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+        ),
+        onChanged: (value) {},
       ),
     );
   }
