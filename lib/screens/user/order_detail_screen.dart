@@ -46,6 +46,7 @@ class OrderDetailScreen extends StatelessWidget {
               child: Column(
                 children: [
                   _buildHeader(),
+                  // 此处已移除冗余的 Container
                   Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Column(
@@ -279,51 +280,17 @@ class OrderDetailScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item['product']['name'] ?? 'Product',
+                  "${item['quantity']}x ${item['product_name']}",
                   style: const TextStyle(
                     fontWeight: FontWeight.w900,
-                    fontSize: 14,
+                    fontSize: 13,
+                    color: Color(0xFF1F2937),
                   ),
                 ),
-                if (item['options']?['addons'] != null)
-                  Wrap(
-                    spacing: 4,
-                    children: (item['options']['addons'] as List)
-                        .map(
-                          (addon) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              "+ $addon",
-                              style: const TextStyle(
-                                color: Color(0xFF2563EB),
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                if (isOzPayment)
-                  const Text(
-                    "PAID WITH TANK BALANCE",
-                    style: TextStyle(
-                      color: Color(0xFF2563EB),
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
                 Text(
-                  "Quantity: ${item['quantity']}",
-                  style: const TextStyle(
-                    color: Colors.grey,
+                  "${item['size']} | ${item['temp']}",
+                  style: TextStyle(
+                    color: Colors.grey[500],
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                   ),
@@ -331,28 +298,15 @@ class OrderDetailScreen extends StatelessWidget {
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                isOzPayment
-                    ? "${(item['oz_at_time'] * item['quantity']).toStringAsFixed(1)} OZ"
-                    : "RM ${(item['price_at_time'] * item['quantity']).toStringAsFixed(2)}",
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                ),
-              ),
-              if (isOzPayment)
-                Text(
-                  "${item['oz_at_time']} OZ / unit",
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 9,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-            ],
+          Text(
+            isOzPayment ? "OZ PAYMENT" : "RM ${item['price_at_time']}",
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 12,
+              color: isOzPayment
+                  ? const Color(0xFF2563EB)
+                  : const Color(0xFF1F2937),
+            ),
           ),
         ],
       ),
@@ -361,7 +315,7 @@ class OrderDetailScreen extends StatelessWidget {
 
   Widget _buildTankDeduction(dynamic ozUsed) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFFEFF6FF),
         borderRadius: BorderRadius.circular(16),
@@ -374,9 +328,9 @@ class OrderDetailScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "TANK DEDUCTION",
+                "TANGKI SAVINGS",
                 style: TextStyle(
-                  color: Color(0xFF2563EB),
+                  color: Color(0xFF1E40AF),
                   fontWeight: FontWeight.w900,
                   fontSize: 10,
                 ),
@@ -428,7 +382,7 @@ class OrderDetailScreen extends StatelessWidget {
   Widget _buildDashedLine() {
     return Row(
       children: List.generate(
-        40,
+        30,
         (index) => Expanded(
           child: Container(
             color: index % 2 == 0 ? Colors.transparent : Colors.grey[200],
