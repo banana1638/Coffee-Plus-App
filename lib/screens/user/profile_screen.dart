@@ -28,7 +28,19 @@ class ProfileScreenState extends State<ProfileScreen> {
     _apiService.authStateNotifier.addListener(_onAuthChanged);
   }
 
-  void _onAuthChanged() {
+  // cart_index_screen.dart
+  void _onAuthChanged() async {
+    String? token = await _apiService.getToken();
+    if (token == null) {
+      if (mounted) {
+        setState(() {
+          _user = null;
+          _isLoading = false;
+        });
+      }
+      return; // 关键：Token 没了，不再调用 refreshData()
+    }
+
     if (mounted) {
       refreshData();
     }

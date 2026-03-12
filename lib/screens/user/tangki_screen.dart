@@ -1,3 +1,4 @@
+import 'package:coffee_plus_app/widgets/auth_modal.dart';
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
 import '../../widgets/tank_visualization.dart';
@@ -27,8 +28,17 @@ class TangkiScreenState extends State<TangkiScreen> {
     _apiService.authStateNotifier.addListener(_onAuthChanged);
   }
 
-  void _onAuthChanged() {
-    if (mounted) {
+  void _onAuthChanged() async {
+    String? token = await _apiService.getToken();
+    if (!mounted) return;
+
+    if (token == null) {
+      // 关键：登出后，不再去请求异步数据，直接给一个空的或初始状态的 Future
+      setState(() {
+        _tangkiData = Future.value({});
+      });
+    } else {
+      // 登录后，重新获取数据
       refreshData();
     }
   }
@@ -41,14 +51,24 @@ class TangkiScreenState extends State<TangkiScreen> {
   }
 
   void refreshData() {
+    if (!mounted) return;
     setState(() {
-      _tangkiData = _apiService.getToken().then((token) {
-        if (token == null) {
-          return {'transactions': [], 'user': {}};
-        }
-        return _apiService.fetchTangki();
-      });
+      // 每次刷新都创建一个新的 Future 实例，确保 FutureBuilder 能够识别到变化
+      _tangkiData = _loadTangkiSafely();
     });
+  }
+
+  Future<Map<String, dynamic>> _loadTangkiSafely() async {
+    try {
+      String? token = await _apiService.getToken();
+      if (token == null) return {};
+
+      // 这里可以添加一个短暂延迟，确保后端 Token 已经完全生效
+      return await _apiService.fetchTangki();
+    } catch (e) {
+      debugPrint("Tangki Load Error: $e");
+      return {}; // 报错时返回空，或者抛出异常让 FutureBuilder 的 snapshot.hasError 捕获
+    }
   }
 
   @override
@@ -60,10 +80,10 @@ class TangkiScreenState extends State<TangkiScreen> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData) {
-            return const Center(child: Text('Data not available'));
+          }
+
+          if (!snapshot.hasData || snapshot.data!['user'] == null) {
+            return _buildLoginPlaceholder();
           }
 
           final transactionsJson =
@@ -71,10 +91,7 @@ class TangkiScreenState extends State<TangkiScreen> {
           final transactions = transactionsJson
               .map((j) => Transaction.fromJson(j))
               .toList();
-
-          final user = User.fromJson(
-            snapshot.data!['user'] as Map<String, dynamic>? ?? {},
-          );
+          final user = User.fromJson(snapshot.data!['user']);
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -420,5 +437,46 @@ class TangkiScreenState extends State<TangkiScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Widget _buildLoginPlaceholder() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.cloud_off_outlined,
+            size: 80,
+            color: AppColors.textMuted.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            "PLEASE LOGIN TO VIEW TANGKI",
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () =>
+                AuthModal.show(context), // 确保你 import 了 auth_modal.dart
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text(
+              "LOGIN NOW",
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

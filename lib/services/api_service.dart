@@ -142,13 +142,12 @@ class ApiService {
           );
           return handler.next(response);
         },
-        onError: (DioException e, handler) {
-          debugPrint("!!! API ERROR: ${e.type}");
-          debugPrint("!!! MESSAGE: ${e.message}");
-          debugPrint("!!! URI: ${e.requestOptions.uri}");
-          if (e.response != null) {
-            debugPrint("!!! STATUS CODE: ${e.response?.statusCode}");
-            debugPrint("!!! ERROR DATA: ${e.response?.data}");
+        onError: (DioException e, handler) async {
+          if (e.response?.statusCode == 401) {
+            await _storage.delete(key: 'auth_token');
+            _sessionToken = null;
+            authStateNotifier.value = false;
+            cartCountNotifier.value = 0;
           }
           return handler.next(e);
         },
@@ -156,7 +155,6 @@ class ApiService {
     );
   }
 
-  // 获取仪表盘数据 (With Cache and Cancellation)
   Future<Map<String, dynamic>> fetchDashboard({
     String? search,
     String? category,

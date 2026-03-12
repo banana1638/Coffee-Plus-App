@@ -30,6 +30,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         children: [
           // 1. 商品大图 (复刻 Web 端 rounded-[3rem] 效果)
           CustomScrollView(
+            physics: const BouncingScrollPhysics(),
             slivers: [
               SliverAppBar(
                 expandedHeight: 400,
@@ -260,11 +261,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     String? token = await _apiService.getToken();
     if (token == null) {
       setState(() => _isAdding = false);
-      if (mounted) {
-        AuthModal.show(context);
-      }
+      if (mounted) AuthModal.show(context);
       return;
     }
+
     // Normalize size (e.g., "Large (+RM 3.00)" -> "Large")
     String sizeValue = selectedSize.contains(' (')
         ? selectedSize.split(' (')[0]
@@ -280,7 +280,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         quantity: quantity,
         size: sizeValue,
         temp: tempValue,
-        addons: [], // Currently UI doesn't have addon selection
+        addons: [],
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
