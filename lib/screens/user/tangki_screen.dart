@@ -78,15 +78,12 @@ class TangkiScreenState extends State<TangkiScreen> {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                // Tank Visualization Section
                 _buildTankCard(user.oz.toDouble(), 100, user.balance),
                 const SizedBox(height: 24),
 
-                // Refill Section
                 _buildRefillSection(),
                 const SizedBox(height: 24),
 
-                // Recent Transactions
                 _buildTransactionList(transactions),
               ],
             ),
@@ -239,10 +236,7 @@ class TangkiScreenState extends State<TangkiScreen> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.background,
                   borderRadius: BorderRadius.circular(20),
@@ -259,19 +253,33 @@ class TangkiScreenState extends State<TangkiScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          ...transactions.map((trx) => _buildTransactionItem(trx)),
+          
+          ...transactions.take(5).map((trx) => _buildTransactionItem(trx)),
+          
           const SizedBox(height: 16),
+          
           OutlinedButton(
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const TransactionHistoryScreen()),
+              );
+            },
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 48),
+              side: const BorderSide(color: Color(0xFFF1F5F9)),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
             child: const Text(
               "VIEW MORE ACTIVITY",
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+              style: TextStyle(
+                fontWeight: FontWeight.w900, 
+                fontSize: 11, 
+                letterSpacing: 1.1,
+                color: AppColors.primary
+              ),
             ),
           ),
         ],
@@ -281,54 +289,73 @@ class TangkiScreenState extends State<TangkiScreen> {
 
   Widget _buildTransactionItem(Transaction trx) {
     bool isCredit = trx.type == 'refill' || trx.ozDelta.startsWith('+');
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: isCredit
-                  ? Colors.green.withValues(alpha: 0.1)
-                  : Colors.blue.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(
-              isCredit ? Icons.add : Icons.arrow_downward,
-              color: isCredit ? Colors.green : Colors.blue,
-            ),
+    
+    bool hasDetail = trx.billId != null;
+
+    return InkWell(
+      onTap: hasDetail ? () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OrderDetailScreen(order: trx.rawJson), 
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        );
+      } : null,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: isCredit
+                    ? Colors.green.withOpacity(0.1)
+                    : Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                isCredit ? Icons.add : Icons.shopping_bag_outlined,
+                color: isCredit ? Colors.green : Colors.blue,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    trx.description,
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                  ),
+                  Text(
+                    trx.time,
+                    style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  trx.description,
-                  style: const TextStyle(
+                  "${trx.ozDelta} oz",
+                  style: TextStyle(
                     fontWeight: FontWeight.w900,
-                    fontSize: 14,
+                    color: isCredit ? Colors.green : AppColors.primary,
                   ),
                 ),
-                Text(
-                  trx.time,
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 10,
+                if (hasDetail)
+                  const Text(
+                    "TAP FOR DETAIL",
+                    style: TextStyle(fontSize: 7, fontWeight: FontWeight.black, color: AppColors.primary),
                   ),
-                ),
               ],
             ),
-          ),
-          Text(
-            "${trx.ozDelta} oz",
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              color: isCredit ? Colors.green : AppColors.primary,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
