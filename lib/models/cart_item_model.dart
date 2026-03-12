@@ -10,7 +10,6 @@ class CartItem {
   final double unitPrice;
   final double totalItemPrice;
 
-  // UI ONLY state
   bool isOz;
 
   CartItem({
@@ -26,15 +25,26 @@ class CartItem {
   });
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
+    int parseId = json['id'] is int
+        ? json['id']
+        : int.tryParse(json['id']?.toString() ?? '') ?? 0;
+
+    int parseQuantity = json['quantity'] is int
+        ? json['quantity']
+        : int.tryParse(json['quantity']?.toString() ?? '') ?? 1;
+
+    Product parsedProduct = Product.fromJson(json['product'] ?? {});
+
     return CartItem(
-      id: json['id'] ?? 0,
-      product: Product.fromJson(json['product'] ?? {}),
-      quantity: json['quantity'] ?? 0,
-      size: json['size'] ?? '',
-      temp: json['temp'] ?? '',
+      id: parseId,
+      product: parsedProduct,
+      quantity: parseQuantity,
+      size: json['size']?.toString() ?? '',
+      temp: json['temp']?.toString() ?? '',
       addons: List<String>.from(json['addons'] ?? []),
-      unitPrice: (json['unit_price'] ?? 0).toDouble(),
-      totalItemPrice: (json['total_item_price'] ?? 0).toDouble(),
+      unitPrice: double.tryParse(json['unit_price']?.toString() ?? '') ?? 0.0,
+      totalItemPrice:
+          double.tryParse(json['total_item_price']?.toString() ?? '') ?? 0.0,
     );
   }
 

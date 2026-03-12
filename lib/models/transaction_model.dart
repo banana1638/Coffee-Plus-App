@@ -19,7 +19,9 @@ class Transaction {
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
     return Transaction(
-      id: json['id'] ?? 0,
+      id: json['id'] is int
+          ? json['id']
+          : int.tryParse(json['id'].toString()) ?? 0,
       billId: json['bill_id'] ?? '',
       type: json['type'] ?? '',
       ozDelta: json['oz_delta'] ?? '0',
