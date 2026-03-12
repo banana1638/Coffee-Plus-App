@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import '../../core/app_colors.dart';
-import 'order_detail_screen.dart';
 
 class TransactionHistoryScreen extends StatefulWidget {
   const TransactionHistoryScreen({super.key});
 
   @override
-  State<TransactionHistoryScreen> createState() => _TransactionHistoryScreenState();
+  State<TransactionHistoryScreen> createState() =>
+      _TransactionHistoryScreenState();
 }
 
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
-  String _activeFilter = 'all'; 
+  String _activeFilter = 'all';
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +20,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('TRANSACTION HISTORY', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+        title: const Text(
+          'TRANSACTION HISTORY',
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+        ),
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.grey[800],
@@ -32,7 +34,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.grey[200]!.withOpacity(0.5),
+              color: Colors.grey[200]!.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -69,8 +71,14 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
           decoration: BoxDecoration(
             color: isActive ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: isActive 
-                ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))] 
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
                 : [],
           ),
           child: Text(
@@ -97,7 +105,11 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         borderRadius: BorderRadius.circular(32),
         border: Border.all(color: const Color(0xFFF1F5F9)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 15, offset: const Offset(0, 8))
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
         ],
       ),
       child: Column(
@@ -113,21 +125,42 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text("REFILL", style: TextStyle(fontSize: 10, fontWeight: FontWeight.black, color: Colors.grey)),
+                          child: const Text(
+                            "REFILL",
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.grey,
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 8),
-                        const Text("Mar 12, 15:44", style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                        const Text(
+                          "Mar 12, 15:44",
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     const Text(
                       "Wallet Refill via Stripe",
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.black, color: Color(0xFF111827)),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF111827),
+                      ),
                     ),
                   ],
                 ),
@@ -137,34 +170,54 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                 children: [
                   const Text(
                     "+50.0 oz",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.black, color: Colors.green),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.green,
+                    ),
                   ),
-                  Text("#BILL-12345", style: TextStyle(fontSize: 10, color: Colors.grey[400], fontWeight: FontWeight.bold)),
+                  Text(
+                    "#BILL-12345",
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey[400],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
-              )
+              ),
             ],
           ),
-          
+
           const Padding(
             padding: EdgeInsets.only(top: 16, left: 12),
-            child: BorderedLeftContent(), 
+            child: BorderedLeftContent(),
           ),
 
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: () {
-              },
+              onPressed: () {},
               style: OutlinedButton.styleFrom(
                 backgroundColor: const Color(0xFFEFF6FF),
                 side: BorderSide.none,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              child: const Text("VIEW DETAIL", style: TextStyle(fontSize: 10, fontWeight: FontWeight.black, color: Color(0xFF2563EB), letterSpacing: 1.1)),
+              child: const Text(
+                "VIEW DETAIL",
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF2563EB),
+                  letterSpacing: 1.1,
+                ),
+              ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -184,9 +237,23 @@ class BorderedLeftContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("1x Americano (Hot)", style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.bold)),
+          Text(
+            "1x Americano (Hot)",
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text("1x Latte (Iced)", style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.bold)),
+          Text(
+            "1x Latte (Iced)",
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );

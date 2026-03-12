@@ -5,6 +5,7 @@ class Transaction {
   final String ozDelta;
   final String description;
   final String time;
+  final Map<String, dynamic> rawJson;
 
   Transaction({
     required this.id,
@@ -13,6 +14,7 @@ class Transaction {
     required this.ozDelta,
     required this.description,
     required this.time,
+    required this.rawJson,
   });
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,7 @@ class Transaction {
       ozDelta: json['oz_delta'] ?? '0',
       description: json['description'] ?? '',
       time: json['time'] ?? '',
+      rawJson: json,
     );
   }
 }

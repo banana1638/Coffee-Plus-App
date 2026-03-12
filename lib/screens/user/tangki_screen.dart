@@ -4,6 +4,8 @@ import '../../widgets/tank_visualization.dart';
 import '../../services/api_service.dart';
 import '../../models/transaction_model.dart';
 import '../../models/user_model.dart';
+import 'transaction_history_screen.dart';
+import 'order_detail_screen.dart';
 
 class TangkiScreen extends StatefulWidget {
   const TangkiScreen({super.key});
@@ -236,7 +238,10 @@ class TangkiScreenState extends State<TangkiScreen> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.background,
                   borderRadius: BorderRadius.circular(20),
@@ -253,16 +258,18 @@ class TangkiScreenState extends State<TangkiScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          
+
           ...transactions.take(5).map((trx) => _buildTransactionItem(trx)),
-          
+
           const SizedBox(height: 16),
-          
+
           OutlinedButton(
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const TransactionHistoryScreen()),
+                MaterialPageRoute(
+                  builder: (context) => const TransactionHistoryScreen(),
+                ),
               );
             },
             style: OutlinedButton.styleFrom(
@@ -275,10 +282,10 @@ class TangkiScreenState extends State<TangkiScreen> {
             child: const Text(
               "VIEW MORE ACTIVITY",
               style: TextStyle(
-                fontWeight: FontWeight.w900, 
-                fontSize: 11, 
+                fontWeight: FontWeight.w900,
+                fontSize: 11,
                 letterSpacing: 1.1,
-                color: AppColors.primary
+                color: AppColors.primary,
               ),
             ),
           ),
@@ -289,18 +296,20 @@ class TangkiScreenState extends State<TangkiScreen> {
 
   Widget _buildTransactionItem(Transaction trx) {
     bool isCredit = trx.type == 'refill' || trx.ozDelta.startsWith('+');
-    
-    bool hasDetail = trx.billId != null;
+
+    bool hasDetail = trx.billId.isNotEmpty;
 
     return InkWell(
-      onTap: hasDetail ? () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => OrderDetailScreen(order: trx.rawJson), 
-          ),
-        );
-      } : null,
+      onTap: hasDetail
+          ? () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => OrderDetailScreen(order: trx.rawJson),
+                ),
+              );
+            }
+          : null,
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -311,8 +320,8 @@ class TangkiScreenState extends State<TangkiScreen> {
               height: 48,
               decoration: BoxDecoration(
                 color: isCredit
-                    ? Colors.green.withOpacity(0.1)
-                    : Colors.blue.withOpacity(0.1),
+                    ? Colors.green.withValues(alpha: 0.1)
+                    : Colors.blue.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(
@@ -328,11 +337,17 @@ class TangkiScreenState extends State<TangkiScreen> {
                 children: [
                   Text(
                     trx.description,
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                    ),
                   ),
                   Text(
                     trx.time,
-                    style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 10,
+                    ),
                   ),
                 ],
               ),
@@ -350,7 +365,11 @@ class TangkiScreenState extends State<TangkiScreen> {
                 if (hasDetail)
                   const Text(
                     "TAP FOR DETAIL",
-                    style: TextStyle(fontSize: 7, fontWeight: FontWeight.black, color: AppColors.primary),
+                    style: TextStyle(
+                      fontSize: 7,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primary,
+                    ),
                   ),
               ],
             ),
