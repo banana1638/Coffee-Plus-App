@@ -20,21 +20,27 @@ class CartIndexScreenState extends State<CartIndexScreen> {
   List<CartItem> _cartItems = [];
   bool _isLoading = false;
 
+  // ==========================================
+  // 1. 生命周期 (Lifecycle)
+  // ==========================================
+
   @override
   void initState() {
     super.initState();
     refreshData();
   }
 
+  // ==========================================
+  // 2. 数据处理与计算属性 (Data & Computed)
+  // ==========================================
+
   Future<void> refreshData() async {
     final token = await _apiService.getToken();
-    if (token == null) {
-      if (mounted) setState(() => _isLoading = false);
-      return;
-    }
+    if (token == null) return;
 
     setState(() => _isLoading = true);
     try {
+      // 同时获取购物车和用户信息
       final cartResult = await _apiService.fetchCart();
       final userResult = await _apiService.fetchProfile();
 
@@ -47,20 +53,36 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         });
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Failed to load cart: $e")));
-      }
+      _showSnackBar("Failed to load data: $e", isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  /// 计算当前购物车中勾选了“使用 OZ”支付的总量
+  int get totalOzUsed {
+    return _cartItems
+        .where((item) => item.isOz)
+        .fold(0, (sum, item) => sum + item.ozNeeded);
+  }
+
+  /// 计算需要支付的 RM 现金总额
+  double get totalCashPrice {
+    return _cartItems
+        .where((item) => !item.isOz)
+        .fold(0.0, (sum, item) => sum + item.totalItemPrice);
+  }
+
+  // ==========================================
+  // 3. 业务动作 (Actions)
+  // ==========================================
+
+  /// 处理移除项目
   Future<void> _handleRemoveItem(int productId, int index) async {
     HapticFeedback.lightImpact();
-    // 乐观删除：先从 UI 移除
     final removedItem = _cartItems[index];
+
+    // UI 乐观更新：先移除
     _listKey.currentState?.removeItem(
       index,
       (context, animation) => _buildCartItem(removedItem, animation),
@@ -70,85 +92,59 @@ class CartIndexScreenState extends State<CartIndexScreen> {
 
     try {
       await _apiService.removeFromCart(productId);
-      // 无需全量刷新，只需静默更新后台数据
       _apiService.cartCountNotifier.value--;
     } catch (e) {
-      // 失败则恢复
+      // 失败则恢复 UI
       if (mounted) {
         setState(() {
           _cartItems.insert(index, removedItem);
           _listKey.currentState?.insertItem(index);
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Delete failed: $e")),
-        );
+        _showSnackBar("Delete failed: $e", isError: true);
       }
     }
   }
 
-  // 计算当前已使用的总 OZ
-  int get totalOzUsed {
-    return _cartItems
-        .where((item) => item.isOz)
-        .fold(0, (sum, item) => sum + item.ozNeeded);
-  }
-
-  // 计算需要支付的现金总额
-  double get totalCashPrice {
-    return _cartItems
-        .where((item) => !item.isOz)
-        .fold(0.0, (sum, item) => sum + item.totalItemPrice);
-  }
-
+  /// 处理结算
   Future<void> _handleCheckout() async {
     if (_user == null) return;
 
+    // 检查余额
     if (totalCashPrice > _user!.balance) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Insufficient Cash Balance"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackBar("Insufficient Cash Balance", isError: true);
       return;
     }
 
     setState(() => _isLoading = true);
     try {
-      // Logic for checkout might need 'use_oz' parameters if the API supports it.
-      // For now, let's check API definition. Checkout route doesn't seem to take params in api.php
-      // but the Blade form sends use_oz[]. I should probably update ApiService.checkout.
-
+      // 提取所有选择用 OZ 支付的购物车项目 ID
       final useOzIds = _cartItems
           .where((item) => item.isOz)
           .map((item) => item.id)
           .toList();
 
-      // I'll call update checkout with the IDs
       final result = await _apiService.checkoutWithOz(useOzIds);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? "Order placed!")),
-        );
-        // Redirect to main screen instead of popping (which causes black screen in tab view)
+        _showSnackBar(result['message'] ?? "Order placed successfully!");
+        // 支付成功后跳转回主页，防止 Tab 栈混乱
         Navigator.pushReplacementNamed(context, '/main');
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Checkout failed: $e")));
-      }
+      _showSnackBar("Checkout failed: $e", isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  // ==========================================
+  // 4. 主 UI 构建 (Main Build)
+  // ==========================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background, // 复刻 bg-gray-50/50
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
           'My Cart',
@@ -163,41 +159,47 @@ class CartIndexScreenState extends State<CartIndexScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // 1. OZ 余额顶部卡片 (复刻 Web 端顶部的余额展示)
                 _buildOzBalanceHeader(),
-
-                // 2. 购物车列表
                 Expanded(
                   child: RefreshIndicator(
                     onRefresh: refreshData,
                     child: _cartItems.isEmpty
-                        ? const Center(child: Text("Cart is empty"))
+                        ? _buildEmptyState()
                         : AnimatedList(
                             key: _listKey,
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             initialItemCount: _cartItems.length,
                             itemBuilder: (context, index, animation) =>
-                                _buildCartItem(_cartItems[index], animation, index: index),
+                                _buildCartItem(
+                                  _cartItems[index],
+                                  animation,
+                                  index: index,
+                                ),
                           ),
                   ),
                 ),
-
-                // 3. 底部结算栏 (复刻 Web 端的结算逻辑)
                 _buildBottomCheckout(),
               ],
             ),
     );
   }
 
+  // ==========================================
+  // 5. 私有 UI 组件 (Private Widgets)
+  // ==========================================
+
+  /// 顶部 OZ 余额卡片
   Widget _buildOzBalanceHeader() {
     double balance = _user?.oz.toDouble() ?? 0.0;
-    double progress = (balance > 0) ? (balance - totalOzUsed) / balance : 0;
+    double remainingOz = balance - totalOzUsed;
+    double progress = (balance > 0) ? remainingOz / balance : 0;
+
     return Container(
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(40), // 复刻 rounded-[2.5rem]
+        borderRadius: BorderRadius.circular(40),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -218,7 +220,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            "${((_user?.oz ?? 0) - totalOzUsed).toInt()} OZ",
+            "${remainingOz.toInt()} OZ",
             style: const TextStyle(
               fontSize: 40,
               fontWeight: FontWeight.w900,
@@ -242,17 +244,21 @@ class CartIndexScreenState extends State<CartIndexScreen> {
     );
   }
 
-  Widget _buildCartItem(CartItem item, Animation<double> animation, {int? index}) {
+  /// 购物车单项
+  Widget _buildCartItem(
+    CartItem item,
+    Animation<double> animation, {
+    int? index,
+  }) {
     bool isOz = item.isOz;
     int needed = item.ozNeeded;
-
-    // 核心逻辑：如果未勾选，且 (当前已用 + 本项所需) > 余额，则禁用
+    // 逻辑：如果已经勾选，或者（未勾选但余额足够），则允许点击
     bool canToggle = isOz || (totalOzUsed + needed <= (_user?.oz ?? 0));
 
     return SizeTransition(
       sizeFactor: animation,
       child: Opacity(
-        opacity: canToggle ? 1.0 : 0.3, // 复刻 Web 端的 opacity-20
+        opacity: canToggle ? 1.0 : 0.4,
         child: Container(
           margin: const EdgeInsets.only(bottom: 16),
           padding: const EdgeInsets.all(20),
@@ -263,28 +269,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
           ),
           child: Row(
             children: [
-              // 自定义 Checkbox 样式 (比原生更像 Web 端)
-              GestureDetector(
-                onTap: canToggle
-                    ? () {
-                        setState(() => item.isOz = !isOz);
-                      }
-                    : null,
-                child: Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    color: isOz ? AppColors.primary : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isOz ? AppColors.primary : AppColors.textMuted,
-                    ),
-                  ),
-                  child: isOz
-                      ? const Icon(Icons.check, color: Colors.white, size: 18)
-                      : null,
-                ),
-              ),
+              _buildCustomCheckbox(item, canToggle),
               const SizedBox(width: 20),
               Expanded(
                 child: Column(
@@ -298,36 +283,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (isOz) ...[
-                          Text(
-                            "RM ${item.unitPrice}",
-                            style: const TextStyle(
-                              decoration: TextDecoration.lineThrough,
-                              color: AppColors.textMuted,
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            "REDEEMED",
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ] else
-                          Text(
-                            "RM ${item.unitPrice.toStringAsFixed(2)}",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textMain,
-                            ),
-                          ),
-                      ],
-                    ),
+                    _buildItemPrice(item),
                   ],
                 ),
               ),
@@ -339,7 +295,6 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                   fontSize: 12,
                 ),
               ),
-              const SizedBox(width: 8),
               if (index != null)
                 IconButton(
                   icon: const Icon(
@@ -356,6 +311,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
     );
   }
 
+  /// 底部结算工具栏
   Widget _buildBottomCheckout() {
     return Container(
       padding: const EdgeInsets.fromLTRB(30, 20, 30, 40),
@@ -428,6 +384,83 @@ class CartIndexScreenState extends State<CartIndexScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // 6. 辅助方法 (Helpers)
+  // ==========================================
+
+  Widget _buildCustomCheckbox(CartItem item, bool enabled) {
+    return GestureDetector(
+      onTap: enabled ? () => setState(() => item.isOz = !item.isOz) : null,
+      child: Container(
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          color: item.isOz ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: item.isOz ? AppColors.primary : AppColors.textMuted,
+          ),
+        ),
+        child: item.isOz
+            ? const Icon(Icons.check, color: Colors.white, size: 18)
+            : null,
+      ),
+    );
+  }
+
+  Widget _buildItemPrice(CartItem item) {
+    if (item.isOz) {
+      return Row(
+        children: [
+          Text(
+            "RM ${item.unitPrice}",
+            style: const TextStyle(
+              decoration: TextDecoration.lineThrough,
+              color: AppColors.textMuted,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            "REDEEMED",
+            style: TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.bold,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      );
+    }
+    return Text(
+      "RM ${item.unitPrice.toStringAsFixed(2)}",
+      style: const TextStyle(
+        fontWeight: FontWeight.bold,
+        color: AppColors.textMain,
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return const Center(
+      child: Text(
+        "Cart is empty",
+        style: TextStyle(color: AppColors.textMuted),
+      ),
+    );
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : AppColors.primary,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
