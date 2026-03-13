@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../models/cart_item_model.dart';
@@ -13,6 +14,7 @@ class CartIndexScreen extends StatefulWidget {
 
 class CartIndexScreenState extends State<CartIndexScreen> {
   final ApiService _apiService = ApiService();
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
 
   User? _user;
   List<CartItem> _cartItems = [];
@@ -55,19 +57,32 @@ class CartIndexScreenState extends State<CartIndexScreen> {
     }
   }
 
-  Future<void> _handleRemoveItem(int productId) async {
-    setState(() => _isLoading = true);
+  Future<void> _handleRemoveItem(int productId, int index) async {
+    HapticFeedback.lightImpact();
+    // 乐观删除：先从 UI 移除
+    final removedItem = _cartItems[index];
+    _listKey.currentState?.removeItem(
+      index,
+      (context, animation) => _buildCartItem(removedItem, animation),
+      duration: const Duration(milliseconds: 300),
+    );
+    _cartItems.removeAt(index);
+
     try {
       await _apiService.removeFromCart(productId);
-      await refreshData();
+      // 无需全量刷新，只需静默更新后台数据
+      _apiService.cartCountNotifier.value--;
     } catch (e) {
+      // 失败则恢复
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Delete failed: $e")));
+        setState(() {
+          _cartItems.insert(index, removedItem);
+          _listKey.currentState?.insertItem(index);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Delete failed: $e")),
+        );
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -157,11 +172,12 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                     onRefresh: refreshData,
                     child: _cartItems.isEmpty
                         ? const Center(child: Text("Cart is empty"))
-                        : ListView.builder(
+                        : AnimatedList(
+                            key: _listKey,
                             padding: const EdgeInsets.symmetric(horizontal: 20),
-                            itemCount: _cartItems.length,
-                            itemBuilder: (context, index) =>
-                                _buildCartItem(_cartItems[index]),
+                            initialItemCount: _cartItems.length,
+                            itemBuilder: (context, index, animation) =>
+                                _buildCartItem(_cartItems[index], animation, index: index),
                           ),
                   ),
                 ),
@@ -226,111 +242,115 @@ class CartIndexScreenState extends State<CartIndexScreen> {
     );
   }
 
-  Widget _buildCartItem(CartItem item) {
+  Widget _buildCartItem(CartItem item, Animation<double> animation, {int? index}) {
     bool isOz = item.isOz;
     int needed = item.ozNeeded;
 
     // 核心逻辑：如果未勾选，且 (当前已用 + 本项所需) > 余额，则禁用
     bool canToggle = isOz || (totalOzUsed + needed <= (_user?.oz ?? 0));
 
-    return Opacity(
-      opacity: canToggle ? 1.0 : 0.3, // 复刻 Web 端的 opacity-20
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            // 自定义 Checkbox 样式 (比原生更像 Web 端)
-            GestureDetector(
-              onTap: canToggle
-                  ? () {
-                      setState(() => item.isOz = !isOz);
-                    }
-                  : null,
-              child: Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: isOz ? AppColors.primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isOz ? AppColors.primary : AppColors.textMuted,
-                  ),
-                ),
-                child: isOz
-                    ? const Icon(Icons.check, color: Colors.white, size: 18)
+    return SizeTransition(
+      sizeFactor: animation,
+      child: Opacity(
+        opacity: canToggle ? 1.0 : 0.3, // 复刻 Web 端的 opacity-20
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              // 自定义 Checkbox 样式 (比原生更像 Web 端)
+              GestureDetector(
+                onTap: canToggle
+                    ? () {
+                        setState(() => item.isOz = !isOz);
+                      }
                     : null,
-              ),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.product.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
+                child: Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    color: isOz ? AppColors.primary : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isOz ? AppColors.primary : AppColors.textMuted,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      if (isOz) ...[
-                        Text(
-                          "RM ${item.unitPrice}",
-                          style: const TextStyle(
-                            decoration: TextDecoration.lineThrough,
-                            color: AppColors.textMuted,
-                            fontSize: 12,
+                  child: isOz
+                      ? const Icon(Icons.check, color: Colors.white, size: 18)
+                      : null,
+                ),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.product.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (isOz) ...[
+                          Text(
+                            "RM ${item.unitPrice}",
+                            style: const TextStyle(
+                              decoration: TextDecoration.lineThrough,
+                              color: AppColors.textMuted,
+                              fontSize: 12,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text(
-                          "REDEEMED",
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10,
+                          const SizedBox(width: 8),
+                          const Text(
+                            "REDEEMED",
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
                           ),
-                        ),
-                      ] else
-                        Text(
-                          "RM ${item.unitPrice.toStringAsFixed(2)}",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textMain,
+                        ] else
+                          Text(
+                            "RM ${item.unitPrice.toStringAsFixed(2)}",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textMain,
+                            ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                "${item.ozNeeded} OZ",
+                style: const TextStyle(
+                  color: AppColors.textMuted,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (index != null)
+                IconButton(
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.red,
+                    size: 20,
                   ),
-                ],
-              ),
-            ),
-            Text(
-              "${item.ozNeeded} OZ",
-              style: const TextStyle(
-                color: AppColors.textMuted,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(
-                Icons.delete_outline,
-                color: Colors.red,
-                size: 20,
-              ),
-              onPressed: () => _handleRemoveItem(item.product.id),
-            ),
-          ],
+                  onPressed: () => _handleRemoveItem(item.product.id, index),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -370,13 +390,19 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                   color: AppColors.textMuted,
                 ),
               ),
-              Text(
-                "RM ${totalCashPrice.toStringAsFixed(2)}",
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.textMain,
-                ),
+              TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: 0, end: totalCashPrice),
+                duration: const Duration(milliseconds: 500),
+                builder: (context, value, child) {
+                  return Text(
+                    "RM ${value.toStringAsFixed(2)}",
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.textMain,
+                    ),
+                  );
+                },
               ),
             ],
           ),

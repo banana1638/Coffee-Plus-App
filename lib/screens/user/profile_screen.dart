@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../models/user_model.dart';
@@ -92,6 +93,7 @@ class ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _handleUpdateProfile() async {
+    HapticFeedback.mediumImpact();
     setState(() => _isLoading = true);
     try {
       final result = await _apiService.updateProfile(
@@ -164,6 +166,7 @@ class ProfileScreenState extends State<ProfileScreen> {
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.red),
             onPressed: () async {
+              HapticFeedback.heavyImpact();
               final messenger = ScaffoldMessenger.of(context);
               setState(() => _isLoading = true);
               try {
@@ -189,31 +192,31 @@ class ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  _buildUserSummaryCard(),
+                   _buildAnimatedItem(0, _buildUserSummaryCard()),
                   const SizedBox(height: 24),
-                  _buildQuickLinks(),
+                   _buildAnimatedItem(1, _buildQuickLinks()),
                   const SizedBox(height: 24),
-                  _buildSection(
+                   _buildAnimatedItem(2, _buildSection(
                     title: "Profile Information",
                     subtitle:
                         "Update your account's profile information and email address.",
                     child: _buildProfileInfoForm(),
-                  ),
+                  )),
                   const SizedBox(height: 24),
-                  _buildSection(
+                   _buildAnimatedItem(3, _buildSection(
                     title: "Update Password",
                     subtitle:
                         "Ensure your account is using a long, random password to stay secure.",
                     child: _buildUpdatePasswordForm(),
-                  ),
+                  )),
                   const SizedBox(height: 24),
-                  _buildSection(
+                   _buildAnimatedItem(4, _buildSection(
                     title: "Delete Account",
                     subtitle:
                         "Once your account is deleted, all of its resources and data will be permanently deleted.",
                     isDanger: true,
                     child: _buildDeleteAccountSection(),
-                  ),
+                  )),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -594,6 +597,24 @@ class ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAnimatedItem(int index, Widget child) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 400 + (index * 100)),
+      curve: Curves.easeOutQuad,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 20 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
     );
   }
 }

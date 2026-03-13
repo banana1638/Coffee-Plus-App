@@ -4,6 +4,8 @@ import '../../core/app_colors.dart';
 import '../../models/product_model.dart';
 import '../../services/api_service.dart';
 import '../../widgets/auth_modal.dart';
+import '../../widgets/shimmer_loading.dart';
+import 'package:flutter/services.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -55,21 +57,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       top: Radius.circular(30),
                       bottom: Radius.circular(40),
                     ),
-                    child: CachedNetworkImage(
-                      imageUrl: ApiService().getFullImageUrl(
-                        widget.product.imageUrl,
-                      ),
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        color: AppColors.background,
-                        child: const Center(child: CircularProgressIndicator()),
-                      ),
-                      errorWidget: (context, url, error) => Container(
-                        color: AppColors.background,
-                        child: const Icon(
-                          Icons.coffee,
-                          color: AppColors.textMuted,
-                          size: 50,
+                    child: Hero(
+                      tag: 'product-image-${widget.product.id}',
+                      child: CachedNetworkImage(
+                        imageUrl: ApiService().getFullImageUrl(
+                          widget.product.imageUrl,
+                        ),
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const ShimmerLoading(
+                          width: double.infinity,
+                          height: double.infinity,
+                          borderRadius: 0,
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: AppColors.background,
+                          child: const Icon(
+                            Icons.coffee,
+                            color: AppColors.textMuted,
+                            size: 50,
+                          ),
                         ),
                       ),
                     ),
@@ -249,7 +255,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           const SizedBox(width: 20),
           Expanded(
             child: ElevatedButton(
-              onPressed: _isAdding ? null : () => _handleAddToCart(),
+              onPressed: _isAdding ? null : () {
+                HapticFeedback.mediumImpact();
+                _handleAddToCart();
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 18),

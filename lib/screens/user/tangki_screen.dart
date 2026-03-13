@@ -1,5 +1,6 @@
 import 'package:coffee_plus_app/widgets/auth_modal.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/app_colors.dart';
 import '../../widgets/tank_visualization.dart';
 import '../../services/api_service.dart';
@@ -95,16 +96,20 @@ class TangkiScreenState extends State<TangkiScreen> {
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                _buildTankCard(user.oz.toDouble(), 100, user.balance),
-                const SizedBox(height: 24),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              child: Column(
+                key: ValueKey(snapshot.data.hashCode),
+                children: [
+                  _buildTankCard(user.oz.toDouble(), 100, user.balance),
+                  const SizedBox(height: 24),
 
-                _buildRefillSection(),
-                const SizedBox(height: 24),
+                  _buildRefillSection(),
+                  const SizedBox(height: 24),
 
-                _buildTransactionList(transactions),
-              ],
+                  _buildTransactionList(transactions),
+                ],
+              ),
             ),
           );
         },
@@ -178,7 +183,10 @@ class TangkiScreenState extends State<TangkiScreen> {
             childAspectRatio: 2.5,
             children: [10, 20, 50, 100, 200, 500].map((v) {
               return OutlinedButton(
-                onPressed: () => _handleRefill(v.toDouble()),
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  _handleRefill(v.toDouble());
+                },
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFFE0E7FF)),
                   shape: RoundedRectangleBorder(
@@ -212,9 +220,12 @@ class TangkiScreenState extends State<TangkiScreen> {
             child: ElevatedButton(
               onPressed: _isLoading
                   ? null
-                  : () => _handleRefill(
-                      double.tryParse(_amountController.text) ?? 0,
-                    ),
+                  : () {
+                      HapticFeedback.mediumImpact();
+                      _handleRefill(
+                        double.tryParse(_amountController.text) ?? 0,
+                      );
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,

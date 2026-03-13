@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../services/api_service.dart';
 import '../models/product_model.dart';
 import '../core/app_colors.dart';
+import '../widgets/shimmer_loading.dart';
 
 class CoffeeCard extends StatelessWidget {
   final Product product;
@@ -36,27 +37,25 @@ class CoffeeCard extends StatelessWidget {
             Expanded(
               child: Stack(
                 children: [
-                  CachedNetworkImage(
-                    imageUrl: ApiService().getFullImageUrl(product.imageUrl),
-                    width: double.infinity,
-                    height: double.infinity,
-                    fit: BoxFit.cover,
-                    memCacheWidth: 400, // Memory optimization for thumbnails
-                    placeholder: (context, url) => Container(
-                      color: AppColors.background,
-                      child: const Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
+                  Hero(
+                    tag: 'product-image-${product.id}',
+                    child: CachedNetworkImage(
+                      imageUrl: ApiService().getFullImageUrl(product.imageUrl),
+                      width: double.infinity,
+                      height: double.infinity,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 400,
+                      placeholder: (context, url) => const ShimmerLoading(
+                        width: double.infinity,
+                        height: double.infinity,
+                        borderRadius: 0,
                       ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: AppColors.background,
-                      child: const Icon(
-                        Icons.coffee,
-                        color: AppColors.textMuted,
+                      errorWidget: (context, url, error) => Container(
+                        color: AppColors.background,
+                        child: const Icon(
+                          Icons.coffee,
+                          color: AppColors.textMuted,
+                        ),
                       ),
                     ),
                   ),

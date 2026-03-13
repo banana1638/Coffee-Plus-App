@@ -8,6 +8,7 @@ import '../widgets/coffee_card.dart';
 import '../core/app_colors.dart';
 import '../widgets/auth_modal.dart';
 import '../widgets/tank_visualization.dart';
+import '../widgets/shimmer_loading.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -74,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
         future: _dashboardData,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return _buildShimmerSkeleton();
           }
 
           if (snapshot.hasError) {
@@ -133,9 +134,18 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               _buildCategoryList(allCategoryNames),
               Expanded(
-                child: categories.isEmpty
-                    ? const Center(child: Text("No products found"))
-                    : _buildProductList(categories),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 400),
+                  child: categories.isEmpty
+                      ? const Center(
+                          key: ValueKey('no-products'),
+                          child: Text("No products found"),
+                        )
+                      : _buildProductList(
+                          categories,
+                          key: ValueKey(_selectedCategory),
+                        ),
+                ),
               ),
             ],
           );
@@ -157,8 +167,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildProductList(List<Category> categories) {
+  Widget _buildProductList(List<Category> categories, {Key? key}) {
     return ListView.builder(
+      key: key,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: categories.length,
       itemBuilder: (context, index) {
@@ -411,6 +422,78 @@ class _HomeScreenState extends State<HomeScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         showCheckmark: false,
       ),
+    );
+  }
+
+  Widget _buildShimmerSkeleton() {
+    return Column(
+      children: [
+        const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: ShimmerLoading(
+            width: double.infinity,
+            height: 120,
+            borderRadius: 32,
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: ShimmerLoading(
+            width: double.infinity,
+            height: 50,
+            borderRadius: 20,
+          ),
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: List.generate(
+              5,
+              (index) => const Padding(
+                padding: EdgeInsets.only(right: 8.0),
+                child: ShimmerLoading(width: 80, height: 32, borderRadius: 12),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: 2,
+            itemBuilder: (context, index) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: ShimmerLoading(
+                    width: 100,
+                    height: 20,
+                    borderRadius: 4,
+                  ),
+                ),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.75,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                  ),
+                  itemCount: 2,
+                  itemBuilder: (context, i) => const ShimmerLoading(
+                    width: double.infinity,
+                    height: double.infinity,
+                    borderRadius: 24,
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
