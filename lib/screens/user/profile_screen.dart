@@ -20,6 +20,7 @@ class ProfileScreenState extends State<ProfileScreen> {
 
   User? _user;
   bool _isLoading = false;
+  String _activeMenu = "Profile Information";
 
   @override
   void initState() {
@@ -28,17 +29,22 @@ class ProfileScreenState extends State<ProfileScreen> {
     _apiService.authStateNotifier.addListener(_onAuthChanged);
   }
 
-  // cart_index_screen.dart
   void _onAuthChanged() async {
     String? token = await _apiService.getToken();
+
     if (token == null) {
       if (mounted) {
         setState(() {
           _user = null;
           _isLoading = false;
+          _nameController.clear();
+          _emailController.clear();
+          _currentPasswordController.clear();
+          _newPasswordController.clear();
+          _confirmPasswordController.clear();
         });
       }
-      return; // 关键：Token 没了，不再调用 refreshData()
+      return;
     }
 
     if (mounted) {
@@ -59,29 +65,29 @@ class ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> refreshData() async {
     final token = await _apiService.getToken();
-    if (token == null) {
-      if (mounted) setState(() => _isLoading = false);
+    if (!mounted) return;
+    if (token == null || _apiService.authStateNotifier.value == false) {
+      setState(() => _isLoading = false);
       return;
     }
-
     setState(() => _isLoading = true);
     try {
       final result = await _apiService.fetchProfile();
-      if (mounted) {
-        setState(() {
-          _user = User.fromJson(result['user']);
-          _nameController.text = _user?.name ?? '';
-          _emailController.text = _user?.email ?? '';
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _user = User.fromJson(result['user']);
+        _nameController.text = _user?.name ?? '';
+        _emailController.text = _user?.email ?? '';
+      });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Failed to load profile: $e")));
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Failed to load profile: $e")));
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -92,42 +98,39 @@ class ProfileScreenState extends State<ProfileScreen> {
         name: _nameController.text,
         email: _emailController.text,
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? "Profile updated!")),
-        );
-        refreshData();
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'] ?? "Profile updated!")),
+      );
+      refreshData();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Update failed: $e")));
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Update failed: $e")));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _handleDeleteAccount(String password) async {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
     setState(() => _isLoading = true);
     try {
       final result = await _apiService.deleteAccount(password);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'] ?? "Account deleted.")),
-        );
-        Navigator.of(
-          context,
-        ).pushNamedAndRemoveUntil('/login', (route) => false);
-      }
+
+      if (!mounted) return;
+
+      messenger.showSnackBar(
+        SnackBar(content: Text(result['message'] ?? "Account deleted.")),
+      );
+      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
     } catch (e) {
-      if (mounted) {
-        Navigator.pop(context); // Close subpage/sheet
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Deletion failed: $e")));
-      }
+      if (!mounted) return;
+      navigator.pop();
+      messenger.showSnackBar(SnackBar(content: Text("Deletion failed: $e")));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -135,6 +138,24 @@ class ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_user == null && !_isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('PROFILE')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text("You are logged out"),
+              ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, '/login'),
+                child: const Text("GO TO LOGIN"),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('PROFILE'),
@@ -143,9 +164,21 @@ class ProfileScreenState extends State<ProfileScreen> {
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.red),
             onPressed: () async {
-              final navigator = Navigator.of(context);
-              await _apiService.logout();
-              navigator.pushNamedAndRemoveUntil('/login', (route) => false);
+              final messenger = ScaffoldMessenger.of(context);
+              setState(() => _isLoading = true);
+              try {
+                await _apiService.logout();
+              } catch (e) {
+                if (!mounted) return;
+
+                messenger.showSnackBar(
+                  SnackBar(content: Text("Logout failed: $e")),
+                );
+              } finally {
+                if (mounted) {
+                  setState(() => _isLoading = false);
+                }
+              }
             },
           ),
         ],
@@ -156,15 +189,10 @@ class ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // User Summary Card
                   _buildUserSummaryCard(),
                   const SizedBox(height: 24),
-
-                  // Navigation / Quick Links (Simulating the sidebar in Web)
                   _buildQuickLinks(),
                   const SizedBox(height: 24),
-
-                  // Profile Information Form
                   _buildSection(
                     title: "Profile Information",
                     subtitle:
@@ -172,8 +200,6 @@ class ProfileScreenState extends State<ProfileScreen> {
                     child: _buildProfileInfoForm(),
                   ),
                   const SizedBox(height: 24),
-
-                  // Update Password Form
                   _buildSection(
                     title: "Update Password",
                     subtitle:
@@ -181,8 +207,6 @@ class ProfileScreenState extends State<ProfileScreen> {
                     child: _buildUpdatePasswordForm(),
                   ),
                   const SizedBox(height: 24),
-
-                  // Delete Account Section
                   _buildSection(
                     title: "Delete Account",
                     subtitle:
@@ -293,12 +317,11 @@ class ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Column(
         children: [
-          _buildNavLink(Icons.person_outline, "Profile Information", true),
-          _buildNavLink(Icons.lock_outline, "Update Password", false),
+          _buildNavLink(Icons.person_outline, "Profile Information"),
+          _buildNavLink(Icons.lock_outline, "Update Password"),
           _buildNavLink(
             Icons.warning_amber_rounded,
             "Delete Account",
-            false,
             isDanger: true,
           ),
         ],
@@ -306,15 +329,13 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildNavLink(
-    IconData icon,
-    String label,
-    bool isActive, {
-    bool isDanger = false,
-  }) {
+  Widget _buildNavLink(IconData icon, String label, {bool isDanger = false}) {
+    final bool isActive = _activeMenu == label;
+
     Color color = isDanger
         ? Colors.red
         : (isActive ? AppColors.primary : AppColors.textMain);
+
     return ListTile(
       leading: Icon(icon, color: color),
       title: Text(
@@ -330,9 +351,14 @@ class ProfileScreenState extends State<ProfileScreen> {
         size: 16,
         color: AppColors.textMuted,
       ),
-      onTap: () {},
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       tileColor: isActive ? AppColors.primary.withValues(alpha: 0.05) : null,
+
+      onTap: () {
+        setState(() {
+          _activeMenu = label;
+        });
+      },
     );
   }
 
@@ -525,12 +551,12 @@ class ProfileScreenState extends State<ProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "Are you sure you want to delete your account?",
+              "Are you sure?",
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 16),
             const Text(
-              "Once your account is deleted, all of its resources and data will be permanently deleted. Please enter your password to confirm.",
+              "This action is permanent. Please enter your password.",
               style: TextStyle(color: AppColors.textMuted, fontSize: 14),
             ),
             const SizedBox(height: 24),
@@ -545,16 +571,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: const Text(
-                      "CANCEL",
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
+                    child: const Text("CANCEL"),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -567,16 +584,8 @@ class ProfileScreenState extends State<ProfileScreen> {
                           ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
                     ),
-                    child: const Text(
-                      "DELETE",
-                      style: TextStyle(fontWeight: FontWeight.w900),
-                    ),
+                    child: const Text("DELETE"),
                   ),
                 ),
               ],
@@ -587,8 +596,4 @@ class ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-}
-
-extension on BoxDecoration {
-  // Custom extension to simulate the border-b-8 in Tailwind if needed, but for now we used borderEdge logic inside _buildSection
 }

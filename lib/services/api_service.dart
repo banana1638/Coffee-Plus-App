@@ -161,10 +161,12 @@ class ApiService {
     CancelToken? cancelToken,
     bool forceRefresh = false,
   }) async {
-    final cacheKey = 'dashboard_${search ?? ""}_${category ?? ""}';
+    // 1. 获取 Token 以区分缓存 Key
+    final token = await getToken();
+    final cacheKey =
+        'dashboard_${token == null ? "guest" : "user"}_${search ?? ""}_${category ?? ""}';
 
     if (!forceRefresh && _cache.containsKey(cacheKey)) {
-      debugPrint("Serving Dashboard from cache: $cacheKey");
       return _cache[cacheKey];
     }
 
@@ -175,21 +177,35 @@ class ApiService {
           ..removeWhere((key, value) => value == null),
         cancelToken: cancelToken,
       );
+
       if (response.statusCode == 200) {
         _cache[cacheKey] = response.data;
         return response.data;
-      } else {
-        throw Exception(
-          'Dashboard Error (${response.statusCode}): ${response.data}',
-        );
       }
+      throw Exception("Status ${response.statusCode}");
     } catch (e) {
-      if (e is DioException && e.type == DioExceptionType.cancel) {
-        debugPrint("Dashboard request cancelled");
-      } else {
-        debugPrint("Dashboard Error: $e");
+      // 2. 核心修复：如果是游客请求且发生错误（如 401 或网络问题）
+      // 返回一套默认结构，确保 FutureBuilder 不会因 hasError 而中断
+      if (token == null) {
+        debugPrint("Returning guest-default data due to: $e");
+        return {
+          'menus': [], // 或者根据你的后端逻辑，这里可以手动请求一个公共菜单接口
+          'allCategoryNames': [],
+          'user': {
+            'id': null,
+            'name': 'GUEST', // 统一标识
+            'oz': 0,
+            'balance': 0.0,
+          },
+        };
       }
-      rethrow;
+
+      // 如果是取消请求，不抛出异常，返回当前缓存或空
+      if (e is DioException && e.type == DioExceptionType.cancel) {
+        return _cache[cacheKey] ?? {'menus': [], 'user': {}};
+      }
+
+      rethrow; // 已登录状态下的真实错误才抛出
     }
   }
 

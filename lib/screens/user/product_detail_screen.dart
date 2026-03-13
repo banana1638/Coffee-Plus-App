@@ -9,6 +9,15 @@ class ProductDetailScreen extends StatefulWidget {
   final Product product;
   const ProductDetailScreen({super.key, required this.product});
 
+  static Future<void> show(BuildContext context, {required Product product}) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ProductDetailScreen(product: product),
+    );
+  }
+
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
@@ -24,20 +33,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.9,
+      decoration: const BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      child: Stack(
         children: [
-          // 1. 商品大图 (复刻 Web 端 rounded-[3rem] 效果)
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
               SliverAppBar(
                 expandedHeight: 400,
                 pinned: true,
+                automaticallyImplyLeading: false,
+                backgroundColor: Colors.transparent,
                 flexibleSpace: FlexibleSpaceBar(
                   background: ClipRRect(
                     borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(30),
                       bottom: Radius.circular(40),
                     ),
                     child: CachedNetworkImage(
@@ -60,6 +75,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                   ),
                 ),
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: CircleAvatar(
+                      backgroundColor: Colors.black.withValues(alpha: 0.3),
+                      child: IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               SliverToBoxAdapter(
                 child: Padding(
@@ -67,7 +94,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 商品标题与价格
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -101,7 +127,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
                       const SizedBox(height: 30),
 
-                      // 2. 定制选项 (复刻 Web 端的 Selection 逻辑)
                       _buildSectionTitle("SELECT SIZE"),
                       _buildOptionChips(
                         ['Regular', 'Large (+RM 3.00)'],
@@ -123,7 +148,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         (val) => setState(() => selectedSugar = val),
                       ),
 
-                      const SizedBox(height: 100), // 为底部按钮留白
+                      const SizedBox(height: 120),
                     ],
                   ),
                 ),
@@ -131,7 +156,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ],
           ),
 
-          // 3. 底部操作栏 (复刻 Web 端的 Sticky 按钮)
           Positioned(bottom: 0, left: 0, right: 0, child: _buildBottomAction()),
         ],
       ),
@@ -196,7 +220,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
       child: Row(
         children: [
-          // 数量加减
           Container(
             decoration: BoxDecoration(
               color: AppColors.background,
@@ -224,7 +247,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
           ),
           const SizedBox(width: 20),
-          // 加入购物车按钮
           Expanded(
             child: ElevatedButton(
               onPressed: _isAdding ? null : () => _handleAddToCart(),
@@ -252,12 +274,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> _handleAddToCart() async {
     if (!widget.product.isAvailable) {
       debugPrint("警告：代码逻辑认为该商品已售罄");
-      // 如果你依然想测试添加功能，可以先注释掉下面的 return（如果有的话）
     }
 
     setState(() => _isAdding = true);
-
-    // 检查登录状态
     String? token = await _apiService.getToken();
     if (token == null) {
       setState(() => _isAdding = false);
