@@ -327,6 +327,21 @@ class ApiService {
     throw Exception('Refill Error');
   }
 
+  Future<Map<String, dynamic>> fetchTransactions({String? type}) async {
+    final Map<String, dynamic> queryParams = {};
+    if (type != null && type != 'all') {
+      queryParams['type'] = type;
+    }
+
+    final response = await _dio.get(
+      '/transactions',
+      queryParameters: queryParams,
+    );
+
+    if (response.statusCode == 200) return response.data;
+    throw Exception('Transactions Error');
+  }
+
   Future<Map<String, dynamic>> fetchProfile() async {
     final response = await _dio.get('/profile');
     if (response.statusCode == 200) return response.data;

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../services/api_service.dart';
+import '../../models/transaction_model.dart';
+import 'order_detail_screen.dart';
 
 class TransactionHistoryScreen extends StatefulWidget {
   const TransactionHistoryScreen({super.key});
@@ -9,7 +12,24 @@ class TransactionHistoryScreen extends StatefulWidget {
 }
 
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
+  final ApiService _apiService = ApiService();
   String _activeFilter = 'all';
+  late Future<List<Transaction>> _transactionsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTransactions();
+  }
+
+  void _loadTransactions() {
+    setState(() {
+      _transactionsFuture = _apiService.fetchTransactions(type: _activeFilter).then((data) {
+        final list = data['transactions'] as List? ?? [];
+        return list.map((json) => Transaction.fromJson(json)).toList();
+      });
+    });
+  }
 
   // ==========================================
   // 1. 主界面构建 (Main Build)
@@ -50,11 +70,39 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: 10,
-              itemBuilder: (context, index) {
-                return _buildTransactionCard();
+            child: FutureBuilder<List<Transaction>>(
+              future: _transactionsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text("Error: ${snapshot.error}"));
+                }
+                final transactions = snapshot.data ?? [];
+                if (transactions.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.history, size: 64, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        Text(
+                          "No transactions found",
+                          style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: transactions.length,
+                  itemBuilder: (context, index) {
+                    return _buildTransactionCard(transactions[index]);
+                  },
+                );
               },
             ),
           ),
@@ -71,7 +119,14 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     bool isActive = _activeFilter == type;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _activeFilter = type),
+        onTap: () {
+          if (_activeFilter != type) {
+            setState(() {
+              _activeFilter = type;
+            });
+            _loadTransactions();
+          }
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -103,7 +158,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     );
   }
 
-  Widget _buildTransactionCard() {
+  Widget _buildTransactionCard(Transaction trx) {
+    bool isCredit = trx.type == 'refill' || trx.ozDelta.startsWith('+');
+    bool hasDetail = trx.billId.isNotEmpty;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(24),
@@ -137,22 +195,24 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
+                            color: isCredit
+                                ? Colors.green.withValues(alpha: 0.1)
+                                : Colors.blue.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text(
-                            "REFILL",
+                          child: Text(
+                            trx.type.toUpperCase(),
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
-                              color: Colors.grey,
+                              color: isCredit ? Colors.green : Colors.blue,
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const Text(
-                          "Mar 12, 15:44",
-                          style: TextStyle(
+                        Text(
+                          trx.time,
+                          style: const TextStyle(
                             fontSize: 10,
                             color: Colors.grey,
                             fontWeight: FontWeight.bold,
@@ -161,9 +221,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      "Wallet Refill via Stripe",
-                      style: TextStyle(
+                    Text(
+                      trx.description,
+                      style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w900,
                         color: Color(0xFF111827),
@@ -175,90 +235,60 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text(
-                    "+50.0 oz",
+                  Text(
+                    "${trx.ozDelta} oz",
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
-                      color: Colors.green,
+                      color: isCredit ? Colors.green : const Color(0xFF2563EB),
                     ),
                   ),
-                  Text(
-                    "#BILL-12345",
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey[400],
-                      fontWeight: FontWeight.bold,
+                  if (hasDetail)
+                    Text(
+                      "#${trx.billId}",
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey[400],
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ],
           ),
-          const Padding(
-            padding: EdgeInsets.only(top: 16, left: 12),
-            child: BorderedLeftContent(),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () {},
-              style: OutlinedButton.styleFrom(
-                backgroundColor: const Color(0xFFEFF6FF),
-                side: BorderSide.none,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          if (hasDetail) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => OrderDetailScreen(order: trx.rawJson),
+                    ),
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEFF6FF),
+                  side: BorderSide.none,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              child: const Text(
-                "VIEW DETAIL",
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF2563EB),
-                  letterSpacing: 1.1,
+                child: const Text(
+                  "VIEW DETAIL",
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF2563EB),
+                    letterSpacing: 1.1,
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class BorderedLeftContent extends StatelessWidget {
-  const BorderedLeftContent({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.only(left: 12),
-      decoration: const BoxDecoration(
-        border: Border(left: BorderSide(color: Color(0xFFF8FAFC), width: 3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "1x Americano (Hot)",
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            "1x Latte (Iced)",
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          ],
         ],
       ),
     );

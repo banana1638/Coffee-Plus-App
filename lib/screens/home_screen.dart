@@ -135,6 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         )
                       : _buildProductList(
                           categories,
+                          options: data['options'],
                           key: ValueKey(_selectedCategory),
                         ),
                 ),
@@ -369,7 +370,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildProductList(List<Category> categories, {Key? key}) {
+  Widget _buildProductList(List<Category> categories,
+      {required Map<String, dynamic>? options, Key? key}) {
     return ListView.builder(
       key: key,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -405,8 +407,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 final product = category.products[pIndex];
                 return CoffeeCard(
                   product: product,
-                  onTap: () =>
-                      ProductDetailScreen.show(context, product: product),
+                  onTap: () => ProductDetailScreen.show(
+                    context,
+                    product: product,
+                    dynamicOptions: options,
+                  ),
                 );
               },
             ),
