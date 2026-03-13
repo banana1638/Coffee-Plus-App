@@ -22,26 +22,15 @@ class TangkiScreenState extends State<TangkiScreen> {
   late Future<Map<String, dynamic>> _tangkiData;
   bool _isLoading = false;
 
+  // ==========================================
+  // 1. 生命周期 (Lifecycle)
+  // ==========================================
+
   @override
   void initState() {
     super.initState();
     refreshData();
     _apiService.authStateNotifier.addListener(_onAuthChanged);
-  }
-
-  void _onAuthChanged() async {
-    String? token = await _apiService.getToken();
-    if (!mounted) return;
-
-    if (token == null) {
-      // 关键：登出后，不再去请求异步数据，直接给一个空的或初始状态的 Future
-      setState(() {
-        _tangkiData = Future.value({});
-      });
-    } else {
-      // 登录后，重新获取数据
-      refreshData();
-    }
   }
 
   @override
@@ -51,10 +40,26 @@ class TangkiScreenState extends State<TangkiScreen> {
     super.dispose();
   }
 
+  void _onAuthChanged() async {
+    String? token = await _apiService.getToken();
+    if (!mounted) return;
+
+    if (token == null) {
+      setState(() {
+        _tangkiData = Future.value({});
+      });
+    } else {
+      refreshData();
+    }
+  }
+
+  // ==========================================
+  // 2. 数据处理与计算 (Logic)
+  // ==========================================
+
   void refreshData() {
     if (!mounted) return;
     setState(() {
-      // 每次刷新都创建一个新的 Future 实例，确保 FutureBuilder 能够识别到变化
       _tangkiData = _loadTangkiSafely();
     });
   }
@@ -63,14 +68,36 @@ class TangkiScreenState extends State<TangkiScreen> {
     try {
       String? token = await _apiService.getToken();
       if (token == null) return {};
-
-      // 这里可以添加一个短暂延迟，确保后端 Token 已经完全生效
       return await _apiService.fetchTangki();
     } catch (e) {
       debugPrint("Tangki Load Error: $e");
-      return {}; // 报错时返回空，或者抛出异常让 FutureBuilder 的 snapshot.hasError 捕获
+      return {};
     }
   }
+
+  // ==========================================
+  // 3. 业务动作 (Actions)
+  // ==========================================
+
+  void _handleRefill(double amount) async {
+    if (amount <= 0) return;
+    setState(() => _isLoading = true);
+    try {
+      final result = await _apiService.refillTangki(amount);
+      if (!mounted) return;
+      _showSnackBar(result['message'] ?? "Refill successful!");
+      refreshData();
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar("Refill failed: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ==========================================
+  // 4. 主界面构建 (Main Build)
+  // ==========================================
 
   @override
   Widget build(BuildContext context) {
@@ -103,10 +130,8 @@ class TangkiScreenState extends State<TangkiScreen> {
                 children: [
                   _buildTankCard(user.oz.toDouble(), 100, user.balance),
                   const SizedBox(height: 24),
-
                   _buildRefillSection(),
                   const SizedBox(height: 24),
-
                   _buildTransactionList(transactions),
                 ],
               ),
@@ -116,6 +141,10 @@ class TangkiScreenState extends State<TangkiScreen> {
       ),
     );
   }
+
+  // ==========================================
+  // 5. 子组件构建 (Sub-Widgets)
+  // ==========================================
 
   Widget _buildTankCard(double currentOz, double percentage, double balance) {
     return Container(
@@ -286,11 +315,8 @@ class TangkiScreenState extends State<TangkiScreen> {
             ],
           ),
           const SizedBox(height: 24),
-
           ...transactions.take(5).map((trx) => _buildTransactionItem(trx)),
-
           const SizedBox(height: 16),
-
           OutlinedButton(
             onPressed: () {
               Navigator.push(
@@ -324,7 +350,6 @@ class TangkiScreenState extends State<TangkiScreen> {
 
   Widget _buildTransactionItem(Transaction trx) {
     bool isCredit = trx.type == 'refill' || trx.ozDelta.startsWith('+');
-
     bool hasDetail = trx.billId.isNotEmpty;
 
     return InkWell(
@@ -430,26 +455,6 @@ class TangkiScreenState extends State<TangkiScreen> {
     );
   }
 
-  void _handleRefill(double amount) async {
-    if (amount <= 0) return;
-    setState(() => _isLoading = true);
-    try {
-      final result = await _apiService.refillTangki(amount);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message'] ?? "Refill successful!")),
-      );
-      refreshData();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Refill failed: $e")));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
   Widget _buildLoginPlaceholder() {
     return Center(
       child: Column(
@@ -471,8 +476,7 @@ class TangkiScreenState extends State<TangkiScreen> {
           ),
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: () =>
-                AuthModal.show(context), // 确保你 import 了 auth_modal.dart
+            onPressed: () => AuthModal.show(context),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
@@ -487,6 +491,20 @@ class TangkiScreenState extends State<TangkiScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // 6. 辅助方法 (Helpers)
+  // ==========================================
+
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }

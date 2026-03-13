@@ -23,11 +23,26 @@ class ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = false;
   String _activeMenu = "Profile Information";
 
+  // ==========================================
+  // 1. 生命周期 (Lifecycle)
+  // ==========================================
+
   @override
   void initState() {
     super.initState();
     refreshData();
     _apiService.authStateNotifier.addListener(_onAuthChanged);
+  }
+
+  @override
+  void dispose() {
+    _apiService.authStateNotifier.removeListener(_onAuthChanged);
+    _nameController.dispose();
+    _emailController.dispose();
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
   }
 
   void _onAuthChanged() async {
@@ -53,16 +68,9 @@ class ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    _apiService.authStateNotifier.removeListener(_onAuthChanged);
-    _nameController.dispose();
-    _emailController.dispose();
-    _currentPasswordController.dispose();
-    _newPasswordController.dispose();
-    _confirmPasswordController.dispose();
-    super.dispose();
-  }
+  // ==========================================
+  // 2. 数据处理与计算 (Logic)
+  // ==========================================
 
   Future<void> refreshData() async {
     final token = await _apiService.getToken();
@@ -82,15 +90,17 @@ class ProfileScreenState extends State<ProfileScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Failed to load profile: $e")));
+      _showSnackBar("Failed to load profile: $e");
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
     }
   }
+
+  // ==========================================
+  // 3. 业务动作 (Actions)
+  // ==========================================
 
   Future<void> _handleUpdateProfile() async {
     HapticFeedback.mediumImpact();
@@ -101,15 +111,11 @@ class ProfileScreenState extends State<ProfileScreen> {
         email: _emailController.text,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result['message'] ?? "Profile updated!")),
-      );
+      _showSnackBar(result['message'] ?? "Profile updated!");
       refreshData();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Update failed: $e")));
+      _showSnackBar("Update failed: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -117,26 +123,39 @@ class ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _handleDeleteAccount(String password) async {
     final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-
     setState(() => _isLoading = true);
     try {
       final result = await _apiService.deleteAccount(password);
-
       if (!mounted) return;
-
-      messenger.showSnackBar(
-        SnackBar(content: Text(result['message'] ?? "Account deleted.")),
-      );
+      _showSnackBar(result['message'] ?? "Account deleted.");
       navigator.pushNamedAndRemoveUntil('/login', (route) => false);
     } catch (e) {
       if (!mounted) return;
       navigator.pop();
-      messenger.showSnackBar(SnackBar(content: Text("Deletion failed: $e")));
+      _showSnackBar("Deletion failed: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  Future<void> _handleLogout() async {
+    HapticFeedback.heavyImpact();
+    setState(() => _isLoading = true);
+    try {
+      await _apiService.logout();
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar("Logout failed: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // ==========================================
+  // 4. 主界面构建 (Main Build)
+  // ==========================================
 
   @override
   Widget build(BuildContext context) {
@@ -165,24 +184,7 @@ class ProfileScreenState extends State<ProfileScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.red),
-            onPressed: () async {
-              HapticFeedback.heavyImpact();
-              final messenger = ScaffoldMessenger.of(context);
-              setState(() => _isLoading = true);
-              try {
-                await _apiService.logout();
-              } catch (e) {
-                if (!mounted) return;
-
-                messenger.showSnackBar(
-                  SnackBar(content: Text("Logout failed: $e")),
-                );
-              } finally {
-                if (mounted) {
-                  setState(() => _isLoading = false);
-                }
-              }
-            },
+            onPressed: _handleLogout,
           ),
         ],
       ),
@@ -192,31 +194,40 @@ class ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                   _buildAnimatedItem(0, _buildUserSummaryCard()),
+                  _buildAnimatedItem(0, _buildUserSummaryCard()),
                   const SizedBox(height: 24),
-                   _buildAnimatedItem(1, _buildQuickLinks()),
+                  _buildAnimatedItem(1, _buildQuickLinks()),
                   const SizedBox(height: 24),
-                   _buildAnimatedItem(2, _buildSection(
-                    title: "Profile Information",
-                    subtitle:
-                        "Update your account's profile information and email address.",
-                    child: _buildProfileInfoForm(),
-                  )),
+                  _buildAnimatedItem(
+                    2,
+                    _buildSection(
+                      title: "Profile Information",
+                      subtitle:
+                          "Update your account's profile information and email address.",
+                      child: _buildProfileInfoForm(),
+                    ),
+                  ),
                   const SizedBox(height: 24),
-                   _buildAnimatedItem(3, _buildSection(
-                    title: "Update Password",
-                    subtitle:
-                        "Ensure your account is using a long, random password to stay secure.",
-                    child: _buildUpdatePasswordForm(),
-                  )),
+                  _buildAnimatedItem(
+                    3,
+                    _buildSection(
+                      title: "Update Password",
+                      subtitle:
+                          "Ensure your account is using a long, random password to stay secure.",
+                      child: _buildUpdatePasswordForm(),
+                    ),
+                  ),
                   const SizedBox(height: 24),
-                   _buildAnimatedItem(4, _buildSection(
-                    title: "Delete Account",
-                    subtitle:
-                        "Once your account is deleted, all of its resources and data will be permanently deleted.",
-                    isDanger: true,
-                    child: _buildDeleteAccountSection(),
-                  )),
+                  _buildAnimatedItem(
+                    4,
+                    _buildSection(
+                      title: "Delete Account",
+                      subtitle:
+                          "Once your account is deleted, all of its resources and data will be permanently deleted.",
+                      isDanger: true,
+                      child: _buildDeleteAccountSection(),
+                    ),
+                  ),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -224,10 +235,13 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // ==========================================
+  // 5. 子组件构建 (Sub-Widgets)
+  // ==========================================
+
   Widget _buildUserSummaryCard() {
-    String firstLetter = (_user?.name.isNotEmpty ?? false)
-        ? _user!.name[0].toUpperCase()
-        : "U";
+    String firstLetter =
+        (_user?.name.isNotEmpty ?? false) ? _user!.name[0].toUpperCase() : "U";
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -356,7 +370,6 @@ class ProfileScreenState extends State<ProfileScreen> {
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       tileColor: isActive ? AppColors.primary.withValues(alpha: 0.05) : null,
-
       onTap: () {
         setState(() {
           _activeMenu = label;
@@ -377,9 +390,7 @@ class ProfileScreenState extends State<ProfileScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(32),
         border: Border.all(
-          color: isDanger
-              ? Colors.red.withValues(alpha: 0.2)
-              : AppColors.border,
+          color: isDanger ? Colors.red.withValues(alpha: 0.2) : AppColors.border,
         ),
       ),
       child: Column(
@@ -538,6 +549,28 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildAnimatedItem(int index, Widget child) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 400 + (index * 100)),
+      curve: Curves.easeOutQuad,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 20 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+
+  // ==========================================
+  // 6. 辅助方法 (Helpers)
+  // ==========================================
+
   void _showDeleteConfirmation() {
     showModalBottomSheet(
       context: context,
@@ -583,8 +616,8 @@ class ProfileScreenState extends State<ProfileScreen> {
                     onPressed: _isLoading
                         ? null
                         : () => _handleDeleteAccount(
-                            _confirmPasswordController.text,
-                          ),
+                              _confirmPasswordController.text,
+                            ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                     ),
@@ -600,21 +633,13 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildAnimatedItem(int index, Widget child) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 400 + (index * 100)),
-      curve: Curves.easeOutQuad,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset(0, 20 * (1 - value)),
-            child: child,
-          ),
-        );
-      },
-      child: child,
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 }

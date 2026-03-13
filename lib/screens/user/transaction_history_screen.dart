@@ -11,6 +11,10 @@ class TransactionHistoryScreen extends StatefulWidget {
 class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   String _activeFilter = 'all';
 
+  // ==========================================
+  // 1. 主界面构建 (Main Build)
+  // ==========================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -45,7 +49,6 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               ],
             ),
           ),
-
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -59,6 +62,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       ),
     );
   }
+
+  // ==========================================
+  // 2. 子组件构建 (Sub-Widgets)
+  // ==========================================
 
   Widget _buildFilterButton(String type, String label) {
     bool isActive = _activeFilter == type;
@@ -188,12 +195,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               ),
             ],
           ),
-
           const Padding(
             padding: EdgeInsets.only(top: 16, left: 12),
             child: BorderedLeftContent(),
           ),
-
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,

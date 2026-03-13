@@ -5,6 +5,10 @@ class OrderDetailScreen extends StatelessWidget {
 
   const OrderDetailScreen({super.key, required this.order});
 
+  // ==========================================
+  // 1. 主界面构建 (Main Build)
+  // ==========================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -46,7 +50,6 @@ class OrderDetailScreen extends StatelessWidget {
               child: Column(
                 children: [
                   _buildHeader(),
-                  // 此处已移除冗余的 Container
                   Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Column(
@@ -203,6 +206,10 @@ class OrderDetailScreen extends StatelessWidget {
       ),
     );
   }
+
+  // ==========================================
+  // 2. 子组件构建 (Sub-Widgets)
+  // ==========================================
 
   Widget _buildHeader() {
     return Stack(

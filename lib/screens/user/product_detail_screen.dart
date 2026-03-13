@@ -26,12 +26,61 @@ class ProductDetailScreen extends StatefulWidget {
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final ApiService _apiService = ApiService();
-  // 对应 Web 端的表单状态
+
   String selectedSize = 'Regular';
   String selectedIce = 'Normal Ice';
   String selectedSugar = 'Normal Sugar';
   int quantity = 1;
   bool _isAdding = false;
+
+  // ==========================================
+  // 1. 业务动作 (Actions)
+  // ==========================================
+
+  Future<void> _handleAddToCart() async {
+    if (!widget.product.isAvailable) {
+      debugPrint("警告：代码逻辑认为该商品已售罄");
+    }
+
+    setState(() => _isAdding = true);
+    String? token = await _apiService.getToken();
+    if (token == null) {
+      setState(() => _isAdding = false);
+      if (mounted) AuthModal.show(context);
+      return;
+    }
+
+    // Normalize size (e.g., "Large (+RM 3.00)" -> "Large")
+    String sizeValue = selectedSize.contains(' (')
+        ? selectedSize.split(' (')[0]
+        : selectedSize;
+
+    // Convert Ice/Sugar into 'temp' field expected by backend (or just one of them)
+    String tempValue = selectedIce.contains('No') ? 'Hot' : 'Iced';
+
+    try {
+      await _apiService.addToCart(
+        productId: widget.product.id,
+        quantity: quantity,
+        size: sizeValue,
+        temp: tempValue,
+        addons: [],
+      );
+      if (mounted) {
+        _showSnackBar("Added to Cart!", isError: false);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar("Failed to add: $e", isError: true);
+      }
+    } finally {
+      if (mounted) setState(() => _isAdding = false);
+    }
+  }
+
+  // ==========================================
+  // 2. 主界面构建 (Main Build)
+  // ==========================================
 
   @override
   Widget build(BuildContext context) {
@@ -65,18 +114,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                         fit: BoxFit.cover,
                         placeholder: (context, url) => const ShimmerLoading(
-                          width: double.infinity,
-                          height: double.infinity,
-                          borderRadius: 0,
-                        ),
+                              width: double.infinity,
+                              height: double.infinity,
+                              borderRadius: 0,
+                            ),
                         errorWidget: (context, url, error) => Container(
-                          color: AppColors.background,
-                          child: const Icon(
-                            Icons.coffee,
-                            color: AppColors.textMuted,
-                            size: 50,
-                          ),
-                        ),
+                              color: AppColors.background,
+                              child: const Icon(
+                                Icons.coffee,
+                                color: AppColors.textMuted,
+                                size: 50,
+                              ),
+                            ),
                       ),
                     ),
                   ),
@@ -130,30 +179,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           height: 1.5,
                         ),
                       ),
-
                       const SizedBox(height: 30),
-
                       _buildSectionTitle("SELECT SIZE"),
                       _buildOptionChips(
-                        ['Regular', 'Large (+RM 3.00)'],
+                        const ['Regular', 'Large (+RM 3.00)'],
                         selectedSize,
                         (val) => setState(() => selectedSize = val),
                       ),
-
                       _buildSectionTitle("ICE LEVEL"),
                       _buildOptionChips(
-                        ['No Ice', 'Less Ice', 'Normal Ice', 'Extra Ice'],
+                        const [
+                          'No Ice',
+                          'Less Ice',
+                          'Normal Ice',
+                          'Extra Ice'
+                        ],
                         selectedIce,
                         (val) => setState(() => selectedIce = val),
                       ),
-
                       _buildSectionTitle("SUGAR LEVEL"),
                       _buildOptionChips(
-                        ['0%', '50%', 'Normal Sugar'],
+                        const ['0%', '50%', 'Normal Sugar'],
                         selectedSugar,
                         (val) => setState(() => selectedSugar = val),
                       ),
-
                       const SizedBox(height: 120),
                     ],
                   ),
@@ -161,12 +210,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ],
           ),
-
           Positioned(bottom: 0, left: 0, right: 0, child: _buildBottomAction()),
         ],
       ),
     );
   }
+
+  // ==========================================
+  // 3. 子组件构建 (Sub-Widgets)
+  // ==========================================
 
   Widget _buildSectionTitle(String title) {
     return Padding(
@@ -255,10 +307,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           const SizedBox(width: 20),
           Expanded(
             child: ElevatedButton(
-              onPressed: _isAdding ? null : () {
-                HapticFeedback.mediumImpact();
-                _handleAddToCart();
-              },
+              onPressed: _isAdding
+                  ? null
+                  : () {
+                      HapticFeedback.mediumImpact();
+                      _handleAddToCart();
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(vertical: 18),
@@ -280,55 +334,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  Future<void> _handleAddToCart() async {
-    if (!widget.product.isAvailable) {
-      debugPrint("警告：代码逻辑认为该商品已售罄");
-    }
+  // ==========================================
+  // 4. 辅助方法 (Helpers)
+  // ==========================================
 
-    setState(() => _isAdding = true);
-    String? token = await _apiService.getToken();
-    if (token == null) {
-      setState(() => _isAdding = false);
-      if (mounted) AuthModal.show(context);
-      return;
-    }
-
-    // Normalize size (e.g., "Large (+RM 3.00)" -> "Large")
-    String sizeValue = selectedSize.contains(' (')
-        ? selectedSize.split(' (')[0]
-        : selectedSize;
-
-    // Convert Ice/Sugar into 'temp' field expected by backend (or just one of them)
-    // The backend config says 'Hot', 'Iced'. Let's map accordingly.
-    String tempValue = selectedIce.contains('No') ? 'Hot' : 'Iced';
-
-    try {
-      await _apiService.addToCart(
-        productId: widget.product.id,
-        quantity: quantity,
-        size: sizeValue,
-        temp: tempValue,
-        addons: [],
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Added to Cart!"),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Failed to add: $e"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isAdding = false);
-    }
+  void _showSnackBar(String message, {required bool isError}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 }
