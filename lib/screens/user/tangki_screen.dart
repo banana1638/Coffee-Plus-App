@@ -70,7 +70,6 @@ class TangkiScreenState extends State<TangkiScreen> {
       if (token == null) return {};
       return await _apiService.fetchTangki();
     } catch (e) {
-      debugPrint("Tangki Load Error: $e");
       return {};
     }
   }

@@ -110,12 +110,34 @@ class ProfileScreenState extends State<ProfileScreen> {
         name: _nameController.text,
         email: _emailController.text,
       );
-      if (!mounted) return;
       _showSnackBar(result['message'] ?? "Profile updated!");
       refreshData();
     } catch (e) {
-      if (!mounted) return;
-      _showSnackBar("Update failed: $e");
+      _showSnackBar(e.toString(), isError: true);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleUpdatePassword() async {
+    if (_newPasswordController.text != _confirmPasswordController.text) {
+      _showSnackBar("New passwords do not match", isError: true);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final result = await _apiService.updatePassword(
+        currentPassword: _currentPasswordController.text,
+        newPassword: _newPasswordController.text,
+        confirmPassword: _confirmPasswordController.text,
+      );
+      _showSnackBar(result['message'] ?? "Password updated!");
+      _currentPasswordController.clear();
+      _newPasswordController.clear();
+      _confirmPasswordController.clear();
+    } catch (e) {
+      _showSnackBar(e.toString(), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -198,36 +220,35 @@ class ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 24),
                   _buildAnimatedItem(1, _buildQuickLinks()),
                   const SizedBox(height: 24),
-                  _buildAnimatedItem(
-                    2,
-                    _buildSection(
-                      title: "Profile Information",
-                      subtitle:
-                          "Update your account's profile information and email address.",
-                      child: _buildProfileInfoForm(),
+                  if (_activeMenu == "Profile Information")
+                    _buildAnimatedItem(
+                      2,
+                      _buildSection(
+                        title: "Profile Information",
+                        subtitle: "Update your account details.",
+                        child: _buildProfileInfoForm(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  _buildAnimatedItem(
-                    3,
-                    _buildSection(
-                      title: "Update Password",
-                      subtitle:
-                          "Ensure your account is using a long, random password to stay secure.",
-                      child: _buildUpdatePasswordForm(),
+                  if (_activeMenu == "Update Password")
+                    _buildAnimatedItem(
+                      3,
+                      _buildSection(
+                        title: "Update Password",
+                        subtitle:
+                            "Ensure your account is using a strong password.",
+                        child: _buildUpdatePasswordForm(),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  _buildAnimatedItem(
-                    4,
-                    _buildSection(
-                      title: "Delete Account",
-                      subtitle:
-                          "Once your account is deleted, all of its resources and data will be permanently deleted.",
-                      isDanger: true,
-                      child: _buildDeleteAccountSection(),
+                  if (_activeMenu == "Delete Account")
+                    _buildAnimatedItem(
+                      4,
+                      _buildSection(
+                        title: "Delete Account",
+                        subtitle: "This action is permanent.",
+                        isDanger: true,
+                        child: _buildDeleteAccountSection(),
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 40),
                 ],
               ),
@@ -239,9 +260,40 @@ class ProfileScreenState extends State<ProfileScreen> {
   // 5. 子组件构建 (Sub-Widgets)
   // ==========================================
 
+  Widget _buildProfileInfoForm() {
+    return Column(
+      children: [
+        _buildTextField("Full Name", _nameController),
+        const SizedBox(height: 16),
+        _buildTextField(
+          "Email Address",
+          _emailController,
+          keyboardType: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _handleUpdateProfile,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text(
+              "UPDATE PROFILE",
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildUserSummaryCard() {
-    String firstLetter =
-        (_user?.name.isNotEmpty ?? false) ? _user!.name[0].toUpperCase() : "U";
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -255,7 +307,9 @@ class ProfileScreenState extends State<ProfileScreen> {
             radius: 40,
             backgroundColor: AppColors.primary,
             child: Text(
-              firstLetter,
+              (_user?.name.isNotEmpty ?? false)
+                  ? _user!.name[0].toUpperCase()
+                  : "U",
               style: const TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.w900,
@@ -266,11 +320,7 @@ class ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           Text(
             _user?.name ?? "Loading...",
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              color: AppColors.textMain,
-            ),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
           ),
           Text(
             _user?.email ?? "...",
@@ -309,7 +359,6 @@ class ProfileScreenState extends State<ProfileScreen> {
             fontSize: 9,
             fontWeight: FontWeight.bold,
             color: AppColors.textMuted,
-            letterSpacing: 1.2,
           ),
         ),
         Text(
@@ -348,11 +397,9 @@ class ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildNavLink(IconData icon, String label, {bool isDanger = false}) {
     final bool isActive = _activeMenu == label;
-
     Color color = isDanger
         ? Colors.red
         : (isActive ? AppColors.primary : AppColors.textMain);
-
     return ListTile(
       leading: Icon(icon, color: color),
       title: Text(
@@ -370,11 +417,7 @@ class ProfileScreenState extends State<ProfileScreen> {
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       tileColor: isActive ? AppColors.primary.withValues(alpha: 0.05) : null,
-      onTap: () {
-        setState(() {
-          _activeMenu = label;
-        });
-      },
+      onTap: () => setState(() => _activeMenu = label),
     );
   }
 
@@ -390,7 +433,9 @@ class ProfileScreenState extends State<ProfileScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(32),
         border: Border.all(
-          color: isDanger ? Colors.red.withValues(alpha: 0.2) : AppColors.border,
+          color: isDanger
+              ? Colors.red.withValues(alpha: 0.2)
+              : AppColors.border,
         ),
       ),
       child: Column(
@@ -400,7 +445,6 @@ class ProfileScreenState extends State<ProfileScreen> {
             title,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
           ),
-          const SizedBox(height: 4),
           Text(
             subtitle,
             style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
@@ -412,36 +456,24 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileInfoForm() {
-    return Column(
-      children: [
-        _buildTextField("Name", _nameController),
-        const SizedBox(height: 16),
-        _buildTextField(
-          "Email",
-          _emailController,
-          keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _isLoading ? null : _handleUpdateProfile,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            child: const Text(
-              "SAVE",
-              style: TextStyle(fontWeight: FontWeight.w900),
-            ),
+  Widget _buildDeleteAccountSection() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () => _showDeleteConfirmation(),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.red,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
-      ],
+        child: const Text(
+          "DELETE ACCOUNT",
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
     );
   }
 
@@ -469,7 +501,8 @@ class ProfileScreenState extends State<ProfileScreen> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: () {},
+            // Linked the handler here
+            onPressed: _isLoading ? null : _handleUpdatePassword,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
@@ -479,33 +512,12 @@ class ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             child: const Text(
-              "SAVE",
+              "SAVE PASSWORD",
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildDeleteAccountSection() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: () => _showDeleteConfirmation(),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        child: const Text(
-          "DELETE ACCOUNT",
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-      ),
     );
   }
 
@@ -524,7 +536,6 @@ class ProfileScreenState extends State<ProfileScreen> {
             fontSize: 10,
             fontWeight: FontWeight.bold,
             color: AppColors.textMain,
-            letterSpacing: 1.1,
           ),
         ),
         const SizedBox(height: 8),
@@ -553,16 +564,13 @@ class ProfileScreenState extends State<ProfileScreen> {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: Duration(milliseconds: 400 + (index * 100)),
-      curve: Curves.easeOutQuad,
-      builder: (context, value, child) {
-        return Opacity(
-          opacity: value,
-          child: Transform.translate(
-            offset: Offset(0, 20 * (1 - value)),
-            child: child,
-          ),
-        );
-      },
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, 20 * (1 - value)),
+          child: child,
+        ),
+      ),
       child: child,
     );
   }
@@ -593,7 +601,7 @@ class ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 16),
             const Text(
               "This action is permanent. Please enter your password.",
-              style: TextStyle(color: AppColors.textMuted, fontSize: 14),
+              style: TextStyle(color: AppColors.textMuted),
             ),
             const SizedBox(height: 24),
             _buildTextField(
@@ -616,8 +624,8 @@ class ProfileScreenState extends State<ProfileScreen> {
                     onPressed: _isLoading
                         ? null
                         : () => _handleDeleteAccount(
-                              _confirmPasswordController.text,
-                            ),
+                            _confirmPasswordController.text,
+                          ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                     ),
@@ -626,19 +634,20 @@ class ProfileScreenState extends State<ProfileScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
           ],
         ),
       ),
     );
   }
 
-  void _showSnackBar(String message) {
+  void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
+        backgroundColor: isError ? Colors.redAccent : AppColors.primary,
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
       ),
     );
   }

@@ -44,8 +44,7 @@ class _MainWrapperState extends State<MainWrapper> {
   }
 
   Future<void> _checkSession() async {
-    bool isValid = await _apiService.validateSession();
-    debugPrint(isValid ? "Session valid" : "Session expired");
+    await _apiService.validateSession();
   }
 
   @override
@@ -68,13 +67,12 @@ class _MainWrapperState extends State<MainWrapper> {
         setState(() {
           _selectedIndex = 0;
         });
-        debugPrint("User logged out, switching to Home Tab.");
       }
     }
   }
 
   Future<void> _onItemTapped(int index) async {
-    // 1. 震动反馈：增加物理按压的质感
+    // 1. 震动反馈
     HapticFeedback.lightImpact();
 
     bool loggedIn = _apiService.authStateNotifier.value;
@@ -87,23 +85,38 @@ class _MainWrapperState extends State<MainWrapper> {
 
     if (index > 0 && !loggedIn) return;
 
-    // 3. 重复点击当前 Tab 触发刷新
-    if (_selectedIndex == index) {
-      _refreshCurrentTab(index);
-      return;
-    }
+    // --- 关键修改点 ---
 
-    // 4. 切换索引并刷新目标页面
-    setState(() => _selectedIndex = index);
+    // 3. 先执行刷新 (不管是不是当前 index)
+    // 注意：如果是新页面，setState 后 IndexedStack 会实例化该页面，
+    // 我们在 PostFrameCallback 中刷新可以确保 Key 已经挂载。
     _refreshCurrentTab(index);
+
+    // 4. 然后切换索引
+    if (_selectedIndex != index) {
+      setState(() => _selectedIndex = index);
+    }
   }
 
   void _refreshCurrentTab(int index) {
-    // 延迟一小会儿刷新，确保 IndexedStack 已经完成了页面切换
+    // 使用 addPostFrameCallback 确保在当前帧绘制完成后执行
+    // 这解决了“点击新 Tab 时 Key 还没准备好”的问题
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (index == 1) _tangkiTabKey.currentState?.refreshData();
-      if (index == 2) _cartTabKey.currentState?.refreshData();
-      if (index == 3) _profileTabKey.currentState?.refreshData();
+      switch (index) {
+        case 0:
+          // 如果 HomeScreen 也有刷新逻辑，可以在这里添加 Key 触发
+          // homeTabKey.currentState?.refreshData();
+          break;
+        case 1:
+          _tangkiTabKey.currentState?.refreshData();
+          break;
+        case 2:
+          _cartTabKey.currentState?.refreshData();
+          break;
+        case 3:
+          _profileTabKey.currentState?.refreshData();
+          break;
+      }
     });
   }
 

@@ -54,16 +54,7 @@ class ApiService {
       ),
     );
 
-    // 调试模式日志
-    if (kDebugMode) {
-      _dio.interceptors.add(
-        LogInterceptor(
-          requestBody: true,
-          responseBody: true,
-          logPrint: (obj) => debugPrint('DEBUG_DIO: $obj'),
-        ),
-      );
-    }
+    // interceptors setup...
   }
 
   // ==========================================
@@ -226,7 +217,6 @@ class ApiService {
       }
       throw Exception(response.data['message'] ?? 'Checkout Error');
     } catch (e) {
-      debugPrint("Checkout API Error: $e");
       rethrow;
     }
   }
@@ -261,7 +251,7 @@ class ApiService {
       final cartData = await fetchCart();
       cartCountNotifier.value = (cartData['cartItems'] as List).length;
     } catch (e) {
-      debugPrint("Cart Count Sync Error: $e");
+      // Ignore background sync errors
     }
   }
 
@@ -358,6 +348,26 @@ class ApiService {
     throw Exception('Update Error');
   }
 
+  Future<Map<String, dynamic>> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/profile/password',
+        data: {
+          'current_password': currentPassword,
+          'password': newPassword,
+          'password_confirmation': confirmPassword,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['message'] ?? "Password update failed";
+    }
+  }
+
   Future<Map<String, dynamic>> deleteAccount(String password) async {
     final response = await _dio.post(
       '/profile/delete',
@@ -374,10 +384,8 @@ class ApiService {
   void clearCache({String? pattern}) {
     if (pattern == null) {
       _cache.clear();
-      debugPrint("API Cache: All cleared");
     } else {
       _cache.removeWhere((key, value) => key.contains(pattern));
-      debugPrint("API Cache: Cleared pattern '$pattern'");
     }
   }
 

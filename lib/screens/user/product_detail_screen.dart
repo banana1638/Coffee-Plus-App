@@ -38,10 +38,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   // ==========================================
 
   Future<void> _handleAddToCart() async {
-    if (!widget.product.isAvailable) {
-      debugPrint("警告：代码逻辑认为该商品已售罄");
-    }
-
     setState(() => _isAdding = true);
     String? token = await _apiService.getToken();
     if (token == null) {
