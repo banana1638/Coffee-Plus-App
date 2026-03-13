@@ -11,7 +11,7 @@ class OrderDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Resolve order data (it might be nested inside transaction data)
+    // 兼容可能嵌套在交易数据中的订单详情
     final Map<String, dynamic> orderData =
         order.containsKey('order_details') && order['order_details'] != null
         ? Map<String, dynamic>.from(order['order_details'])
@@ -46,7 +46,7 @@ class OrderDetailScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(40),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: Colors.black.withOpacity(0.05),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -63,13 +63,13 @@ class OrderDetailScreen extends StatelessWidget {
                       children: [
                         _buildRowDetail(
                           "BILL ID",
-                          orderData['bill_id'] ?? order['bill_id'] ?? 'N/A',
+                          orderData['bill_id']?.toString() ?? 'N/A',
                           isBold: true,
                         ),
                         const SizedBox(height: 12),
                         _buildRowDetail(
                           "DATE",
-                          orderData['created_at'] ?? order['timestamp'] ?? '-',
+                          orderData['created_at']?.toString() ?? '-',
                           isBold: true,
                         ),
                         const SizedBox(height: 12),
@@ -118,16 +118,21 @@ class OrderDetailScreen extends StatelessWidget {
                             ),
                           ),
                         ),
+
+                        // 商品列表渲染
                         ...(orderData['items'] as List? ?? []).map(
-                          (item) => _buildOrderItem(item),
+                          (item) =>
+                              _buildOrderItem(Map<String, dynamic>.from(item)),
                         ),
+
                         const SizedBox(height: 20),
                         _buildDashedLine(),
                         const SizedBox(height: 20),
 
+                        // 金额统计
                         _buildRowDetail(
                           "SUBTOTAL",
-                          "RM ${orderData['subtotal'] ?? orderData['total_amount'] ?? '0.00'}",
+                          "RM ${double.tryParse(orderData['subtotal']?.toString() ?? '0')?.toStringAsFixed(2) ?? '0.00'}",
                           isBold: true,
                         ),
                         const SizedBox(height: 12),
@@ -158,7 +163,7 @@ class OrderDetailScreen extends StatelessWidget {
                           const SizedBox(height: 12),
                         ],
 
-                        // 储水箱/OZ 使用
+                        // 储水箱/OZ 使用显示
                         if (orderData['oz_used'] != null &&
                             double.parse(orderData['oz_used'].toString()) >
                                 0) ...[
@@ -166,7 +171,7 @@ class OrderDetailScreen extends StatelessWidget {
                           const SizedBox(height: 24),
                         ],
 
-                        // --- 总计实付 ---
+                        // 实付总额
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -191,10 +196,11 @@ class OrderDetailScreen extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  double.parse(
-                                    (orderData['final_amount'] ?? '0.00')
-                                        .toString(),
-                                  ).toStringAsFixed(2),
+                                  double.tryParse(
+                                        orderData['final_amount']?.toString() ??
+                                            '0',
+                                      )?.toStringAsFixed(2) ??
+                                      "0.00",
                                   style: const TextStyle(
                                     fontSize: 32,
                                     fontWeight: FontWeight.w900,
@@ -207,9 +213,7 @@ class OrderDetailScreen extends StatelessWidget {
                         ),
 
                         const SizedBox(height: 20),
-                        _buildPaymentMethod(
-                          orderData['payment_method'] ?? order['type'],
-                        ),
+                        _buildPaymentMethod(orderData['payment_method']),
                       ],
                     ),
                   ),
@@ -258,34 +262,120 @@ class OrderDetailScreen extends StatelessWidget {
   }
 
   // ==========================================
-  // 2. 子组件构建 (Sub-Widgets)
+  // 2. 子组件渲染逻辑
   // ==========================================
 
-  Widget _buildPaymentMethod(dynamic method) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
+  Widget _buildOrderItem(Map<String, dynamic> item) {
+    // 判断是否为 OZ 储水箱支付商品
+    bool isOzPayment = (item['oz_at_time'] ?? 0) > 0;
+
+    // --- 关键修正：从后端 Resource 定义的 'customizations' 中提取数据 ---
+    Map<String, dynamic> customizations = {};
+    if (item['customizations'] != null && item['customizations'] is Map) {
+      customizations = Map<String, dynamic>.from(item['customizations']);
+    }
+
+    // 提取 Addons
+    List<dynamic> addons = customizations['addons'] is List
+        ? customizations['addons']
+        : [];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.account_balance_wallet_outlined,
-            size: 14,
-            color: Colors.grey[600],
-          ),
-          const SizedBox(width: 8),
-          Text(
-            "PAYMENT: ${method?.toString().toUpperCase() ?? 'N/A'}",
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-              color: Colors.grey[600],
-              letterSpacing: 0.5,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "${item['product_name'] ?? 'Product'}",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+
+                // 渲染 Addon Badge
+                if (addons.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: addons.map((addon) {
+                        return _buildOptionBadge("+ $addon", isAddon: true);
+                      }).toList(),
+                    ),
+                  ),
+
+                // 渲染 Size 和 Temp (从 customizations 中获取)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    "${customizations['size'] ?? ''} | ${customizations['temp'] ?? ''}",
+                    style: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                if (isOzPayment)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Text(
+                      "PAID WITH TANK BALANCE",
+                      style: TextStyle(
+                        color: Color(0xFF2563EB),
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    "Quantity: ${item['quantity']}",
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
             ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                isOzPayment
+                    ? "${((item['oz_at_time'] ?? 0) * (item['quantity'] ?? 1)).toStringAsFixed(1)} OZ"
+                    : "RM ${((item['price_at_time'] ?? 0) * (item['quantity'] ?? 1)).toStringAsFixed(2)}",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                  color: isOzPayment
+                      ? const Color(0xFF2563EB)
+                      : const Color(0xFF1F2937),
+                ),
+              ),
+              if (isOzPayment)
+                Text(
+                  "${item['oz_at_time']} OZ / unit",
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 8,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -353,124 +443,6 @@ class OrderDetailScreen extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildOrderItem(Map<String, dynamic> item) {
-    bool isOzPayment = (item['oz_at_time'] ?? 0) > 0;
-
-    Map<String, dynamic> options = {};
-    if (item['options'] != null && item['options'] is Map) {
-      options = Map<String, dynamic>.from(item['options']);
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "${item['product_name'] ?? 'Product'}",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                    color: Color(0xFF1F2937),
-                    leadingDistribution: TextLeadingDistribution.even,
-                  ),
-                ),
-                if (options.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: options.entries.expand((entry) {
-                        if (entry.key == 'addons' && entry.value is List) {
-                          return (entry.value as List).map(
-                            (addon) =>
-                                _buildOptionBadge("+ $addon", isAddon: true),
-                          );
-                        }
-                        if (entry.key == 'size' || entry.key == 'temp') {
-                          return <Widget>[];
-                        }
-                        return [
-                          _buildOptionBadge("${entry.key}: ${entry.value}"),
-                        ];
-                      }).toList(),
-                    ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    "${item['size'] ?? ''} | ${item['temp'] ?? ''}",
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                if (isOzPayment)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 2),
-                    child: Text(
-                      "PAID WITH TANK BALANCE",
-                      style: TextStyle(
-                        color: Color(0xFF2563EB),
-                        fontSize: 8,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    "Quantity: ${item['quantity']}",
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                isOzPayment
-                    ? "${((item['oz_at_time'] ?? 0) * (item['quantity'] ?? 1)).toStringAsFixed(1)} OZ"
-                    : "RM ${((item['price_at_time'] ?? 0) * (item['quantity'] ?? 1)).toStringAsFixed(2)}",
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 12,
-                  color: isOzPayment
-                      ? const Color(0xFF2563EB)
-                      : const Color(0xFF1F2937),
-                ),
-              ),
-              if (isOzPayment)
-                Text(
-                  "${item['oz_at_time']} OZ / unit",
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 8,
-                    fontStyle: FontStyle.italic,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
@@ -568,6 +540,37 @@ class OrderDetailScreen extends StatelessWidget {
             height: 2,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentMethod(dynamic method) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.account_balance_wallet_outlined,
+            size: 14,
+            color: Colors.grey[600],
+          ),
+          const SizedBox(width: 8),
+          Text(
+            "PAYMENT: ${method?.toString().toUpperCase() ?? 'N/A'}",
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              color: Colors.grey[600],
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
       ),
     );
   }
