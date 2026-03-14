@@ -38,11 +38,16 @@ class CartIndexScreenState extends State<CartIndexScreen> {
     final token = await _apiService.getToken();
     if (token == null) return;
 
-    setState(() => _isLoading = true);
+    if (mounted) setState(() => _isLoading = true);
     try {
-      // 同时获取购物车和用户信息
-      final cartResult = await _apiService.fetchCart();
-      final userResult = await _apiService.fetchProfile();
+      // 优化点：使用 Future.wait 同时获取购物车和用户信息，减少总等待时间
+      final results = await Future.wait([
+        _apiService.fetchCart(),
+        _apiService.fetchProfile(),
+      ]);
+
+      final cartResult = results[0];
+      final userResult = results[1];
 
       if (mounted) {
         setState(() {

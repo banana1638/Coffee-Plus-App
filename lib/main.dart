@@ -11,7 +11,12 @@ import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await NotificationService().init();
+  
+  // 优化点：启动并行化（虽然目前只有一项，但为后续扩展预留）
+  await Future.wait([
+    NotificationService().init(),
+  ]);
+  
   runApp(const CoffeePlusApp());
 }
 
