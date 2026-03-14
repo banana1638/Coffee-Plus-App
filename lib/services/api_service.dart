@@ -54,7 +54,6 @@ class ApiService {
       ),
     );
 
-    // interceptors setup...
   }
 
   // ==========================================
@@ -392,7 +391,21 @@ class ApiService {
   }
 
   // ==========================================
-  // 5. 工具方法 (Utilities)
+  // 5. 通知 (Notifications)
+  // ==========================================
+
+  Future<Map<String, dynamic>> fetchNotifications() async {
+    final response = await _dio.get('/profile/notifications');
+    if (response.statusCode == 200) return response.data;
+    throw Exception('Fetch Notifications Error');
+  }
+
+  Future<void> markNotificationAsRead(String id) async {
+    await _dio.post('/profile/notifications/$id/read');
+  }
+
+  // ==========================================
+  // 6. 工具方法 (Utilities)
   // ==========================================
 
   /// 清理缓存。pattern 为空则清理全部，传入字符串则清理包含该 Key 的缓存。

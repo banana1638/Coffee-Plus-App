@@ -82,6 +82,13 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textMain,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none_rounded),
+            onPressed: () => Navigator.pushNamed(context, '/notifications'),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _dashboardData,
