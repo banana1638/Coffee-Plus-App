@@ -9,7 +9,8 @@ class NotificationService with WidgetsBindingObserver {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
 
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
   final ApiService _apiService = ApiService();
   ReverbClient? _reverbClient;
   bool _isInitialized = false;
@@ -24,11 +25,12 @@ class NotificationService with WidgetsBindingObserver {
     // 1. Initialize Local Notifications
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
+    const DarwinInitializationSettings iosSettings =
+        DarwinInitializationSettings(
+          requestAlertPermission: true,
+          requestBadgePermission: true,
+          requestSoundPermission: true,
+        );
 
     const InitializationSettings initSettings = InitializationSettings(
       android: androidSettings,
@@ -47,7 +49,8 @@ class NotificationService with WidgetsBindingObserver {
     // 2. Request Permissions for Android 13+
     await _localNotifications
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.requestNotificationsPermission();
 
     // 3. Initialize Reverb
@@ -57,13 +60,13 @@ class NotificationService with WidgetsBindingObserver {
 
   Future<void> _connectReverb() async {
     try {
-      
       _reverbClient = ReverbClient.instance(
         host: '192.168.1.104',
         port: 8080,
         appKey: "coffepluskey123",
         useTLS: false,
-        authEndpoint: 'http://192.168.1.104/coffee_plus/public/broadcasting/auth',
+        authEndpoint:
+            'http://192.168.1.104/coffee_plus/public/broadcasting/auth',
         authorizer: (channelName, socketId) async {
           final token = await _apiService.getToken();
           if (kDebugMode) print("Authorizing channel: $channelName");
@@ -73,17 +76,21 @@ class NotificationService with WidgetsBindingObserver {
           };
         },
         onConnected: (socketId) {
-          if (kDebugMode) print("Reverb Connected successfully! Socket ID: $socketId");
+          if (kDebugMode) {
+            print("Reverb Connected successfully! Socket ID: $socketId");
+          }
         },
         onDisconnected: () {
-          if (kDebugMode) print("Reverb Disconnected. Attempting to reconnect...");
+          if (kDebugMode) {
+            print("Reverb Disconnected. Attempting to reconnect...");
+          }
           _reverbClient?.connect();
         },
         onError: (error) {
           if (kDebugMode) print("Reverb Connection Error: $error");
         },
       );
-      
+
       await _reverbClient?.connect();
 
       _apiService.authStateNotifier.removeListener(_handleAuthChange);
@@ -97,7 +104,7 @@ class NotificationService with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (kDebugMode) print("App Lifecycle State Changed: $state");
-    
+
     if (state == AppLifecycleState.resumed) {
       // Re-verify connection when app comes to foreground
       if (_reverbClient != null) {
@@ -121,18 +128,24 @@ class NotificationService with WidgetsBindingObserver {
 
   void _subscribeToUserChannel(int userId) {
     if (_reverbClient == null) return;
-    
+
     final channelName = "private-App.Models.User.$userId";
     try {
       if (kDebugMode) print("Subscribing to channel: $channelName");
       final channel = _reverbClient!.subscribeToPrivateChannel(channelName);
-      
+
       // Listen for notification creation event
-      channel.on('Illuminate\\Notifications\\Events\\BroadcastNotificationCreated').listen((event) {
-        if (kDebugMode) print("RECEIVED EVENT IN SERVICE: ${event.eventName}");
-        if (kDebugMode) print("EVENT DATA: ${event.data}");
-        _onNotificationReceived(event);
-      });
+      channel
+          .on('Illuminate\\Notifications\\Events\\BroadcastNotificationCreated')
+          .listen((event) {
+            if (kDebugMode) {
+              print("RECEIVED EVENT IN SERVICE: ${event.eventName}");
+            }
+            if (kDebugMode) {
+              print("EVENT DATA: ${event.data}");
+            }
+            _onNotificationReceived(event);
+          });
     } catch (e) {
       if (kDebugMode) print("Reverb Subscribe Error: $e");
     }
@@ -153,7 +166,7 @@ class NotificationService with WidgetsBindingObserver {
       if (data is Map) {
         final message = data['message'] ?? "You have a new notification";
         const title = "Order Notification";
-        
+
         if (kDebugMode) print("Triggering local notification: $message");
         _showLocalNotification(title, message, payload: jsonEncode(data));
       } else if (data is String) {
@@ -163,20 +176,26 @@ class NotificationService with WidgetsBindingObserver {
         _showLocalNotification("Order Notification", message, payload: data);
       }
     } catch (e) {
+      if (kDebugMode) print("Error processing notification event: $e");
     }
   }
 
-  Future<void> _showLocalNotification(String title, String body, {String? payload}) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'order_notifications',
-      'Order Notifications',
-      channelDescription: 'Notifications for order status changes',
-      importance: Importance.max,
-      priority: Priority.high,
-      showWhen: true,
-      enableVibration: true,
-      playSound: true,
-    );
+  Future<void> _showLocalNotification(
+    String title,
+    String body, {
+    String? payload,
+  }) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+          'order_notifications',
+          'Order Notifications',
+          channelDescription: 'Notifications for order status changes',
+          importance: Importance.max,
+          priority: Priority.high,
+          showWhen: true,
+          enableVibration: true,
+          playSound: true,
+        );
 
     const NotificationDetails platformDetails = NotificationDetails(
       android: androidDetails,
