@@ -396,7 +396,57 @@ class ApiService {
 
   Future<Map<String, dynamic>> fetchNotifications() async {
     final response = await _dio.get('/profile/notifications');
-    if (response.statusCode == 200) return response.data;
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = response.data;
+      List<dynamic> notifications = List.from(data['notifications'] ?? []);
+
+      if (notifications.isEmpty) return data;
+
+      final now = DateTime.now();
+      final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+
+      // 1. Time-based filter: Remove notifications older than 30 days
+      notifications = notifications.where((n) {
+        final createdAtStr = n['created_at'];
+        if (createdAtStr == null) return true;
+        final createdAt = DateTime.tryParse(createdAtStr);
+        if (createdAt == null) return true;
+        return createdAt.isAfter(thirtyDaysAgo);
+      }).toList();
+
+      // 2. Count-based filter: If more than 30, remove oldest read first
+      if (notifications.length > 30) {
+        // Sort: Unread first, then by date (newest first)
+        notifications.sort((a, b) {
+          final aIsRead = a['read_at'] != null;
+          final bIsRead = b['read_at'] != null;
+
+          if (aIsRead != bIsRead) {
+            return aIsRead ? 1 : -1; // Unread (-1) comes before Read (1)
+          }
+
+          // If both have same read status, sort by date (newest first)
+          final aDate = DateTime.tryParse(a['created_at'] ?? "") ?? DateTime(0);
+          final bDate = DateTime.tryParse(b['created_at'] ?? "") ?? DateTime(0);
+          return bDate.compareTo(aDate);
+        });
+
+        // 3. Keep only the top 30 based on the priority sort
+        notifications = notifications.take(30).toList();
+
+        // 4. Final sort: Newest first for display (ignoring read status for UI order)
+        notifications.sort((a, b) {
+          final aDate = DateTime.tryParse(a['created_at'] ?? "") ?? DateTime(0);
+          final bDate = DateTime.tryParse(b['created_at'] ?? "") ?? DateTime(0);
+          return bDate.compareTo(aDate);
+        });
+      }
+
+      return {
+        ...data,
+        'notifications': notifications,
+      };
+    }
     throw Exception('Fetch Notifications Error');
   }
 
