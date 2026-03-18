@@ -6,9 +6,9 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  final String baseUrl = "http://192.168.1.104/coffee_plus/public/api";
+  final String baseUrl = "http://192.168.1.107/coffee_plus/public/api";
   final String baseImageUrl =
-      "http://192.168.1.104/coffee_plus/public/images/products/";
+      "http://192.168.1.107/coffee_plus/public/images/products/";
 
   final Dio _dio = Dio();
   final _storage = const FlutterSecureStorage();
@@ -53,7 +53,6 @@ class ApiService {
         },
       ),
     );
-
   }
 
   // ==========================================
@@ -442,10 +441,7 @@ class ApiService {
         });
       }
 
-      return {
-        ...data,
-        'notifications': notifications,
-      };
+      return {...data, 'notifications': notifications};
     }
     throw Exception('Fetch Notifications Error');
   }
