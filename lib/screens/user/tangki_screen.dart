@@ -127,7 +127,7 @@ class TangkiScreenState extends State<TangkiScreen> {
               child: Column(
                 key: ValueKey(snapshot.data.hashCode),
                 children: [
-                  _buildTankCard(user.oz.toDouble(), 100, user.balance),
+                  _buildTankCard(user.oz.toDouble(), user.balance),
                   const SizedBox(height: 24),
                   _buildRefillSection(),
                   const SizedBox(height: 24),
@@ -145,7 +145,7 @@ class TangkiScreenState extends State<TangkiScreen> {
   // 5. 子组件构建 (Sub-Widgets)
   // ==========================================
 
-  Widget _buildTankCard(double currentOz, double percentage, double balance) {
+  Widget _buildTankCard(double currentOz, double balance) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(

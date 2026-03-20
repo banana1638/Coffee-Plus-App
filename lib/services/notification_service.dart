@@ -45,8 +45,6 @@ class NotificationService with WidgetsBindingObserver {
         }
       },
     );
-
-    // 2. Request Permissions for Android 13+
     await _localNotifications
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin

@@ -150,7 +150,7 @@ class ProfileScreenState extends State<ProfileScreen> {
       final result = await _apiService.deleteAccount(password);
       if (!mounted) return;
       _showSnackBar(result['message'] ?? "Account deleted.");
-      navigator.pushNamedAndRemoveUntil('/login', (route) => false);
+      navigator.pushNamedAndRemoveUntil('/main', (route) => false);
     } catch (e) {
       if (!mounted) return;
       navigator.pop();
