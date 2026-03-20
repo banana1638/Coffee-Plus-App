@@ -4,6 +4,7 @@ import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../models/cart_item_model.dart';
 import '../../models/user_model.dart';
+import '../../services/biometric_service.dart';
 
 class CartIndexScreen extends StatefulWidget {
   const CartIndexScreen({super.key});
@@ -117,6 +118,13 @@ class CartIndexScreenState extends State<CartIndexScreen> {
     // 检查余额
     if (totalCashPrice > _user!.balance) {
       _showSnackBar("Insufficient Cash Balance", isError: true);
+      return;
+    }
+
+    // 生物识别验证 (Biometric Authentication)
+    final bool authenticated = await BiometricService.authenticate();
+    if (!authenticated) {
+      _showSnackBar("Authentication failed or cancelled.", isError: true);
       return;
     }
 
