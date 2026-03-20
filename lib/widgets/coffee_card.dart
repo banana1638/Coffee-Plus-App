@@ -4,6 +4,8 @@ import '../services/api_service.dart';
 import '../models/product_model.dart';
 import '../core/app_colors.dart';
 import '../widgets/shimmer_loading.dart';
+import '../services/favorite_service.dart';
+import '../models/favorite_model.dart';
 
 class CoffeeCard extends StatelessWidget {
   final Product product;
@@ -81,15 +83,30 @@ class CoffeeCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    product.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                      color: AppColors.textMain,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          product.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
+                            color: AppColors.textMain,
+                          ),
+                        ),
+                      ),
+                      ValueListenableBuilder<List<FavoriteItem>>(
+                        valueListenable: FavoriteService().favoritesNotifier,
+                        builder: (context, favorites, child) {
+                          final bool isFavorited = favorites.any((f) => f.product.id == product.id);
+                          return isFavorited
+                              ? const Icon(Icons.favorite, color: Colors.redAccent, size: 14)
+                              : const SizedBox.shrink();
+                        },
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Row(

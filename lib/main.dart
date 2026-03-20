@@ -9,12 +9,15 @@ import 'screens/user/notification_screen.dart';
 import 'screens/main_wrapper.dart';
 import 'services/notification_service.dart';
 
+import 'services/favorite_service.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // 优化点：启动并行化（虽然目前只有一项，但为后续扩展预留）
+  // 优化点：启动并行化
   await Future.wait([
     NotificationService().init(),
+    FavoriteService().loadFavorites(), // 初始化收藏服务
   ]);
   
   runApp(const CoffeePlusApp());

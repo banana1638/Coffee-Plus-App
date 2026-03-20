@@ -1,6 +1,6 @@
-import 'package:coffee_plus_app/screens/user/product_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:coffee_plus_app/screens/user/product_detail_screen.dart';
 import '../models/category_model.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
@@ -9,6 +9,8 @@ import '../core/app_colors.dart';
 import '../widgets/auth_modal.dart';
 import '../widgets/tank_visualization.dart';
 import '../widgets/shimmer_loading.dart';
+import '../services/favorite_service.dart';
+import '../models/favorite_model.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +21,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final ApiService _apiService = ApiService();
+  final FavoriteService _favoriteService = FavoriteService();
   late Future<Map<String, dynamic>> _dashboardData;
   String _selectedCategory = 'all';
   CancelToken? _cancelToken;
@@ -135,16 +138,18 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 400),
-                  child: categories.isEmpty
-                      ? const Center(
-                          key: ValueKey('no-products'),
-                          child: Text("No products found"),
-                        )
-                      : _buildProductList(
-                          categories,
-                          options: data['options'],
-                          key: ValueKey(_selectedCategory),
-                        ),
+                  child: _selectedCategory == 'collections'
+                      ? _buildCollectionsList(data['options'])
+                      : categories.isEmpty
+                          ? const Center(
+                              key: ValueKey('no-products'),
+                              child: Text("No products found"),
+                            )
+                          : _buildProductList(
+                              categories,
+                              options: data['options'],
+                              key: ValueKey(_selectedCategory),
+                            ),
                 ),
               ),
             ],
@@ -346,29 +351,39 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           _buildCategoryChip('all', 'All Items'),
+          _buildCategoryChip('collections', 'Collections', icon: Icons.favorite),
           ...allCategoryNames.map((name) => _buildCategoryChip(name, name)),
         ],
       ),
     );
   }
 
-  Widget _buildCategoryChip(String id, String label) {
+  Widget _buildCategoryChip(String id, String label, {IconData? icon}) {
     bool isSelected = _selectedCategory == id;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: ChoiceChip(
+        avatar: icon != null
+            ? Icon(
+                icon,
+                size: 14,
+                color: isSelected ? Colors.white : AppColors.primary,
+              )
+            : null,
         label: Text(label),
         selected: isSelected,
         onSelected: (selected) {
           if (selected) {
             setState(() => _selectedCategory = id);
-            _refreshData();
+            if (id != 'collections') {
+              _refreshData();
+            }
           }
         },
-        selectedColor: AppColors.primary,
+        selectedColor: id == 'collections' ? Colors.redAccent : AppColors.primary,
         labelStyle: TextStyle(
-          color: isSelected ? Colors.white : AppColors.textMuted,
-          fontWeight: FontWeight.bold,
+          color: isSelected ? Colors.white : AppColors.textMain,
+          fontWeight: FontWeight.w900,
           fontSize: 12,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -507,6 +522,70 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCollectionsList(Map<String, dynamic>? options) {
+    return ValueListenableBuilder<List<FavoriteItem>>(
+      valueListenable: _favoriteService.favoritesNotifier,
+      builder: (context, favorites, _) {
+        if (favorites.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.favorite_border, size: 64, color: AppColors.border),
+                SizedBox(height: 16),
+                Text(
+                  "No favorites yet",
+                  style: TextStyle(color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                "SAVED COLLECTIONS",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.5,
+                  color: Colors.redAccent,
+                ),
+              ),
+            ),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.75,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+              ),
+              itemCount: favorites.length,
+              itemBuilder: (context, index) {
+                final favorite = favorites[index];
+                return CoffeeCard(
+                  product: favorite.product,
+                  onTap: () => ProductDetailScreen.show(
+                    context,
+                    product: favorite.product,
+                    dynamicOptions: options,
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+          ],
+        );
+      },
     );
   }
 }

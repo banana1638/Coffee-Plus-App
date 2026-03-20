@@ -3,8 +3,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/app_colors.dart';
 import '../../models/product_model.dart';
 import '../../services/api_service.dart';
-import '../../widgets/auth_modal.dart';
 import 'package:flutter/services.dart';
+import '../../models/favorite_model.dart';
+import '../../services/favorite_service.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -35,14 +36,21 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  final ApiService _apiService = ApiService();
-
   // --- 状态变量 ---
   String selectedSize = 'Regular';
   String selectedTemp = 'Hot'; // 对应 Blade 里的 Temperature
   List<String> selectedAddons = []; // 选中的加料名称
   int quantity = 1;
   bool _isAdding = false;
+  bool _isFavoriting = false;
+  final TextEditingController _remarkController = TextEditingController();
+  final FavoriteService _favoriteService = FavoriteService();
+
+  @override
+  void dispose() {
+    _remarkController.dispose();
+    super.dispose();
+  }
 
   // 模拟配置数据 (应从后端 Product model 或 API 获取)
   List<Map<String, dynamic>> get sizeOptions {
@@ -98,30 +106,49 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Future<void> _handleAddToCart() async {
     setState(() => _isAdding = true);
-    String? token = await _apiService.getToken();
-
-    if (token == null) {
-      setState(() => _isAdding = false);
-      if (mounted) AuthModal.show(context);
-      return;
-    }
-
     try {
-      await _apiService.addToCart(
+      await ApiService().addToCart(
         productId: widget.product.id,
         quantity: quantity,
         size: selectedSize,
         temp: selectedTemp,
-        addons: selectedAddons, // 传递选中的加料数组
+        addons: selectedAddons,
       );
+
       if (mounted) {
-        Navigator.pop(context); // 成功后关闭 BottomSheet
-        _showSnackBar("Added to Cart!", isError: false);
+        _showSnackBar("Successfully added to cart!", isError: false);
+        Navigator.pop(context);
       }
     } catch (e) {
-      if (mounted) _showSnackBar("Failed to add: $e", isError: true);
+      if (mounted) _showSnackBar("Failed to add to cart: $e", isError: true);
     } finally {
       if (mounted) setState(() => _isAdding = false);
+    }
+  }
+
+  Future<void> _handleFavorite() async {
+    setState(() => _isFavoriting = true);
+    
+    // Scale animation of the heart can be handled by the button itself or a parent
+    final item = FavoriteItem(
+      product: widget.product,
+      size: selectedSize,
+      temp: selectedTemp,
+      addons: selectedAddons,
+      remark: _remarkController.text,
+      createdAt: DateTime.now(),
+    );
+
+    try {
+      await _favoriteService.saveFavorite(item);
+      if (mounted) {
+        _showSnackBar("Saved to Collections!", isError: false);
+        HapticFeedback.mediumImpact();
+      }
+    } catch (e) {
+      if (mounted) _showSnackBar("Failed to save: $e", isError: true);
+    } finally {
+      if (mounted) setState(() => _isFavoriting = false);
     }
   }
 
@@ -161,6 +188,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       _buildSectionTitle("EXTRA ADD-ONS"),
                       _buildAddonSelector(),
 
+                      _buildSectionTitle("REMARK (MEMO)"),
+                      _buildRemarkField(),
+
                       const SizedBox(height: 140), // 为底部悬浮按钮留出空间
                     ],
                   ),
@@ -197,12 +227,48 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       actions: [
         Padding(
           padding: const EdgeInsets.all(12.0),
-          child: CircleAvatar(
-            backgroundColor: Colors.black26,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white, size: 20),
-              onPressed: () => Navigator.pop(context),
-            ),
+          child: Row(
+            children: [
+              ValueListenableBuilder(
+                valueListenable: _favoriteService.favoritesNotifier,
+                builder: (context, favorites, _) {
+                  String currentId = FavoriteItem(
+                    product: widget.product,
+                    size: selectedSize,
+                    temp: selectedTemp,
+                    addons: selectedAddons,
+                    remark: '',
+                    createdAt: DateTime.now(),
+                  ).uniqueId;
+                  bool isSaved = _favoriteService.isFavorite(currentId);
+                  
+                  return CircleAvatar(
+                    backgroundColor: Colors.black26,
+                    child: IconButton(
+                      icon: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+                        child: Icon(
+                          isSaved ? Icons.favorite : Icons.favorite_border,
+                          key: ValueKey(isSaved),
+                          color: isSaved ? Colors.redAccent : Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      onPressed: _isFavoriting ? null : _handleFavorite,
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(width: 8),
+              CircleAvatar(
+                backgroundColor: Colors.black26,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -471,6 +537,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: Container(
         padding: const EdgeInsets.all(8),
         child: Icon(icon, size: 18, color: AppColors.textMain),
+      ),
+    );
+  }
+
+  Widget _buildRemarkField() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.transparent),
+      ),
+      child: TextField(
+        controller: _remarkController,
+        maxLines: 2,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        decoration: const InputDecoration(
+          hintText: "Add a remark (e.g. Work need, Amy's cup...)",
+          hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 13),
+          border: InputBorder.none,
+        ),
       ),
     );
   }
