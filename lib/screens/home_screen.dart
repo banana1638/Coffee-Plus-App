@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
-import 'package:coffee_plus_app/screens/user/product_detail_screen.dart';
+import 'package:coffee_plus_app/screens/user/product_detail_screen.dart' as detail;
 import '../models/category_model.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
@@ -429,7 +429,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 final product = category.products[pIndex];
                 return CoffeeCard(
                   product: product,
-                  onTap: () => ProductDetailScreen.show(
+                  onTap: () => detail.ProductDetailScreen.show(
                     context,
                     product: product,
                     dynamicOptions: options,
@@ -574,10 +574,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 final favorite = favorites[index];
                 return CoffeeCard(
                   product: favorite.product,
-                  onTap: () => ProductDetailScreen.show(
+                  onTap: () => detail.ProductDetailScreen.show(
                     context,
                     product: favorite.product,
                     dynamicOptions: options,
+                    initialFavorite: favorite,
                   ),
                 );
               },
