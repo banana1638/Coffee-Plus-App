@@ -198,37 +198,12 @@ class ApiService {
     }
   }
 
-  /// 合并后的结账函数：支持普通结账和使用 Oz 抵扣
-  Future<Map<String, dynamic>> checkout({List<int>? useOzIds}) async {
-    try {
-      final Map<String, dynamic>? data =
-          (useOzIds != null && useOzIds.isNotEmpty)
-          ? {'use_oz': useOzIds}
-          : null;
-
-      final response = await _dio.post('/checkout', data: data);
-
-      if (response.statusCode == 200) {
-        clearCache(); // 关键：结账后资产状态改变，必须清理首页缓存
-        updateCartCount();
-        return response.data;
-      }
-      throw Exception(response.data['message'] ?? 'Checkout Error');
-    } catch (e) {
-      rethrow;
-    }
-  }
-
   Future<Map<String, dynamic>> checkoutWithOz(List<int> useOzIds) async {
     try {
-      // 构造请求体，后端通常期望的格式是 use_oz[]: [1, 2, 3]
       final response = await _dio.post('/checkout', data: {'use_oz': useOzIds});
-
-      // 成功后，由于余额和购物车都变了，强制清除缓存
       _cache.remove('/dashboard');
       _cache.remove('/cart');
       _cache.remove('/profile');
-
       return response.data;
     } on DioException catch (e) {
       throw e.response?.data['message'] ?? "Checkout failed";
