@@ -52,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       _selectedCategory = 'all';
       _refreshData(forceRefresh: true);
+      _favoriteService.loadFavorites(); // Reload favorites upon login/logout
     }
   }
 

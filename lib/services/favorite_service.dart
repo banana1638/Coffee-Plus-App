@@ -1,7 +1,5 @@
-import 'dart:convert';
-import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/favorite_model.dart';
+import 'api_service.dart';
 
 class FavoriteService {
   static final FavoriteService _instance = FavoriteService._internal();
@@ -11,12 +9,14 @@ class FavoriteService {
 
   static const String _storageKey = 'favorite_items';
   final ValueNotifier<List<FavoriteItem>> favoritesNotifier = ValueNotifier([]);
+  final ApiService _apiService = ApiService();
 
   Future<void> init() async {
     await loadFavorites();
   }
 
   Future<void> loadFavorites() async {
+    // 1. Always load local first for immediate display
     final prefs = await SharedPreferences.getInstance();
     final String? favoritesJson = prefs.getString(_storageKey);
     if (favoritesJson != null) {
@@ -27,12 +27,47 @@ class FavoriteService {
     } else {
       favoritesNotifier.value = [];
     }
+
+    // 2. If logged in, sync from backend
+    if (_apiService.authStateNotifier.value) {
+      try {
+        final backendData = await _apiService.fetchFavorites();
+        final backendFavorites = backendData
+            .map((item) => FavoriteItem.fromJson(item))
+            .toList();
+        
+        // Merge or replace? For simplicity, we'll replace with backend truth
+        // as the backend is the source of truth for logged-in users.
+        favoritesNotifier.value = backendFavorites;
+        await _persist();
+      } catch (e) {
+        debugPrint("Error syncing favorites from backend: $e");
+      }
+    }
   }
 
   Future<void> saveFavorite(FavoriteItem item) async {
     final List<FavoriteItem> current = List.from(favoritesNotifier.value);
     
-    // Check if exactly this combination already exists, if so, update remark and date
+    // 1. If logged in, sync to backend first
+    if (_apiService.authStateNotifier.value) {
+      try {
+        final result = await _apiService.addFavorite(
+          productId: item.product.id,
+          size: item.size,
+          temp: item.temp,
+          addons: item.addons,
+          remark: item.remark,
+        );
+        // Create new item with backend ID
+        item = FavoriteItem.fromJson(result);
+      } catch (e) {
+        debugPrint("Error saving favorite to backend: $e");
+        // For now, continue to save locally even if backend fails
+      }
+    }
+
+    // 2. Update local state
     final int index = current.indexWhere((f) => f.uniqueId == item.uniqueId);
     if (index != -1) {
       current[index] = item;
@@ -46,9 +81,25 @@ class FavoriteService {
 
   Future<void> removeFavorite(String uniqueId) async {
     final List<FavoriteItem> current = List.from(favoritesNotifier.value);
-    current.removeWhere((f) => f.uniqueId == uniqueId);
-    favoritesNotifier.value = current;
-    await _persist();
+    final int index = current.indexWhere((f) => f.uniqueId == uniqueId);
+    
+    if (index != -1) {
+      final item = current[index];
+      
+      // 1. If logged in and has backend ID, remove from backend
+      if (_apiService.authStateNotifier.value && item.id != null) {
+        try {
+          await _apiService.removeFavorite(item.id!);
+        } catch (e) {
+          debugPrint("Error removing favorite from backend: $e");
+        }
+      }
+
+      // 2. Update local state
+      current.removeAt(index);
+      favoritesNotifier.value = current;
+      await _persist();
+    }
   }
 
   bool isFavorite(String uniqueId) {

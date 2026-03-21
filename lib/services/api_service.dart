@@ -426,7 +426,46 @@ class ApiService {
   }
 
   // ==========================================
-  // 6. 工具方法 (Utilities)
+  // 6. 收藏夹 (Favorites)
+  // ==========================================
+
+  Future<List<Map<String, dynamic>>> fetchFavorites() async {
+    final response = await _dio.get('/favorites');
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(response.data);
+    }
+    throw Exception('Fetch Favorites Error');
+  }
+
+  Future<Map<String, dynamic>> addFavorite({
+    required int productId,
+    required String size,
+    required String temp,
+    required List<String> addons,
+    String? remark,
+  }) async {
+    final response = await _dio.post(
+      '/favorites',
+      data: {
+        'product_id': productId,
+        'size': size,
+        'temp': temp,
+        'addons': addons,
+        'remark': remark,
+      },
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return response.data;
+    }
+    throw Exception('Add Favorite Error');
+  }
+
+  Future<void> removeFavorite(int favoriteId) async {
+    await _dio.delete('/favorites/$favoriteId');
+  }
+
+  // ==========================================
+  // 7. 工具方法 (Utilities)
   // ==========================================
 
   /// 清理缓存。pattern 为空则清理全部，传入字符串则清理包含该 Key 的缓存。

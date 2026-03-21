@@ -1,6 +1,7 @@
 import 'product_model.dart';
 
 class FavoriteItem {
+  final int? id; // Backend ID
   final Product product;
   final String size;
   final String temp;
@@ -9,6 +10,7 @@ class FavoriteItem {
   final DateTime createdAt;
 
   FavoriteItem({
+    this.id,
     required this.product,
     required this.size,
     required this.temp,
@@ -19,6 +21,7 @@ class FavoriteItem {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'product': {
         'id': product.id,
         'name': product.name,
@@ -38,6 +41,7 @@ class FavoriteItem {
 
   factory FavoriteItem.fromJson(Map<String, dynamic> json) {
     return FavoriteItem(
+      id: json['id'],
       product: Product.fromJson(json['product']),
       size: json['size'] ?? 'Regular',
       temp: json['temp'] ?? 'Hot',
