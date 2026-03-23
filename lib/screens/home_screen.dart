@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
-import 'package:coffee_plus_app/screens/user/product_detail_screen.dart' as detail;
+import 'package:coffee_plus_app/screens/user/product_detail_screen.dart'
+    as detail;
 import '../models/category_model.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
@@ -24,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final FavoriteService _favoriteService = FavoriteService();
   late Future<Map<String, dynamic>> _dashboardData;
   String _selectedCategory = 'all';
+  Map<String, dynamic>? _cachedData;
   CancelToken? _cancelToken;
 
   // ==========================================
@@ -34,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _refreshData();
+    _apiService.updateNotificationCount();
     _apiService.authStateNotifier.addListener(_onAuthChanged);
   }
 
@@ -53,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedCategory = 'all';
       _refreshData(forceRefresh: true);
       _favoriteService.loadFavorites(); // Reload favorites upon login/logout
+      _apiService.updateNotificationCount();
     }
   }
 
@@ -60,14 +64,28 @@ class _HomeScreenState extends State<HomeScreen> {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
 
+    final fetchFuture = _apiService.fetchDashboard(
+      search: search,
+      category: 'all', // Always fetch all categories for client-side filtering
+      cancelToken: _cancelToken,
+      forceRefresh: forceRefresh,
+    );
+
     setState(() {
-      _dashboardData = _apiService.fetchDashboard(
-        search: search,
-        category: _selectedCategory,
-        cancelToken: _cancelToken,
-        forceRefresh: forceRefresh,
-      );
+      _dashboardData = fetchFuture;
     });
+
+    fetchFuture
+        .then((data) {
+          if (mounted) {
+            setState(() {
+              _cachedData = data;
+            });
+          }
+        })
+        .catchError((e) {
+          // Handle error if needed
+        });
   }
 
   // ==========================================
@@ -87,9 +105,21 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textMain,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded),
-            onPressed: () => Navigator.pushNamed(context, '/notifications'),
+          ValueListenableBuilder<int>(
+            valueListenable: _apiService.notificationCountNotifier,
+            builder: (context, count, _) {
+              return Badge(
+                label: Text(count.toString()),
+                isLabelVisible: count > 0,
+                backgroundColor: Colors.redAccent,
+                offset: const Offset(-4, 4),
+                child: IconButton(
+                  icon: const Icon(Icons.notifications_none_rounded),
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/notifications'),
+                ),
+              );
+            },
           ),
           const SizedBox(width: 8),
         ],
@@ -97,15 +127,21 @@ class _HomeScreenState extends State<HomeScreen> {
       body: FutureBuilder<Map<String, dynamic>>(
         future: _dashboardData,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          // Use cached data if available, even while loading
+          final data = _cachedData ?? snapshot.data;
+
+          if (data == null) {
+            if (snapshot.hasError) {
+              final error = snapshot.error;
+              // Ignore cancellation errors as a new request is likely in flight
+              if (error is DioException &&
+                  error.type == DioExceptionType.cancel) {
+                return _buildShimmerSkeleton();
+              }
+              return _buildErrorState(error.toString());
+            }
             return _buildShimmerSkeleton();
           }
-
-          if (snapshot.hasError) {
-            return _buildErrorState(snapshot.error.toString());
-          }
-
-          final data = snapshot.data ?? {};
 
           // 这里的 User 解析直接使用 snapshot 中的数据
           final user = User.fromJson(
@@ -114,9 +150,21 @@ class _HomeScreenState extends State<HomeScreen> {
           final bool isGuest = user.id == 0;
 
           final menusJson = data['menus'] as List? ?? [];
-          final categories = menusJson
+          List<Category> categories = menusJson
               .map((j) => Category.fromJson(j))
               .toList();
+
+          // Client-side filtering logic
+          if (_selectedCategory != 'all' &&
+              _selectedCategory != 'collections') {
+            categories = categories
+                .where(
+                  (c) =>
+                      c.name.toLowerCase() == _selectedCategory.toLowerCase(),
+                )
+                .toList();
+          }
+
           final allCategoryNames = List<String>.from(
             data['allCategoryNames'] ?? [],
           );
@@ -142,15 +190,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: _selectedCategory == 'collections'
                       ? _buildCollectionsList(data['options'])
                       : categories.isEmpty
-                          ? const Center(
-                              key: ValueKey('no-products'),
-                              child: Text("No products found"),
-                            )
-                          : _buildProductList(
-                              categories,
-                              options: data['options'],
-                              key: ValueKey(_selectedCategory),
-                            ),
+                      ? const Center(
+                          key: ValueKey('no-products'),
+                          child: Text("No products found"),
+                        )
+                      : _buildProductList(
+                          categories,
+                          options: data['options'],
+                          key: ValueKey(_selectedCategory),
+                        ),
                 ),
               ),
             ],
@@ -352,7 +400,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         children: [
           _buildCategoryChip('all', 'All Items'),
-          _buildCategoryChip('collections', 'Collections', icon: Icons.favorite),
+          _buildCategoryChip('collections', 'Collections'),
           ...allCategoryNames.map((name) => _buildCategoryChip(name, name)),
         ],
       ),
@@ -376,12 +424,9 @@ class _HomeScreenState extends State<HomeScreen> {
         onSelected: (selected) {
           if (selected) {
             setState(() => _selectedCategory = id);
-            if (id != 'collections') {
-              _refreshData();
-            }
           }
         },
-        selectedColor: id == 'collections' ? Colors.redAccent : AppColors.primary,
+        selectedColor: AppColors.primary,
         labelStyle: TextStyle(
           color: isSelected ? Colors.white : AppColors.textMain,
           fontWeight: FontWeight.w900,
@@ -393,8 +438,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildProductList(List<Category> categories,
-      {required Map<String, dynamic>? options, Key? key}) {
+  Widget _buildProductList(
+    List<Category> categories, {
+    required Map<String, dynamic>? options,
+    Key? key,
+  }) {
     return ListView.builder(
       key: key,
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -535,7 +583,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.favorite_border, size: 64, color: AppColors.border),
                 SizedBox(height: 16),
                 Text(
                   "No favorites yet",
@@ -557,7 +604,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.5,
-                  color: Colors.redAccent,
+                  color: AppColors.primary,
                 ),
               ),
             ),

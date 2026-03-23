@@ -24,7 +24,9 @@ class Product {
       name: json['name'] ?? '',
       description: json['description'] ?? '',
       imageUrl: json['image_url'] ?? '',
-      price: (json['base_price'] ?? 0).toDouble(),
+      price: json['base_price'] is num
+          ? (json['base_price'] as num).toDouble()
+          : double.tryParse(json['base_price']?.toString() ?? '0') ?? 0.0,
 
       isAvailable:
           json['is_available'] == 1 ||

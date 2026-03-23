@@ -15,6 +15,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
   final ApiService _apiService = ApiService();
   late Future<List<dynamic>> _notificationsFuture;
 
+  bool _isSelectionMode = false;
+  final Set<String> _selectedIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -34,14 +37,42 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          'NOTIFICATIONS',
-          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+        title: Text(
+          _isSelectionMode
+              ? "${_selectedIds.length} SELECTED"
+              : 'NOTIFICATIONS',
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
         ),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textMain,
+        leading: _isSelectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () {
+                  setState(() {
+                    _isSelectionMode = false;
+                    _selectedIds.clear();
+                  });
+                },
+              )
+            : null,
+        actions: [
+          if (_isSelectionMode)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              onPressed: _selectedIds.isEmpty ? null : _confirmDeleteSelected,
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_outlined, size: 22),
+              onPressed: () {
+                setState(() => _isSelectionMode = true);
+              },
+            ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -71,23 +102,109 @@ class _NotificationScreenState extends State<NotificationScreen> {
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final notification = notifications[index];
-                final data = notification['data'] as Map<String, dynamic>? ?? {};
-                final createdAt = DateTime.tryParse(notification['created_at'] ?? "")?.toLocal();
+                final data =
+                    notification['data'] as Map<String, dynamic>? ?? {};
+                final createdAt = DateTime.tryParse(
+                  notification['created_at'] ?? "",
+                )?.toLocal();
                 final bool isRead = notification['read_at'] != null;
+                final notificationId = notification['id']?.toString() ?? "";
+                final bool isSelected = _selectedIds.contains(notificationId);
 
                 return InkWell(
-                  onTap: () => _showNotificationDetails(notification),
+                  onTap: () {
+                    if (_isSelectionMode) {
+                      if (!isRead) {
+                        return;
+                      }
+                      setState(() {
+                        if (isSelected) {
+                          _selectedIds.remove(notificationId);
+                          debugPrint(
+                            "NotificationScreen: Deselected $notificationId",
+                          );
+                        } else {
+                          _selectedIds.add(notificationId);
+                          debugPrint(
+                            "NotificationScreen: Selected $notificationId",
+                          );
+                        }
+                      });
+                    } else {
+                      _showNotificationDetails(notification);
+                    }
+                  },
                   borderRadius: BorderRadius.circular(20),
                   child: _buildNotificationCard(
                     data['message'] ?? "New notification",
                     createdAt,
                     isRead,
+                    isSelected: isSelected,
+                    isSelectionMode: _isSelectionMode,
                   ),
                 );
               },
             );
           },
         ),
+      ),
+    );
+  }
+
+  void _confirmDeleteSelected() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          "Delete Selected?",
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        content: Text(
+          "Are you sure you want to delete ${_selectedIds.length} selected notification(s)?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("CANCEL", style: TextStyle(color: Colors.grey)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final idsToDelete = _selectedIds.toList();
+              try {
+                await _apiService.deleteNotifications(idsToDelete);
+
+                if (!context.mounted) return;
+                setState(() {
+                  _isSelectionMode = false;
+                  _selectedIds.clear();
+                });
+                _refreshNotifications();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Notifications deleted"),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("Error: $e"),
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text(
+              "DELETE",
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -175,13 +292,24 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
-  Widget _buildNotificationCard(String message, DateTime? time, bool isRead) {
+  Widget _buildNotificationCard(
+    String message,
+    DateTime? time,
+    bool isRead, {
+    bool isSelected = false,
+    bool isSelectionMode = false,
+  }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isSelected
+            ? AppColors.primary.withValues(alpha: 0.05)
+            : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(
+          color: isSelected ? AppColors.primary : AppColors.border,
+          width: isSelected ? 2 : 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.02),
@@ -193,10 +321,27 @@ class _NotificationScreenState extends State<NotificationScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (isSelectionMode) ...[
+            if (isRead)
+              Icon(
+                isSelected ? Icons.check_circle : Icons.radio_button_off,
+                color: isSelected ? AppColors.primary : AppColors.textMuted,
+                size: 24,
+              )
+            else
+              const Icon(
+                Icons.block,
+                color: Colors.transparent, // Placeholder for unread items
+                size: 24,
+              ),
+            const SizedBox(width: 15),
+          ],
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: isRead ? AppColors.background : AppColors.primary.withValues(alpha: 0.1),
+              color: isRead
+                  ? AppColors.background
+                  : AppColors.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -250,11 +395,18 @@ class _NotificationScreenState extends State<NotificationScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.notifications_none, size: 80, color: AppColors.textMuted.withValues(alpha: 0.3)),
+          Icon(
+            Icons.notifications_none,
+            size: 80,
+            color: AppColors.textMuted.withValues(alpha: 0.3),
+          ),
           const SizedBox(height: 16),
           const Text(
             "No notifications yet",
-            style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: AppColors.textMuted,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),

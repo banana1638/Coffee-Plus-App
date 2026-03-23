@@ -6,9 +6,9 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  final String baseUrl = "http://192.168.1.107/coffee_plus/public/api";
+  final String baseUrl = "http://192.168.1.106/coffee_plus/public/api";
   final String baseImageUrl =
-      "http://192.168.1.107/coffee_plus/public/images/products/";
+      "http://192.168.1.106/coffee_plus/public/images/products/";
 
   final Dio _dio = Dio();
   final _storage = const FlutterSecureStorage();
@@ -17,6 +17,7 @@ class ApiService {
 
   // 状态监听器
   final ValueNotifier<int> cartCountNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<int> notificationCountNotifier = ValueNotifier<int>(0);
   final ValueNotifier<bool> authStateNotifier = ValueNotifier<bool>(false);
 
   // 内存缓存
@@ -48,6 +49,7 @@ class ApiService {
             _sessionToken = null;
             authStateNotifier.value = false;
             cartCountNotifier.value = 0;
+            notificationCountNotifier.value = 0;
           }
           return handler.next(e);
         },
@@ -72,6 +74,7 @@ class ApiService {
       final response = await _dio.get('/profile');
       if (response.statusCode == 200) {
         updateCartCount();
+        updateNotificationCount();
         authStateNotifier.value = true;
         return true;
       }
@@ -100,6 +103,8 @@ class ApiService {
           _sessionToken = token;
         }
         clearCache(); // 登录后清除旧缓存
+        updateCartCount();
+        updateNotificationCount();
         authStateNotifier.value = true;
         return {'success': true};
       }
@@ -153,6 +158,7 @@ class ApiService {
       await _storage.delete(key: 'auth_token');
       clearCache();
       cartCountNotifier.value = 0;
+      notificationCountNotifier.value = 0;
       authStateNotifier.value = false;
     }
   }
@@ -187,6 +193,11 @@ class ApiService {
       }
       throw Exception("Status ${response.statusCode}");
     } catch (e) {
+      debugPrint("ApiService.fetchDashboard ERROR: $e");
+      if (e is DioException) {
+        debugPrint("Dio Error Type: ${e.type}");
+        debugPrint("Response Data: ${e.response?.data}");
+      }
       if (token == null) {
         return {
           'menus': [],
@@ -223,6 +234,24 @@ class ApiService {
       }
       final cartData = await fetchCart();
       cartCountNotifier.value = (cartData['cartItems'] as List).length;
+    } catch (e) {
+      // Ignore background sync errors
+    }
+  }
+
+  Future<void> updateNotificationCount() async {
+    try {
+      final token = await getToken();
+      if (token == null) {
+        notificationCountNotifier.value = 0;
+        return;
+      }
+      final data = await fetchNotifications();
+      final notifications = data['notifications'] as List? ?? [];
+      final unreadCount = notifications
+          .where((n) => n['read_at'] == null)
+          .length;
+      notificationCountNotifier.value = unreadCount;
     } catch (e) {
       // Ignore background sync errors
     }
@@ -369,9 +398,15 @@ class ApiService {
   // ==========================================
 
   Future<Map<String, dynamic>> fetchNotifications() async {
+    const cacheKey = 'notifications';
+    if (_cache.containsKey(cacheKey)) {
+      return _cache[cacheKey];
+    }
+
     final response = await _dio.get('/profile/notifications');
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = response.data;
+      _cache[cacheKey] = data;
       List<dynamic> notifications = List.from(data['notifications'] ?? []);
 
       if (notifications.isEmpty) return data;
@@ -423,6 +458,42 @@ class ApiService {
 
   Future<void> markNotificationAsRead(String id) async {
     await _dio.post('/profile/notifications/$id/read');
+    _cache.removeWhere((key, value) => key.contains('notifications'));
+    updateNotificationCount();
+  }
+
+  Future<void> deleteReadNotifications() async {
+    try {
+      await _dio.post('/profile/notifications/delete-read');
+      _cache.removeWhere((key, value) => key.contains('notifications'));
+      updateNotificationCount();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> deleteNotifications(List<String> ids) async {
+    try {
+      final response = await _dio.post(
+        '/profile/notifications/batch-delete',
+        data: {'ids': ids},
+      );
+      if (response.statusCode == 200) {
+        _cache.removeWhere((key, value) => key.contains('notifications'));
+        await updateNotificationCount();
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> deleteNotification(String id) async {
+    try {
+      await _dio.post('/profile/notifications/$id/delete');
+      updateNotificationCount();
+    } catch (e) {
+      rethrow;
+    }
   }
 
   // ==========================================

@@ -14,10 +14,11 @@ class Category {
   });
 
   factory Category.fromJson(Map<String, dynamic> json) {
-    var productList = json['products'] as List? ?? [];
-    List<Product> products = productList
-        .map((i) => Product.fromJson(i))
-        .toList();
+    final dynamic productListData = json['products'];
+    List<Product> products = [];
+    if (productListData is Iterable) {
+      products = productListData.map((i) => Product.fromJson(i)).toList();
+    }
 
     return Category(
       id: json['category_id'] ?? 0,

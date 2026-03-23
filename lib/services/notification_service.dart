@@ -59,12 +59,11 @@ class NotificationService with WidgetsBindingObserver {
   Future<void> _connectReverb() async {
     try {
       _reverbClient = ReverbClient.instance(
-        host: '192.168.1.107',
+        host: '192.168.1.106',
         port: 8080,
         appKey: "coffepluskey123",
         useTLS: false,
-        authEndpoint:
-            'http://192.168.1.107/coffee_plus/public/broadcasting/auth',
+        authEndpoint: 'http://192.168.1.106/coffee_plus/broadcasting/auth',
         authorizer: (channelName, socketId) async {
           final token = await _apiService.getToken();
           if (kDebugMode) print("Authorizing channel: $channelName");
@@ -78,18 +77,27 @@ class NotificationService with WidgetsBindingObserver {
             print("Reverb Connected successfully! Socket ID: $socketId");
           }
         },
-        onDisconnected: () {
+        onDisconnected: () async {
           if (kDebugMode) {
-            print("Reverb Disconnected. Attempting to reconnect...");
+            print("Reverb Disconnected. Waiting 5s to reconnect...");
           }
-          _reverbClient?.connect();
+          await Future.delayed(const Duration(seconds: 5));
+          try {
+            await _reverbClient?.connect();
+          } catch (e) {
+            if (kDebugMode) print("Reverb Reconnection Error: $e");
+          }
         },
         onError: (error) {
           if (kDebugMode) print("Reverb Connection Error: $error");
         },
       );
 
-      await _reverbClient?.connect();
+      try {
+        await _reverbClient?.connect();
+      } catch (e) {
+        if (kDebugMode) print("Reverb Initial Connect Error: $e");
+      }
 
       _apiService.authStateNotifier.removeListener(_handleAuthChange);
       _apiService.authStateNotifier.addListener(_handleAuthChange);
@@ -173,6 +181,7 @@ class NotificationService with WidgetsBindingObserver {
         final message = decoded['message'] ?? "You have a new notification";
         _showLocalNotification("Order Notification", message, payload: data);
       }
+      _apiService.updateNotificationCount();
     } catch (e) {
       if (kDebugMode) print("Error processing notification event: $e");
     }

@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../models/cart_item_model.dart';
 import '../../models/user_model.dart';
 import '../../services/biometric_service.dart';
+import '../../widgets/auth_modal.dart';
 
 class CartIndexScreen extends StatefulWidget {
   const CartIndexScreen({super.key});
@@ -113,6 +114,14 @@ class CartIndexScreenState extends State<CartIndexScreen> {
 
   /// 处理结算
   Future<void> _handleCheckout() async {
+    // 0. Ensure user is logged in
+    if (!_apiService.authStateNotifier.value) {
+      await AuthModal.show(context);
+      if (!_apiService.authStateNotifier.value) return;
+      // If just logged in, we need to refresh to get user balance/info
+      await refreshData();
+    }
+
     if (_user == null) return;
 
     // 检查余额

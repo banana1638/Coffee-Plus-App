@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import 'package:flutter/services.dart';
 import '../../models/favorite_model.dart';
 import '../../services/favorite_service.dart';
+import '../../widgets/auth_modal.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   static Future<void> show(
@@ -123,6 +124,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _handleAddToCart() async {
+    // 0. Ensure user is logged in
+    if (!ApiService().authStateNotifier.value) {
+      await AuthModal.show(context);
+      if (!ApiService().authStateNotifier.value) return;
+    }
+
     setState(() => _isAdding = true);
     try {
       await ApiService().addToCart(
@@ -156,34 +163,104 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     final bool currentlySaved = _favoriteService.isFavorite(uniqueId);
 
-    setState(() => _isFavoriting = true);
-    
-    try {
-      if (currentlySaved) {
-        // 取消收藏 (Unfavorite)
+    if (currentlySaved) {
+      setState(() => _isFavoriting = true);
+      try {
         await _favoriteService.removeFavorite(uniqueId);
         if (mounted) _showSnackBar("Removed from Collections", isError: false);
-      } else {
-        // 保存收藏 (Save favorite)
-        final item = FavoriteItem(
-          product: widget.product,
-          size: selectedSize,
-          temp: selectedTemp,
-          addons: selectedAddons,
-          remark: _remarkController.text,
-          createdAt: DateTime.now(),
-        );
-        await _favoriteService.saveFavorite(item);
-        if (mounted) {
-          _showSnackBar("Saved to Collections!", isError: false);
-          HapticFeedback.mediumImpact();
-        }
+      } catch (e) {
+        if (mounted) _showSnackBar("Error: $e", isError: true);
+      } finally {
+        if (mounted) setState(() => _isFavoriting = false);
       }
-    } catch (e) {
-      if (mounted) _showSnackBar("Error: $e", isError: true);
-    } finally {
-      if (mounted) setState(() => _isFavoriting = false);
+    } else {
+      _showRemarkDialog();
     }
+  }
+
+  void _showRemarkDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+          title: const Text(
+            "Add to Collection",
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Add a note for this customized selection (optional):",
+                style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: TextField(
+                  controller: _remarkController,
+                  maxLines: 2,
+                  style: const TextStyle(fontSize: 14),
+                  decoration: const InputDecoration(
+                    hintText: "E.g., My morning espresso...",
+                    hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                setState(() => _isFavoriting = true);
+                try {
+                  final item = FavoriteItem(
+                    product: widget.product,
+                    size: selectedSize,
+                    temp: selectedTemp,
+                    addons: selectedAddons,
+                    remark: _remarkController.text,
+                    createdAt: DateTime.now(),
+                  );
+                  await _favoriteService.saveFavorite(item);
+                  if (mounted) {
+                    _showSnackBar("Saved to Collections!", isError: false);
+                    HapticFeedback.mediumImpact();
+                  }
+                } catch (e) {
+                  if (mounted) _showSnackBar("Error: $e", isError: true);
+                } finally {
+                  if (mounted) setState(() => _isFavoriting = false);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                "Save",
+                style:
+                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // ==========================================
@@ -223,9 +300,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       _buildAddonSelector(),
 
                       const SizedBox(height: 20),
-                      // 只有当点击了收藏，或者原本就是通过收藏进来的，才显示备注框以节省空间
-                      // 或者直接显示，但加上明确的标题
-                      _buildFavoriteRemarkSection(),
 
                       const SizedBox(height: 140), // 为底部悬浮按钮留出空间
                     ],
@@ -573,109 +647,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: Container(
         padding: const EdgeInsets.all(8),
         child: Icon(icon, size: 18, color: AppColors.textMain),
-      ),
-    );
-  }
-
-  Widget _buildFavoriteRemarkSection() {
-    return ValueListenableBuilder(
-      valueListenable: _favoriteService.favoritesNotifier,
-      builder: (context, favorites, _) {
-        final String currentId = FavoriteItem(
-          product: widget.product,
-          size: selectedSize,
-          temp: selectedTemp,
-          addons: selectedAddons,
-          remark: '',
-          createdAt: DateTime.now(),
-        ).uniqueId;
-        final bool isSaved = _favoriteService.isFavorite(currentId);
-
-        return AnimatedOpacity(
-          duration: const Duration(milliseconds: 300),
-          opacity: 1.0, // 总是显示，但样式随状态改变
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _buildSectionTitle("REMARK FOR COLLECTION"),
-                  const SizedBox(width: 8),
-                  if (isSaved)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Text(
-                        "SAVED",
-                        style: TextStyle(color: Colors.redAccent, fontSize: 9, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                ],
-              ),
-              _buildRemarkField(),
-              if (isSaved)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8, left: 4),
-                  child: Text(
-                    "This remark will be updated in your collections automatically.",
-                    style: TextStyle(color: AppColors.textMuted.withValues(alpha: 0.6), fontSize: 10),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildRemarkField() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: _remarkController,
-        maxLines: 1, // 保持简洁
-        onChanged: (val) {
-          // 如果已经是收藏状态，实时更新备注
-          final String currentId = FavoriteItem(
-            product: widget.product,
-            size: selectedSize,
-            temp: selectedTemp,
-            addons: selectedAddons,
-            remark: '',
-            createdAt: DateTime.now(),
-          ).uniqueId;
-          if (_favoriteService.isFavorite(currentId)) {
-            _favoriteService.saveFavorite(FavoriteItem(
-              product: widget.product,
-              size: selectedSize,
-              temp: selectedTemp,
-              addons: selectedAddons,
-              remark: val,
-              createdAt: DateTime.now(),
-            ));
-          }
-        },
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-        decoration: const InputDecoration(
-          hintText: "Add a note for this favorite...",
-          hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 12),
-          border: InputBorder.none,
-          icon: Icon(Icons.edit_note_rounded, color: AppColors.textMuted, size: 20),
-        ),
       ),
     );
   }
