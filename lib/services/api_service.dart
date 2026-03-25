@@ -212,9 +212,7 @@ class ApiService {
   Future<Map<String, dynamic>> checkoutWithOz(List<int> useOzIds) async {
     try {
       final response = await _dio.post('/checkout', data: {'use_oz': useOzIds});
-      _cache.remove('/dashboard');
-      _cache.remove('/cart');
-      _cache.remove('/profile');
+      clearCache(); // 清除所有缓存，确保首页余额和购物车刷新
       return response.data;
     } on DioException catch (e) {
       throw e.response?.data['message'] ?? "Checkout failed";
@@ -284,21 +282,21 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> updateCartItem(
-    int productId,
+    int cartItemId,
     int quantity,
   ) async {
     final response = await _dio.post(
       '/cart/update',
-      data: {'product_id': productId, 'quantity': quantity},
+      data: {'cart_item_id': cartItemId, 'quantity': quantity},
     );
     if (response.statusCode == 200) return response.data;
     throw Exception('Update Cart Error');
   }
 
-  Future<Map<String, dynamic>> removeFromCart(int productId) async {
+  Future<Map<String, dynamic>> removeFromCart(int cartItemId) async {
     final response = await _dio.post(
       '/cart/remove',
-      data: {'product_id': productId},
+      data: {'cart_item_id': cartItemId},
     );
     if (response.statusCode == 200) {
       updateCartCount();
@@ -390,6 +388,13 @@ class ApiService {
       '/profile/delete',
       data: {'password': password},
     );
+    // 清理 auth 状态，与 logout 保持一致
+    _sessionToken = null;
+    await _storage.delete(key: 'auth_token');
+    clearCache();
+    cartCountNotifier.value = 0;
+    notificationCountNotifier.value = 0;
+    authStateNotifier.value = false;
     return response.data;
   }
 
@@ -406,10 +411,12 @@ class ApiService {
     final response = await _dio.get('/profile/notifications');
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = response.data;
-      _cache[cacheKey] = data;
       List<dynamic> notifications = List.from(data['notifications'] ?? []);
 
-      if (notifications.isEmpty) return data;
+      if (notifications.isEmpty) {
+        _cache[cacheKey] = data;
+        return data;
+      }
 
       final now = DateTime.now();
       final thirtyDaysAgo = now.subtract(const Duration(days: 30));
@@ -451,7 +458,9 @@ class ApiService {
         });
       }
 
-      return {...data, 'notifications': notifications};
+      final filteredData = {...data, 'notifications': notifications};
+      _cache[cacheKey] = filteredData; // 缓存过滤后的数据
+      return filteredData;
     }
     throw Exception('Fetch Notifications Error');
   }

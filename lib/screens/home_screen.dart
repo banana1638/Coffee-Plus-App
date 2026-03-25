@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:coffee_plus_app/screens/user/product_detail_screen.dart'
     as detail;
@@ -27,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedCategory = 'all';
   Map<String, dynamic>? _cachedData;
   CancelToken? _cancelToken;
+  Timer? _debounceTimer;
 
   // ==========================================
   // 1. 生命周期管理 (Lifecycle)
@@ -44,6 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _apiService.authStateNotifier.removeListener(_onAuthChanged);
     _cancelToken?.cancel();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
@@ -115,8 +118,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 offset: const Offset(-4, 4),
                 child: IconButton(
                   icon: const Icon(Icons.notifications_none_rounded),
-                  onPressed: () =>
-                      Navigator.pushNamed(context, '/notifications'),
+                  onPressed: () {
+                    if (_apiService.authStateNotifier.value) {
+                      Navigator.pushNamed(context, '/notifications');
+                    } else {
+                      AuthModal.show(context);
+                    }
+                  },
                 ),
               );
             },
@@ -388,7 +396,12 @@ class _HomeScreenState extends State<HomeScreen> {
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(vertical: 12),
         ),
-        onChanged: (value) => _refreshData(search: value),
+        onChanged: (value) {
+          _debounceTimer?.cancel();
+          _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+            _refreshData(search: value);
+          });
+        },
       ),
     );
   }

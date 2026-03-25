@@ -139,33 +139,35 @@ class OrderDetailScreen extends StatelessWidget {
 
                         // 优惠券折扣
                         if (orderData['coupon_discount'] != null &&
-                            double.parse(
+                            (double.tryParse(
                                   orderData['coupon_discount'].toString(),
-                                ) >
+                                ) ??
+                                0) >
                                 0) ...[
                           _buildRowDetail(
                             "COUPON DISCOUNT",
-                            "-RM ${double.parse(orderData['coupon_discount'].toString()).toStringAsFixed(2)}",
+                            "-RM ${(double.tryParse(orderData['coupon_discount'].toString()) ?? 0).toStringAsFixed(2)}",
                           ),
                           const SizedBox(height: 12),
                         ],
 
                         // 积分抵扣
                         if (orderData['points_discount'] != null &&
-                            double.parse(
+                            (double.tryParse(
                                   orderData['points_discount'].toString(),
-                                ) >
+                                ) ??
+                                0) >
                                 0) ...[
                           _buildRowDetail(
                             "POINTS DISCOUNT",
-                            "-RM ${double.parse(orderData['points_discount'].toString()).toStringAsFixed(2)}",
+                            "-RM ${(double.tryParse(orderData['points_discount'].toString()) ?? 0).toStringAsFixed(2)}",
                           ),
                           const SizedBox(height: 12),
                         ],
 
                         // 储水箱/OZ 使用显示
                         if (orderData['oz_used'] != null &&
-                            double.parse(orderData['oz_used'].toString()) >
+                            (double.tryParse(orderData['oz_used'].toString()) ?? 0) >
                                 0) ...[
                           _buildTankDeduction(orderData['oz_used']),
                           const SizedBox(height: 24),

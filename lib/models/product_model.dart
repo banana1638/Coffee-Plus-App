@@ -30,16 +30,17 @@ class Product {
           ? (json['base_price'] as num).toDouble()
           : double.tryParse(json['base_price']?.toString() ?? '0') ?? 0.0,
 
-      isAvailable:
-          json['is_available'] == 1 ||
-          json['is_available'] == true ||
-          json['is_available'].toString() == "1",
+      isAvailable: json['is_available'] == null
+          ? true
+          : json['is_available'] == 1 ||
+                json['is_available'] == true ||
+                json['is_available'].toString() == "1",
 
       options: json['options'],
       addons: json['addons'] != null
           ? (json['addons'] as List)
-              .map((addon) => ProductAddon.fromJson(addon))
-              .toList()
+                .map((addon) => ProductAddon.fromJson(addon))
+                .toList()
           : null,
     );
   }
@@ -50,11 +51,7 @@ class ProductAddon {
   final String name;
   final double price;
 
-  ProductAddon({
-    required this.id,
-    required this.name,
-    required this.price,
-  });
+  ProductAddon({required this.id, required this.name, required this.price});
 
   factory ProductAddon.fromJson(Map<String, dynamic> json) {
     return ProductAddon(
@@ -67,10 +64,6 @@ class ProductAddon {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'price': price,
-    };
+    return {'id': id, 'name': name, 'price': price};
   }
 }

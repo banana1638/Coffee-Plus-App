@@ -18,6 +18,7 @@ class ProfileScreenState extends State<ProfileScreen> {
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _deletePasswordController = TextEditingController();
 
   User? _user;
   bool _isLoading = false;
@@ -42,6 +43,7 @@ class ProfileScreenState extends State<ProfileScreen> {
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
+    _deletePasswordController.dispose();
     super.dispose();
   }
 
@@ -606,7 +608,7 @@ class ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 24),
             _buildTextField(
               "Password",
-              _confirmPasswordController,
+              _deletePasswordController,
               isPassword: true,
             ),
             const SizedBox(height: 32),
@@ -624,7 +626,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                     onPressed: _isLoading
                         ? null
                         : () => _handleDeleteAccount(
-                            _confirmPasswordController.text,
+                            _deletePasswordController.text,
                           ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,

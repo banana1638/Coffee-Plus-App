@@ -14,6 +14,9 @@ class NotificationService with WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
   ReverbClient? _reverbClient;
   bool _isInitialized = false;
+  int _reconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 5;
+  int? _currentSubscribedUserId;
 
   NotificationService._internal() {
     WidgetsBinding.instance.addObserver(this);
@@ -73,15 +76,24 @@ class NotificationService with WidgetsBindingObserver {
           };
         },
         onConnected: (socketId) {
+          _reconnectAttempts = 0; // 重置重连计数
           if (kDebugMode) {
             print("Reverb Connected successfully! Socket ID: $socketId");
           }
         },
         onDisconnected: () async {
-          if (kDebugMode) {
-            print("Reverb Disconnected. Waiting 5s to reconnect...");
+          if (_reconnectAttempts >= _maxReconnectAttempts) {
+            if (kDebugMode) {
+              print("Reverb: Max reconnect attempts reached. Giving up.");
+            }
+            return;
           }
-          await Future.delayed(const Duration(seconds: 5));
+          _reconnectAttempts++;
+          final delay = Duration(seconds: 5 * _reconnectAttempts); // 指数退避
+          if (kDebugMode) {
+            print("Reverb Disconnected. Attempt $_reconnectAttempts/$_maxReconnectAttempts. Retrying in ${delay.inSeconds}s...");
+          }
+          await Future.delayed(delay);
           try {
             await _reverbClient?.connect();
           } catch (e) {
@@ -124,11 +136,14 @@ class NotificationService with WidgetsBindingObserver {
     if (_apiService.authStateNotifier.value) {
       final profile = await _apiService.fetchProfile();
       final userId = profile['user']?['id'];
-      if (userId != null) {
+      if (userId != null && userId != _currentSubscribedUserId) {
+        _unsubscribeAll(); // 先取消旧订阅
         _subscribeToUserChannel(userId);
+        _currentSubscribedUserId = userId;
       }
     } else {
       _unsubscribeAll();
+      _currentSubscribedUserId = null;
     }
   }
 
@@ -215,7 +230,7 @@ class NotificationService with WidgetsBindingObserver {
 
     try {
       await _localNotifications.show(
-        DateTime.now().millisecond,
+        DateTime.now().microsecondsSinceEpoch % 2147483647,
         title,
         body,
         platformDetails,

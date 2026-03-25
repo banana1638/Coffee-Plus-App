@@ -48,10 +48,9 @@ class FavoriteItem {
       temp: json['temp'] ?? 'Hot',
       addons: List<String>.from(json['addons'] ?? []),
       remark: json['remark'] ?? '',
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
     );
   }
 
-  // Create a unique ID for this specific combination
   String get uniqueId => "${product.id}_${size}_${temp}_${addons.join('_')}";
 }

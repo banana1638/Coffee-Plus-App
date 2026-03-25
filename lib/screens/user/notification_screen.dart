@@ -152,9 +152,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   void _confirmDeleteSelected() {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           "Delete Selected?",
@@ -165,23 +166,23 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text("CANCEL", style: TextStyle(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               final idsToDelete = _selectedIds.toList();
               try {
                 await _apiService.deleteNotifications(idsToDelete);
 
-                if (!context.mounted) return;
+                if (!mounted) return;
                 setState(() {
                   _isSelectionMode = false;
                   _selectedIds.clear();
                 });
                 _refreshNotifications();
-                ScaffoldMessenger.of(context).showSnackBar(
+                scaffoldMessenger.showSnackBar(
                   const SnackBar(
                     content: Text("Notifications deleted"),
                     behavior: SnackBarBehavior.floating,
@@ -189,8 +190,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   ),
                 );
               } catch (e) {
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
+                if (!mounted) return;
+                scaffoldMessenger.showSnackBar(
                   SnackBar(
                     content: Text("Error: $e"),
                     behavior: SnackBarBehavior.floating,
@@ -284,7 +285,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     // Mark as read if it's currently unread
     if (!isRead) {
       try {
-        await _apiService.markNotificationAsRead(notification['id']);
+        await _apiService.markNotificationAsRead(notification['id'].toString());
         _refreshNotifications();
       } catch (e) {
         debugPrint("Error marking notification as read: $e");

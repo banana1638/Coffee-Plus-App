@@ -22,16 +22,16 @@ class FavoriteService {
     // 1. Always load local first for immediate display
     final prefs = await SharedPreferences.getInstance();
     final String? favoritesJson = prefs.getString(_storageKey);
+    List<FavoriteItem> localFavorites = [];
     if (favoritesJson != null) {
       final List<dynamic> decoded = jsonDecode(favoritesJson);
-      favoritesNotifier.value = decoded
+      localFavorites = decoded
           .map((item) => FavoriteItem.fromJson(item as Map<String, dynamic>))
           .toList();
-    } else {
-      favoritesNotifier.value = [];
     }
+    favoritesNotifier.value = localFavorites;
 
-    // 2. If logged in, sync from backend
+    // 2. If logged in, sync from backend (replaces local with server truth)
     if (_apiService.authStateNotifier.value) {
       try {
         final backendData = await _apiService.fetchFavorites();
@@ -39,12 +39,11 @@ class FavoriteService {
             .map((item) => FavoriteItem.fromJson(item))
             .toList();
         
-        // Merge or replace? For simplicity, we'll replace with backend truth
-        // as the backend is the source of truth for logged-in users.
         favoritesNotifier.value = backendFavorites;
         await _persist();
       } catch (e) {
         debugPrint("Error syncing favorites from backend: $e");
+        // 后端失败时保留本地数据，不做额外更新
       }
     }
   }

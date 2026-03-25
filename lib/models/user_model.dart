@@ -25,7 +25,9 @@ class User {
       name: json['name'] ?? 'GUEST',
       email: json['email'] ?? '',
       balance: (json['balance'] ?? 0).toDouble(),
-      oz: json['oz'] ?? 0,
+      oz: json['oz'] is int
+          ? json['oz']
+          : int.tryParse(json['oz']?.toString() ?? '0') ?? 0,
     );
   }
 }

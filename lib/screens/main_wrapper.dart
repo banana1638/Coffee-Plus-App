@@ -122,15 +122,7 @@ class _MainWrapperState extends State<MainWrapper> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 使用 AnimatedSwitcher 为页面切换增加淡入淡出效果
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        child: IndexedStack(
-          key: ValueKey<int>(_selectedIndex),
-          index: _selectedIndex,
-          children: _screens,
-        ),
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: _buildBottomNavigation(),
     );
   }
@@ -139,7 +131,6 @@ class _MainWrapperState extends State<MainWrapper> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        // 顶部大圆角，增加现代感
         borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
         boxShadow: [
           BoxShadow(
@@ -164,7 +155,6 @@ class _MainWrapperState extends State<MainWrapper> {
               backgroundColor: Colors.transparent,
               elevation: 0,
               selectedItemColor: AppColors.primary,
-              // 修复 3: 同样使用 .withValues
               unselectedItemColor: AppColors.textMuted.withValues(alpha: 0.4),
               showSelectedLabels: true,
               showUnselectedLabels: true,
