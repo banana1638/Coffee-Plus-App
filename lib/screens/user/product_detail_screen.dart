@@ -84,6 +84,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   List<Map<String, dynamic>> get addonOptions {
+    if (widget.product.addons != null && widget.product.addons!.isNotEmpty) {
+      return widget.product.addons!
+          .map((addon) => {
+                'name': addon.name,
+                'price': addon.price,
+              })
+          .toList();
+    }
+    
     if (widget.dynamicOptions != null &&
         widget.dynamicOptions!['add_ons'] != null) {
       return List<Map<String, dynamic>>.from(widget.dynamicOptions!['add_ons']);

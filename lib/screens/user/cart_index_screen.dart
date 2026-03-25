@@ -304,6 +304,17 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                         fontSize: 16,
                       ),
                     ),
+                    if (item.addons.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          "Add-ons: ${item.addons.join(', ')}",
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 4),
                     _buildItemPrice(item),
                   ],

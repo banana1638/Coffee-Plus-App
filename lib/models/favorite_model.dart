@@ -30,6 +30,7 @@ class FavoriteItem {
         'base_price': product.price,
         'is_available': product.isAvailable,
         'options': product.options,
+        'addons': product.addons?.map((a) => a.toJson()).toList(),
       },
       'size': size,
       'temp': temp,
