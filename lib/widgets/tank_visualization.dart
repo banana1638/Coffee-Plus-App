@@ -146,35 +146,51 @@ class _WavePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
+    final yOffset = size.height * (1 - progress);
+    final waveAmplitude = progress > 0 && progress < 1 ? 6.0 : 0.0; // 稍微增加振幅
+
+    // Layer 1: Front wave (Solid)
+    final paint1 = Paint()
       ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFF60A5FA), Color(0xFF1D4ED8)],
+        colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)], // 更亮一点的蓝色
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
-    final path = Path();
-    final yOffset = size.height * (1 - progress);
-
-    // Wave animation logic
-    final waveAmplitude = progress > 0 && progress < 1 ? 4.0 : 0.0;
-
-    path.moveTo(0, yOffset);
+    final path1 = Path();
+    path1.moveTo(0, yOffset);
     for (double i = 0; i <= size.width; i++) {
-      path.lineTo(
+      path1.lineTo(
         i,
         yOffset +
-            math.sin(
-                  (i / size.width * 2 * math.pi) + (waveValue * 2 * math.pi),
-                ) *
+            math.sin((i / size.width * 2 * math.pi) + (waveValue * 2 * math.pi)) *
                 waveAmplitude,
       );
     }
-    path.lineTo(size.width, size.height);
-    path.lineTo(0, size.height);
-    path.close();
+    path1.lineTo(size.width, size.height);
+    path1.lineTo(0, size.height);
+    path1.close();
 
-    canvas.drawPath(path, paint);
+    // Layer 2: Back wave (Semi-transparent)
+    final paint2 = Paint()
+      ..color = const Color(0xFF60A5FA).withValues(alpha: 0.5);
+
+    final path2 = Path();
+    path2.moveTo(0, yOffset);
+    for (double i = 0; i <= size.width; i++) {
+      path2.lineTo(
+        i,
+        yOffset +
+            math.cos((i / size.width * 2 * math.pi) + (waveValue * 2 * math.pi)) *
+                waveAmplitude,
+      );
+    }
+    path2.lineTo(size.width, size.height);
+    path2.lineTo(0, size.height);
+    path2.close();
+
+    canvas.drawPath(path2, paint2);
+    canvas.drawPath(path1, paint1);
   }
 
   @override

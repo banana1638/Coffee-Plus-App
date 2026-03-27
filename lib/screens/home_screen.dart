@@ -13,6 +13,10 @@ import '../widgets/tank_visualization.dart';
 import '../widgets/shimmer_loading.dart';
 import '../services/favorite_service.dart';
 import '../models/favorite_model.dart';
+import '../widgets/coffee_loading_overlay.dart';
+import '../widgets/active_order_card.dart';
+import '../models/transaction_model.dart';
+import 'user/order_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -73,6 +77,12 @@ class _HomeScreenState extends State<HomeScreen> {
       cancelToken: _cancelToken,
       forceRefresh: forceRefresh,
     );
+
+    if (forceRefresh || _cachedData == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        CoffeeLoadingOverlay.show(context, fetchFuture);
+      });
+    }
 
     setState(() {
       _dashboardData = fetchFuture;
@@ -162,6 +172,16 @@ class _HomeScreenState extends State<HomeScreen> {
               .map((j) => Category.fromJson(j))
               .toList();
 
+          final List<dynamic> transactionsJson = data['transactions'] ?? [];
+          final List<Transaction> transactions = transactionsJson
+              .map((j) => Transaction.fromJson(j))
+              .toList();
+
+          // 寻找最近的订单 (usage 类型)
+          final activeOrder = transactions.isNotEmpty && transactions.first.type == 'usage' 
+              ? transactions.first 
+              : null;
+
           // Client-side filtering logic
           if (_selectedCategory != 'all' &&
               _selectedCategory != 'collections') {
@@ -184,6 +204,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.all(16.0),
                 child: _buildDashboardHeader(isGuest, user),
               ),
+              if (activeOrder != null)
+                ActiveOrderCard(
+                  order: activeOrder,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => OrderDetailScreen(order: activeOrder.rawJson),
+                    ),
+                  ),
+                ),
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16.0,
@@ -250,10 +280,14 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildStatItem("Coffee Tank", "${user.oz} oz", AppColors.primary),
+              _buildStatItem(
+                'COFFEE TANK',
+                "${user.oz} oz",
+                AppColors.primary,
+              ),
               const SizedBox(height: 8),
               _buildStatItem(
-                "Balance",
+                'CASH BALANCE',
                 "RM ${user.balance.toStringAsFixed(2)}",
                 AppColors.textMain,
               ),
@@ -264,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             const Text(
-              "Welcome,",
+              'Welcome,',
               style: TextStyle(fontSize: 12, color: AppColors.textMuted),
             ),
             Text(
@@ -288,7 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               ),
               child: const Text(
-                "MANAGE",
+                'MANAGE',
                 style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
               ),
             ),
@@ -390,7 +424,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: TextField(
         decoration: const InputDecoration(
-          hintText: "Search coffee...",
+          hintText: 'Search coffee...',
           hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 13),
           prefixIcon: Icon(Icons.search, size: 20, color: AppColors.textMuted),
           border: InputBorder.none,

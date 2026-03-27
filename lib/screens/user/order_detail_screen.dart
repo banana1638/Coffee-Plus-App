@@ -62,13 +62,13 @@ class OrderDetailScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildRowDetail(
-                          "BILL ID",
+                          'BILL ID',
                           orderData['bill_id']?.toString() ?? 'N/A',
                           isBold: true,
                         ),
                         const SizedBox(height: 12),
                         _buildRowDetail(
-                          "DATE",
+                          'DATE',
                           orderData['created_at']?.toString() ?? '-',
                           isBold: true,
                         ),
@@ -77,11 +77,12 @@ class OrderDetailScreen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text(
-                              "STATUS",
+                              'STATUS',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w900,
-                                color: Colors.grey,
+                                color: Colors.grey, // Assuming AppColors.textMuted is Colors.grey or similar
+                                letterSpacing: 1.5,
                               ),
                             ),
                             const SizedBox(width: 8),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'coffee_loading_overlay.dart';
 import '../services/api_service.dart';
 import '../core/app_colors.dart';
 
@@ -224,10 +225,7 @@ class _AuthModalState extends State<AuthModal> {
                     ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
+                        child: CoffeeLoadingIndicator(size: 20),
                       )
                     : Text(
                         isLogin ? "SIGN IN" : "SIGN UP",

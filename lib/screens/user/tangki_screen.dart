@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/app_colors.dart';
 import '../../widgets/tank_visualization.dart';
+import '../../widgets/coffee_loading_overlay.dart';
 import '../../services/api_service.dart';
 import '../../models/transaction_model.dart';
 import '../../models/user_model.dart';
@@ -106,7 +107,7 @@ class TangkiScreenState extends State<TangkiScreen> {
         future: _tangkiData,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CoffeeLoadingIndicator());
           }
 
           if (!snapshot.hasData || snapshot.data!['user'] == null) {
@@ -128,6 +129,8 @@ class TangkiScreenState extends State<TangkiScreen> {
                 key: ValueKey(snapshot.data.hashCode),
                 children: [
                   _buildTankCard(user.oz.toDouble(), user.balance),
+                  const SizedBox(height: 16),
+                  _buildActionButtons(user.oz),
                   const SizedBox(height: 24),
                   _buildRefillSection(),
                   const SizedBox(height: 24),
@@ -263,7 +266,7 @@ class TangkiScreenState extends State<TangkiScreen> {
                 elevation: 0,
               ),
               child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
+                  ? const CoffeeLoadingIndicator(size: 20)
                   : const Text(
                       "CONFIRM WATERING",
                       style: TextStyle(fontWeight: FontWeight.w900),
@@ -303,7 +306,7 @@ class TangkiScreenState extends State<TangkiScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
-                  "ACTIVITY LOG",
+                  'ACTIVITY LOG',
                   style: TextStyle(
                     fontSize: 8,
                     fontWeight: FontWeight.bold,
@@ -333,7 +336,7 @@ class TangkiScreenState extends State<TangkiScreen> {
               ),
             ),
             child: const Text(
-              "VIEW MORE ACTIVITY",
+              'VIEW MORE ACTIVITY',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 11,
@@ -497,6 +500,56 @@ class TangkiScreenState extends State<TangkiScreen> {
   // ==========================================
   // 6. 辅助方法 (Helpers)
   // ==========================================
+
+  Widget _buildActionButtons(int currentOz) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildSecondaryButton(
+            Icons.shopping_bag_outlined,
+            'POINTS MALL',
+            const Color(0xFFFACC15),
+            () => Navigator.pushNamed(context, '/mall'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSecondaryButton(
+    IconData icon,
+    String label,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                color: color,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   void _showSnackBar(String message) {
     if (!mounted) return;

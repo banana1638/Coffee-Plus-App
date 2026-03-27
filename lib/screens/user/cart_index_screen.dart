@@ -6,6 +6,7 @@ import '../../models/cart_item_model.dart';
 import '../../models/user_model.dart';
 import '../../services/biometric_service.dart';
 import '../../widgets/auth_modal.dart';
+import '../../widgets/coffee_loading_overlay.dart';
 
 class CartIndexScreen extends StatefulWidget {
   const CartIndexScreen({super.key});
@@ -106,20 +107,23 @@ class CartIndexScreenState extends State<CartIndexScreen> {
   Future<void> _handleCheckout() async {
     if (!_apiService.authStateNotifier.value) {
       await AuthModal.show(context);
+      if (!mounted) return;
       if (!_apiService.authStateNotifier.value) return;
       await refreshData();
+      if (!mounted) return;
     }
 
     if (_user == null) return;
 
     if (totalCashPrice > _user!.balance) {
-      _showSnackBar("Insufficient Cash Balance", isError: true);
+      _showSnackBar('Insufficient Cash Balance', isError: true);
       return;
     }
 
     final bool authenticated = await BiometricService.authenticate();
+    if (!mounted) return;
     if (!authenticated) {
-      _showSnackBar("Authentication failed or cancelled.", isError: true);
+      _showSnackBar('Authentication failed or cancelled.', isError: true);
       return;
     }
 
@@ -130,10 +134,13 @@ class CartIndexScreenState extends State<CartIndexScreen> {
           .map((item) => item.id)
           .toList();
 
-      final result = await _apiService.checkoutWithOz(useOzIds);
+      final result = await CoffeeLoadingOverlay.show(
+        context, 
+        _apiService.checkoutWithOz(useOzIds)
+      );
 
       if (mounted) {
-        _showSnackBar(result['message'] ?? "Order placed successfully!");
+        _showSnackBar(result['message'] ?? 'Order placed successfully!');
         Navigator.pushReplacementNamed(context, '/main');
       }
     } catch (e) {
@@ -162,7 +169,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         elevation: 0,
       ),
       body: _isLoading && _cartItems.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CoffeeLoadingIndicator())
           : Column(
               children: [
                 _buildOzBalanceHeader(),
@@ -191,49 +198,97 @@ class CartIndexScreenState extends State<CartIndexScreen> {
 
   /// 顶部 OZ 余额卡片
   Widget _buildOzBalanceHeader() {
-    double balance = _user?.oz.toDouble() ?? 0.0;
-    double remainingOz = balance - totalOzUsed;
-    double progress = (balance > 0) ? remainingOz / balance : 0;
+    double totalOz = _user?.oz.toDouble() ?? 0.0;
+    double remainingOz = totalOz - totalOzUsed;
+    double progress = (totalOz > 0) ? remainingOz / totalOz : 0;
+    double cashBalance = _user?.balance ?? 0.0;
 
     return Container(
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(40),
+        borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(
         children: [
-          const Text(
-            "YOUR TANGKI OZ",
-            style: TextStyle(
-              letterSpacing: 1,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textMuted,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "${remainingOz.toInt()} OZ",
-            style: const TextStyle(
-              fontSize: 40,
-              fontWeight: FontWeight.w900,
-              color: AppColors.primary,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // OZ 统计
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "TANK OZ",
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textMuted,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "${remainingOz.toInt()} / ${totalOz.toInt()} OZ",
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // 分割线
+              Container(
+                height: 40,
+                width: 1,
+                color: AppColors.border,
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+              // 余额统计
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      "BALANCE",
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textMuted,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "RM ${cashBalance.toStringAsFixed(2)}",
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textMain,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
               value: progress.clamp(0, 1),
-              minHeight: 8,
+              minHeight: 6,
               backgroundColor: AppColors.border,
               valueColor: const AlwaysStoppedAnimation<Color>(
                 AppColors.primary,
@@ -341,7 +396,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                "Total Pay",
+                'Total Pay',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -377,7 +432,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
               ),
             ),
             child: const Text(
-              "CHECKOUT NOW",
+              'CHECKOUT NOW',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
@@ -450,7 +505,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
   Widget _buildEmptyState() {
     return const Center(
       child: Text(
-        "Cart is empty",
+        'Cart is empty',
         style: TextStyle(color: AppColors.textMuted),
       ),
     );

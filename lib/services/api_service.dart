@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/widgets.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -35,12 +36,19 @@ class ApiService {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          // 1. Auth Header
           String? token = await getToken();
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
+
+          // 2. Language Header (Backend handles translation)
+          options.headers['Accept-Language'] = 'en'; 
+
+          // 3. Other Headers
           options.headers['Accept'] = 'application/json';
           options.headers['Content-Type'] = 'application/json';
+          
           return handler.next(options);
         },
         onError: (DioException e, handler) async {

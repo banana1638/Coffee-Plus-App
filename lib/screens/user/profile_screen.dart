@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../models/user_model.dart';
+import '../../widgets/auth_modal.dart';
+import '../../widgets/coffee_loading_overlay.dart';
+import 'transaction_history_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -23,10 +26,6 @@ class ProfileScreenState extends State<ProfileScreen> {
   User? _user;
   bool _isLoading = false;
   String _activeMenu = "Profile Information";
-
-  // ==========================================
-  // 1. 生命周期 (Lifecycle)
-  // ==========================================
 
   @override
   void initState() {
@@ -70,10 +69,6 @@ class ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // ==========================================
-  // 2. 数据处理与计算 (Logic)
-  // ==========================================
-
   Future<void> refreshData() async {
     final token = await _apiService.getToken();
     if (!mounted) return;
@@ -100,10 +95,6 @@ class ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // ==========================================
-  // 3. 业务动作 (Actions)
-  // ==========================================
-
   Future<void> _handleUpdateProfile() async {
     HapticFeedback.mediumImpact();
     setState(() => _isLoading = true);
@@ -112,10 +103,11 @@ class ProfileScreenState extends State<ProfileScreen> {
         name: _nameController.text,
         email: _emailController.text,
       );
-      _showSnackBar(result['message'] ?? "Profile updated!");
+      if (!mounted) return;
+      _showSnackBar(result['message'] ?? 'Profile updated!');
       refreshData();
     } catch (e) {
-      _showSnackBar(e.toString(), isError: true);
+      _showSnackBar("Update failed: $e", isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -134,7 +126,8 @@ class ProfileScreenState extends State<ProfileScreen> {
         newPassword: _newPasswordController.text,
         confirmPassword: _confirmPasswordController.text,
       );
-      _showSnackBar(result['message'] ?? "Password updated!");
+      if (!mounted) return;
+      _showSnackBar(result['message'] ?? 'Password updated!');
       _currentPasswordController.clear();
       _newPasswordController.clear();
       _confirmPasswordController.clear();
@@ -177,10 +170,6 @@ class ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // ==========================================
-  // 4. 主界面构建 (Main Build)
-  // ==========================================
-
   @override
   Widget build(BuildContext context) {
     if (_user == null && !_isLoading) {
@@ -191,8 +180,9 @@ class ProfileScreenState extends State<ProfileScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text("You are logged out"),
+              const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () => Navigator.pushNamed(context, '/login'),
+                onPressed: () => AuthModal.show(context),
                 child: const Text("GO TO LOGIN"),
               ),
             ],
@@ -213,7 +203,7 @@ class ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       body: _isLoading && _user == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CoffeeLoadingIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -236,8 +226,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                       3,
                       _buildSection(
                         title: "Update Password",
-                        subtitle:
-                            "Ensure your account is using a strong password.",
+                        subtitle: "Ensure your account is using a strong password.",
                         child: _buildUpdatePasswordForm(),
                       ),
                     ),
@@ -257,10 +246,6 @@ class ProfileScreenState extends State<ProfileScreen> {
             ),
     );
   }
-
-  // ==========================================
-  // 5. 子组件构建 (Sub-Widgets)
-  // ==========================================
 
   Widget _buildProfileInfoForm() {
     return Column(
@@ -321,7 +306,7 @@ class ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            _user?.name ?? "Loading...",
+            _user?.name ?? 'PREPARING...',
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
           ),
           Text(
@@ -385,11 +370,13 @@ class ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Column(
         children: [
-          _buildNavLink(Icons.person_outline, "Profile Information"),
-          _buildNavLink(Icons.lock_outline, "Update Password"),
+          _buildNavLink(Icons.history, 'My Orders'),
+          _buildNavLink(Icons.person_outline, 'Profile Information'),
+          _buildNavLink(Icons.lock_outline, 'Update Password'),
+          const Divider(),
           _buildNavLink(
-            Icons.warning_amber_rounded,
-            "Delete Account",
+            Icons.delete_outline,
+            'Delete Account',
             isDanger: true,
           ),
         ],
@@ -419,7 +406,16 @@ class ProfileScreenState extends State<ProfileScreen> {
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       tileColor: isActive ? AppColors.primary.withValues(alpha: 0.05) : null,
-      onTap: () => setState(() => _activeMenu = label),
+      onTap: () {
+        if (label == 'My Orders') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const TransactionHistoryScreen()),
+          );
+        } else {
+          setState(() => _activeMenu = label);
+        }
+      },
     );
   }
 
@@ -503,7 +499,6 @@ class ProfileScreenState extends State<ProfileScreen> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            // Linked the handler here
             onPressed: _isLoading ? null : _handleUpdatePassword,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
@@ -577,17 +572,13 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ==========================================
-  // 6. 辅助方法 (Helpers)
-  // ==========================================
-
   void _showDeleteConfirmation() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.fromLTRB(32, 32, 32, 32 + MediaQuery.of(context).viewInsets.bottom),
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(32)),

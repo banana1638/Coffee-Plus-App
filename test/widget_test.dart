@@ -14,7 +14,7 @@ void main() {
     // Build our app and trigger a frame.
     // Use runAsync because of the network calls in initState
     await tester.runAsync(() async {
-      await tester.pumpWidget(const CoffeePlusApp());
+      await tester.pumpWidget(const MyApp());
       // Wait for the app to settle
       await tester.pump(const Duration(milliseconds: 500));
     });
