@@ -39,6 +39,8 @@ dependencies:
   flutter_local_notifications: ^17.2.3
   shared_preferences: ^2.5.4
   local_auth: ^2.3.0
+  local_auth_android: any
+  local_auth_darwin: any
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
 
