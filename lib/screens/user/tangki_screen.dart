@@ -5,6 +5,7 @@ import '../../core/app_colors.dart';
 import '../../widgets/tank_visualization.dart';
 import '../../widgets/coffee_loading_overlay.dart';
 import '../../services/api_service.dart';
+import '../../services/biometric_service.dart';
 import '../../models/transaction_model.dart';
 import '../../models/user_model.dart';
 import 'transaction_history_screen.dart';
@@ -79,8 +80,21 @@ class TangkiScreenState extends State<TangkiScreen> {
   // 3. 业务动作 (Actions)
   // ==========================================
 
-  void _handleRefill(double amount) async {
+  void _handleRefill(double amount, double balance) async {
     if (amount <= 0) return;
+
+    if (amount > balance) {
+      _showSnackBar("Insufficient balance", isError: true);
+      return;
+    }
+
+    final bool authenticated = await BiometricService.authenticate();
+    if (!mounted) return;
+    if (!authenticated) {
+      _showSnackBar("Authentication failed or cancelled.", isError: true);
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       final result = await _apiService.refillTangki(amount);
@@ -89,7 +103,7 @@ class TangkiScreenState extends State<TangkiScreen> {
       refreshData();
     } catch (e) {
       if (!mounted) return;
-      _showSnackBar("Refill failed: $e");
+      _showSnackBar("Refill failed: $e", isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -132,7 +146,7 @@ class TangkiScreenState extends State<TangkiScreen> {
                   const SizedBox(height: 16),
                   _buildActionButtons(user.oz),
                   const SizedBox(height: 24),
-                  _buildRefillSection(),
+                  _buildRefillSection(user.balance),
                   const SizedBox(height: 24),
                   _buildTransactionList(transactions),
                 ],
@@ -184,7 +198,7 @@ class TangkiScreenState extends State<TangkiScreen> {
     );
   }
 
-  Widget _buildRefillSection() {
+  Widget _buildRefillSection(double balance) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -216,7 +230,7 @@ class TangkiScreenState extends State<TangkiScreen> {
               return OutlinedButton(
                 onPressed: () {
                   HapticFeedback.lightImpact();
-                  _handleRefill(v.toDouble());
+                  _handleRefill(v.toDouble(), balance);
                 },
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFFE0E7FF)),
@@ -255,6 +269,7 @@ class TangkiScreenState extends State<TangkiScreen> {
                       HapticFeedback.mediumImpact();
                       _handleRefill(
                         double.tryParse(_amountController.text) ?? 0,
+                        balance,
                       );
                     },
               style: ElevatedButton.styleFrom(
@@ -551,11 +566,12 @@ class TangkiScreenState extends State<TangkiScreen> {
     );
   }
 
-  void _showSnackBar(String message) {
+  void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
+        backgroundColor: isError ? Colors.red : AppColors.primary,
         behavior: SnackBarBehavior.floating,
       ),
     );

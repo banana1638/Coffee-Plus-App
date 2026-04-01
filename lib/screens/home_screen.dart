@@ -197,37 +197,54 @@ class _HomeScreenState extends State<HomeScreen> {
             data['allCategoryNames'] ?? [],
           );
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: _buildDashboardHeader(isGuest, user),
-              ),
-              if (activeOrder != null)
-                ActiveOrderCard(
-                  order: activeOrder,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => OrderDetailScreen(order: activeOrder.rawJson),
-                    ),
+          return NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) {
+              return [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: _buildDashboardHeader(isGuest, user),
                   ),
                 ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8.0,
+                if (activeOrder != null)
+                  SliverToBoxAdapter(
+                    child: ActiveOrderCard(
+                      order: activeOrder,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => OrderDetailScreen(order: activeOrder.rawJson),
+                        ),
+                      ),
+                    ),
+                  ),
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _SliverAppBarDelegate(
+                    child: Container(
+                      color: Colors.white,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                            child: _buildSearchBar(),
+                          ),
+                          _buildCategoryList(allCategoryNames),
+                        ],
+                      ),
+                    ),
+                    minHeight: 125,
+                    maxHeight: 125,
+                  ),
                 ),
-                child: _buildSearchBar(),
-              ),
-              _buildCategoryList(allCategoryNames),
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 400),
-                  child: _selectedCategory == 'collections'
-                      ? _buildCollectionsList(data['options'])
-                      : categories.isEmpty
+              ];
+            },
+            body: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              child: _selectedCategory == 'collections'
+                  ? _buildCollectionsList(data['options'])
+                  : categories.isEmpty
                       ? const Center(
                           key: ValueKey('no-products'),
                           child: Text("No products found"),
@@ -237,9 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           options: data['options'],
                           key: ValueKey(_selectedCategory),
                         ),
-                ),
-              ),
-            ],
+            ),
           );
         },
       ),
@@ -252,21 +267,32 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 顶部 Dashboard 卡片
   Widget _buildDashboardHeader(bool isGuest, User user) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+    return InkWell(
+      onTap: () async {
+        if (isGuest) {
+          AuthModal.show(context);
+        } else {
+          await Navigator.pushNamed(context, '/tangki');
+          _refreshData(forceRefresh: true);
+        }
+      },
+      borderRadius: BorderRadius.circular(32),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: isGuest ? _buildGuestHeader() : _buildMemberHeader(user),
       ),
-      child: isGuest ? _buildGuestHeader() : _buildMemberHeader(user),
     );
   }
 
@@ -310,21 +336,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 5),
-            TextButton(
-              onPressed: () async {
-                // 当从管理页面回来时，触发强制刷新以获取最新数据
-                await Navigator.pushNamed(context, '/tangki');
-                _refreshData(forceRefresh: true);
-              },
-              style: TextButton.styleFrom(
-                backgroundColor: AppColors.background,
-                minimumSize: Size.zero,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              ),
-              child: const Text(
-                'MANAGE',
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
-              ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textMuted,
             ),
           ],
         ),
@@ -683,5 +697,36 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate({
+    required this.minHeight,
+    required this.maxHeight,
+    required this.child,
+  });
+
+  final double minHeight;
+  final double maxHeight;
+  final Widget child;
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return SizedBox.expand(child: child);
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return maxHeight != oldDelegate.maxHeight ||
+        minHeight != oldDelegate.minHeight ||
+        child != oldDelegate.child;
   }
 }
