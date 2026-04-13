@@ -140,6 +140,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     setState(() => _isAdding = true);
+    HapticFeedback.mediumImpact();
     try {
       await ApiService().addToCart(
         productId: widget.product.id,
@@ -150,6 +151,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       );
 
       if (mounted) {
+        HapticFeedback.heavyImpact();
         _showSnackBar("Successfully added to cart!", isError: false);
         Navigator.pop(context);
       }
@@ -201,15 +203,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 "Add a note for this customized selection (optional):",
-                style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                style: TextStyle(color: context.appTextMuted, fontSize: 13),
               ),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: AppColors.background,
+                  color: context.appBackground,
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: TextField(
@@ -260,10 +262,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 "Save",
-                style:
-                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: context.appBackground,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -280,9 +284,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.9,
-      decoration: const BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      decoration: BoxDecoration(
+        color: context.appBackground,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
       ),
       child: Stack(
         children: [
@@ -333,7 +337,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       expandedHeight: 350,
       pinned: true,
       automaticallyImplyLeading: false,
-      backgroundColor: Colors.white,
+      backgroundColor: context.appSurface,
       flexibleSpace: FlexibleSpaceBar(
         background: Hero(
           tag: 'product-image-${widget.product.id}',
@@ -399,10 +403,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           "PREMIUM SELECTION",
           style: TextStyle(
-            color: AppColors.primary,
+            color: context.appPrimary,
             fontWeight: FontWeight.bold,
             fontSize: 12,
             letterSpacing: 2,
@@ -416,7 +420,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         const SizedBox(height: 12),
         Text(
           widget.product.description,
-          style: const TextStyle(color: AppColors.textMuted, height: 1.5),
+          style: TextStyle(color: context.appTextMuted, height: 1.5),
         ),
       ],
     );
@@ -429,21 +433,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         bool isSelected = selectedTemp == temp;
         return Expanded(
           child: GestureDetector(
-            onTap: () => setState(() => selectedTemp = temp),
+            onTap: () {
+              HapticFeedback.selectionClick();
+              setState(() => selectedTemp = temp);
+            },
             child: Container(
               margin: EdgeInsets.only(right: temp == 'Hot' ? 10 : 0),
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.appSurface,
                 borderRadius: BorderRadius.circular(15),
                 border: Border.all(
-                  color: isSelected ? AppColors.primary : Colors.transparent,
+                  color: isSelected ? context.appPrimary : Colors.transparent,
                   width: 2,
                 ),
                 boxShadow: [
                   if (isSelected)
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.1),
+                      color: context.appPrimary.withValues(alpha: 0.1),
                       blurRadius: 10,
                     ),
                 ],
@@ -453,7 +460,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: isSelected ? AppColors.primary : AppColors.textMuted,
+                  color: isSelected ? context.appPrimary : context.appTextMuted,
                 ),
               ),
             ),
@@ -469,15 +476,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       children: sizeOptions.map((size) {
         bool isSelected = selectedSize == size['name'];
         return GestureDetector(
-          onTap: () => setState(() => selectedSize = size['name']),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            setState(() => selectedSize = size['name']);
+          },
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.appSurface,
               borderRadius: BorderRadius.circular(15),
               border: Border.all(
-                color: isSelected ? AppColors.primary : Colors.transparent,
+                color: isSelected ? context.appPrimary : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -491,8 +501,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 if (size['extra'] > 0)
                   Text(
                     "+ RM ${size['extra'].toStringAsFixed(2)}",
-                    style: const TextStyle(
-                      color: AppColors.textMuted,
+                    style: TextStyle(
+                      color: context.appTextMuted,
                       fontSize: 12,
                     ),
                   ),
@@ -511,6 +521,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         bool isSelected = selectedAddons.contains(addon['name']);
         return GestureDetector(
           onTap: () {
+            HapticFeedback.selectionClick();
             setState(() {
               if (isSelected) {
                 selectedAddons.remove(addon['name']);
@@ -523,10 +534,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.appSurface,
               borderRadius: BorderRadius.circular(15),
               border: Border.all(
-                color: isSelected ? AppColors.primary : Colors.transparent,
+                color: isSelected ? context.appPrimary : Colors.transparent,
                 width: 2,
               ),
             ),
@@ -534,7 +545,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               children: [
                 Icon(
                   isSelected ? Icons.check_box : Icons.check_box_outline_blank,
-                  color: isSelected ? AppColors.primary : Colors.grey,
+                  color: isSelected ? context.appPrimary : Colors.grey,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -545,8 +556,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
                 Text(
                   "+ RM ${addon['price'].toStringAsFixed(2)}",
-                  style: const TextStyle(
-                    color: AppColors.primary,
+                  style: TextStyle(
+                    color: context.appPrimary,
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
                   ),
@@ -564,8 +575,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        border: Border(top: BorderSide(color: Colors.grey.shade100)),
+        color: context.appSurface.withValues(alpha: 0.9),
+        border: Border(top: BorderSide(color: context.appBorder)),
       ),
       child: Row(
         children: [
@@ -573,7 +584,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: AppColors.background,
+              color: context.appBackground,
               borderRadius: BorderRadius.circular(15),
             ),
             child: Row(
@@ -587,7 +598,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   child: Text(
                     "$quantity",
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
+                      color: context.appTextMain,
                       fontWeight: FontWeight.w900,
                       fontSize: 16,
                     ),
@@ -603,7 +615,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             child: ElevatedButton(
               onPressed: _isAdding ? null : _handleAddToCart,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF111827), // 对应 Blade 的 gray-900
+                backgroundColor: context.appPrimary, // Standardize to primary color
                 padding: const EdgeInsets.symmetric(
                   vertical: 18,
                   horizontal: 20,
@@ -630,8 +642,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                     child: Text(
                       "RM ${_totalPrice.toStringAsFixed(2)}",
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: context.appBackground, // Contrast with primary
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                       ),
@@ -655,7 +667,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       },
       child: Container(
         padding: const EdgeInsets.all(8),
-        child: Icon(icon, size: 18, color: AppColors.textMain),
+        child: Icon(icon, size: 18, color: context.appTextMain),
       ),
     );
   }
@@ -665,10 +677,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       padding: const EdgeInsets.only(top: 25, bottom: 15),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w900,
-          color: AppColors.textMuted,
+          color: context.appTextMuted,
           letterSpacing: 1.5,
         ),
       ),

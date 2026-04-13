@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/app_colors.dart';
 
 class OrderDetailScreen extends StatelessWidget {
   final Map<String, dynamic> order;
@@ -18,7 +19,7 @@ class OrderDetailScreen extends StatelessWidget {
         : order;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: context.appBackground,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
@@ -34,7 +35,7 @@ class OrderDetailScreen extends StatelessWidget {
         ),
         elevation: 0,
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.grey[600],
+        foregroundColor: context.appTextMuted,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
@@ -42,32 +43,34 @@ class OrderDetailScreen extends StatelessWidget {
           children: [
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.appSurface,
                 borderRadius: BorderRadius.circular(40),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: Colors.black.withValues(alpha: context.isDarkMode ? 0.4 : 0.05),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
                 ],
-                border: Border.all(color: const Color(0xFFF1F5F9)),
+                border: Border.all(color: context.appBorder),
               ),
               child: Column(
                 children: [
-                  _buildHeader(),
+                  _buildHeader(context),
                   Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildRowDetail(
+                          context,
                           'BILL ID',
                           orderData['bill_id']?.toString() ?? 'N/A',
                           isBold: true,
                         ),
                         const SizedBox(height: 12),
                         _buildRowDetail(
+                          context,
                           'DATE',
                           orderData['created_at']?.toString() ?? '-',
                           isBold: true,
@@ -76,12 +79,12 @@ class OrderDetailScreen extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'STATUS',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w900,
-                                color: Colors.grey, // Assuming AppColors.textMuted is Colors.grey or similar
+                                color: context.appTextMuted,
                                 letterSpacing: 1.5,
                               ),
                             ),
@@ -107,14 +110,14 @@ class OrderDetailScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 20),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 20),
                           child: Text(
                             "ITEMS PURCHASED",
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
-                              color: Colors.grey,
+                              color: context.appTextMuted,
                               letterSpacing: 1.5,
                             ),
                           ),
@@ -123,15 +126,16 @@ class OrderDetailScreen extends StatelessWidget {
                         // 商品列表渲染
                         ...(orderData['items'] as List? ?? []).map(
                           (item) =>
-                              _buildOrderItem(Map<String, dynamic>.from(item)),
+                              _buildOrderItem(context, Map<String, dynamic>.from(item)),
                         ),
 
                         const SizedBox(height: 20),
-                        _buildDashedLine(),
+                        _buildDashedLine(context),
                         const SizedBox(height: 20),
 
                         // 金额统计
                         _buildRowDetail(
+                          context,
                           "SUBTOTAL",
                           "RM ${double.tryParse(orderData['subtotal']?.toString() ?? '0')?.toStringAsFixed(2) ?? '0.00'}",
                           isBold: true,
@@ -146,6 +150,7 @@ class OrderDetailScreen extends StatelessWidget {
                                 0) >
                                 0) ...[
                           _buildRowDetail(
+                            context,
                             "COUPON DISCOUNT",
                             "-RM ${(double.tryParse(orderData['coupon_discount'].toString()) ?? 0).toStringAsFixed(2)}",
                           ),
@@ -160,6 +165,7 @@ class OrderDetailScreen extends StatelessWidget {
                                 0) >
                                 0) ...[
                           _buildRowDetail(
+                            context,
                             "POINTS DISCOUNT",
                             "-RM ${(double.tryParse(orderData['points_discount'].toString()) ?? 0).toStringAsFixed(2)}",
                           ),
@@ -170,7 +176,7 @@ class OrderDetailScreen extends StatelessWidget {
                         if (orderData['oz_used'] != null &&
                             (double.tryParse(orderData['oz_used'].toString()) ?? 0) >
                                 0) ...[
-                          _buildTankDeduction(orderData['oz_used']),
+                          _buildTankDeduction(context, orderData['oz_used']),
                           const SizedBox(height: 24),
                         ],
 
@@ -216,27 +222,27 @@ class OrderDetailScreen extends StatelessWidget {
                         ),
 
                         const SizedBox(height: 20),
-                        _buildPaymentMethod(orderData['payment_method']),
+                        _buildPaymentMethod(context, orderData['payment_method']),
                       ],
                     ),
                   ),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 24),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.only(
+                    decoration: BoxDecoration(
+                      color: context.appBackground,
+                      borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(40),
                         bottomRight: Radius.circular(40),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       "THANK YOU FOR YOUR ORDER",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
-                        color: Colors.grey,
+                        color: context.appTextMuted,
                         letterSpacing: 2,
                         fontStyle: FontStyle.italic,
                       ),
@@ -248,10 +254,10 @@ class OrderDetailScreen extends StatelessWidget {
             const SizedBox(height: 32),
             TextButton(
               onPressed: () {},
-              child: const Text(
+              child: Text(
                 "PRINT ORDER DETAIL",
                 style: TextStyle(
-                  color: Colors.grey,
+                  color: context.appTextMuted,
                   fontWeight: FontWeight.w900,
                   fontSize: 12,
                   letterSpacing: 1.2,
@@ -268,7 +274,7 @@ class OrderDetailScreen extends StatelessWidget {
   // 2. 子组件渲染逻辑
   // ==========================================
 
-  Widget _buildOrderItem(Map<String, dynamic> item) {
+  Widget _buildOrderItem(BuildContext context, Map<String, dynamic> item) {
     // 判断是否为 OZ 储水箱支付商品
     bool isOzPayment = (item['oz_at_time'] ?? 0) > 0;
 
@@ -294,10 +300,10 @@ class OrderDetailScreen extends StatelessWidget {
               children: [
                 Text(
                   "${item['product_name'] ?? 'Product'}",
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: 13,
-                    color: Color(0xFF1F2937),
+                    color: context.appTextMain,
                   ),
                 ),
 
@@ -309,7 +315,7 @@ class OrderDetailScreen extends StatelessWidget {
                       spacing: 4,
                       runSpacing: 4,
                       children: addons.map((addon) {
-                        return _buildOptionBadge("+ $addon", isAddon: true);
+                        return _buildOptionBadge(context, "+ $addon", isAddon: true);
                       }).toList(),
                     ),
                   ),
@@ -320,7 +326,7 @@ class OrderDetailScreen extends StatelessWidget {
                   child: Text(
                     "${customizations['size'] ?? ''} | ${customizations['temp'] ?? ''}",
                     style: TextStyle(
-                      color: Colors.grey[500],
+                      color: context.appTextMuted,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -344,7 +350,7 @@ class OrderDetailScreen extends StatelessWidget {
                   child: Text(
                     "Quantity: ${item['quantity']}",
                     style: TextStyle(
-                      color: Colors.grey[400],
+                      color: context.appTextMuted,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -364,15 +370,15 @@ class OrderDetailScreen extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                   fontSize: 12,
                   color: isOzPayment
-                      ? const Color(0xFF2563EB)
-                      : const Color(0xFF1F2937),
+                      ? context.appPrimary
+                      : context.appTextMain,
                 ),
               ),
               if (isOzPayment)
                 Text(
                   "${item['oz_at_time']} OZ / unit",
                   style: TextStyle(
-                    color: Colors.grey[400],
+                    color: context.appTextMuted,
                     fontSize: 8,
                     fontStyle: FontStyle.italic,
                     fontWeight: FontWeight.bold,
@@ -385,16 +391,16 @@ class OrderDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Stack(
       alignment: Alignment.center,
       children: [
         Container(
           width: double.infinity,
           height: 160,
-          decoration: const BoxDecoration(
-            color: Color(0xFF111827),
-            borderRadius: BorderRadius.only(
+          decoration: BoxDecoration(
+            color: context.appSurfaceSubtle,
+            borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(40),
               topRight: Radius.circular(40),
             ),
@@ -417,10 +423,10 @@ class OrderDetailScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 "COFFEE PLUS+",
                 style: TextStyle(
-                  color: Colors.white,
+                  color: context.appTextMain,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                   fontStyle: FontStyle.italic,
@@ -449,17 +455,19 @@ class OrderDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildOptionBadge(String text, {bool isAddon = false}) {
+  Widget _buildOptionBadge(BuildContext context, String text, {bool isAddon = false}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: isAddon ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
+        color: isAddon
+            ? context.appPrimary.withValues(alpha: 0.1)
+            : context.appSurfaceSubtle,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         text.toUpperCase(),
         style: TextStyle(
-          color: isAddon ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+          color: isAddon ? context.appPrimary : context.appTextMuted,
           fontSize: 8,
           fontWeight: FontWeight.w900,
         ),
@@ -467,38 +475,38 @@ class OrderDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTankDeduction(dynamic ozUsed) {
+  Widget _buildTankDeduction(BuildContext context, dynamic ozUsed) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: context.appPrimary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFDBEAFE)),
+        border: Border.all(color: context.appPrimary.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 "TANGKI SAVINGS",
                 style: TextStyle(
-                  color: Color(0xFF1E40AF),
+                  color: context.appPrimary,
                   fontWeight: FontWeight.w900,
                   fontSize: 10,
                 ),
               ),
               Text(
                 "Balance Payment Applied",
-                style: TextStyle(color: Color(0xFF60A5FA), fontSize: 9),
+                style: TextStyle(color: context.appPrimary.withValues(alpha: 0.6), fontSize: 9),
               ),
             ],
           ),
           Text(
             "-${ozUsed.toString()} OZ",
-            style: const TextStyle(
-              color: Color(0xFF2563EB),
+            style: TextStyle(
+              color: context.appPrimary,
               fontWeight: FontWeight.w900,
               fontSize: 18,
             ),
@@ -508,16 +516,16 @@ class OrderDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRowDetail(String label, String value, {bool isBold = false}) {
+  Widget _buildRowDetail(BuildContext context, String label, String value, {bool isBold = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w900,
-            color: Colors.grey,
+            color: context.appTextMuted,
             letterSpacing: 1.2,
           ),
         ),
@@ -526,20 +534,20 @@ class OrderDetailScreen extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: isBold ? FontWeight.w900 : FontWeight.bold,
-            color: const Color(0xFF1F2937),
+            color: context.appTextMain,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDashedLine() {
+  Widget _buildDashedLine(BuildContext context) {
     return Row(
       children: List.generate(
         30,
         (index) => Expanded(
           child: Container(
-            color: index % 2 == 0 ? Colors.transparent : Colors.grey[200],
+            color: index % 2 == 0 ? Colors.transparent : context.appBorder,
             height: 2,
           ),
         ),
@@ -547,13 +555,13 @@ class OrderDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPaymentMethod(dynamic method) {
+  Widget _buildPaymentMethod(BuildContext context, dynamic method) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: context.appSurfaceSubtle,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: context.appBorder),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -561,7 +569,7 @@ class OrderDetailScreen extends StatelessWidget {
           Icon(
             Icons.account_balance_wallet_outlined,
             size: 14,
-            color: Colors.grey[600],
+            color: context.appTextMuted,
           ),
           const SizedBox(width: 8),
           Text(
@@ -569,7 +577,7 @@ class OrderDetailScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w900,
-              color: Colors.grey[600],
+              color: context.appTextMuted,
               letterSpacing: 0.5,
             ),
           ),

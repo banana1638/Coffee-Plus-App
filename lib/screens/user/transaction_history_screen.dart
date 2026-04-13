@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../models/transaction_model.dart';
 import 'order_detail_screen.dart';
@@ -38,7 +39,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: context.appBackground,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
@@ -50,7 +51,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         ),
         elevation: 0,
         backgroundColor: Colors.transparent,
-        foregroundColor: Colors.grey[800],
+        foregroundColor: context.appTextMain,
       ),
       body: Column(
         children: [
@@ -58,7 +59,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.grey[200]!.withValues(alpha: 0.5),
+              color: context.appSurfaceSubtle,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
@@ -131,12 +132,12 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isActive ? Colors.white : Colors.transparent,
+            color: isActive ? context.appSurface : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: Colors.black.withValues(alpha: context.isDarkMode ? 0.3 : 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -150,7 +151,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               fontSize: 11,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.0,
-              color: isActive ? const Color(0xFF2563EB) : Colors.grey[400],
+              color: isActive ? context.appPrimary : context.appTextMuted,
             ),
           ),
         ),
@@ -166,12 +167,12 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appSurface,
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
+        border: Border.all(color: context.appBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: context.isDarkMode ? 0.4 : 0.02),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -223,10 +224,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     const SizedBox(height: 12),
                     Text(
                       trx.description,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF111827),
+                        color: context.appTextMain,
                       ),
                     ),
                   ],
@@ -240,7 +241,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
-                      color: isCredit ? Colors.green : const Color(0xFF2563EB),
+                      color: isCredit ? Colors.green : context.appPrimary,
                     ),
                   ),
                   if (hasDetail)
@@ -277,12 +278,12 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                child: const Text(
+                child: Text(
                   "VIEW DETAIL",
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF2563EB),
+                    color: context.appPrimary,
                     letterSpacing: 1.1,
                   ),
                 ),

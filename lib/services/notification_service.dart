@@ -62,11 +62,11 @@ class NotificationService with WidgetsBindingObserver {
   Future<void> _connectReverb() async {
     try {
       _reverbClient = ReverbClient.instance(
-        host: '192.168.1.106',
+        host: '192.168.1.105',
         port: 8080,
         appKey: "coffepluskey123",
         useTLS: false,
-        authEndpoint: 'http://192.168.1.106/coffee_plus/broadcasting/auth',
+        authEndpoint: 'http://192.168.1.105/coffee_plus/broadcasting/auth',
         authorizer: (channelName, socketId) async {
           final token = await _apiService.getToken();
           if (kDebugMode) print("Authorizing channel: $channelName");
@@ -91,7 +91,9 @@ class NotificationService with WidgetsBindingObserver {
           _reconnectAttempts++;
           final delay = Duration(seconds: 5 * _reconnectAttempts); // 指数退避
           if (kDebugMode) {
-            print("Reverb Disconnected. Attempt $_reconnectAttempts/$_maxReconnectAttempts. Retrying in ${delay.inSeconds}s...");
+            print(
+              "Reverb Disconnected. Attempt $_reconnectAttempts/$_maxReconnectAttempts. Retrying in ${delay.inSeconds}s...",
+            );
           }
           await Future.delayed(delay);
           try {

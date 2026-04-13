@@ -166,9 +166,9 @@ class TangkiScreenState extends State<TangkiScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appSurface,
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.appBorder),
       ),
       child: Column(
         children: [
@@ -183,7 +183,7 @@ class TangkiScreenState extends State<TangkiScreen> {
                   AppColors.primary,
                 ),
               ),
-              Container(width: 1, height: 40, color: AppColors.border),
+              Container(width: 1, height: 40, color: context.appBorder),
               Expanded(
                 child: _buildStatItem(
                   "Account Balance",
@@ -202,9 +202,9 @@ class TangkiScreenState extends State<TangkiScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appSurface,
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.appBorder),
       ),
       child: Column(
         children: [
@@ -251,7 +251,7 @@ class TangkiScreenState extends State<TangkiScreen> {
             decoration: InputDecoration(
               hintText: "Custom amount (e.g. 10.00)",
               filled: true,
-              fillColor: AppColors.background,
+              fillColor: context.appSurfaceSubtle,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: BorderSide.none,
@@ -274,7 +274,7 @@ class TangkiScreenState extends State<TangkiScreen> {
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
+                foregroundColor: context.appBackground,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -297,9 +297,9 @@ class TangkiScreenState extends State<TangkiScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appSurface,
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.appBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -345,7 +345,7 @@ class TangkiScreenState extends State<TangkiScreen> {
             },
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 48),
-              side: const BorderSide(color: Color(0xFFF1F5F9)),
+              side: BorderSide(color: context.appBorder),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -496,7 +496,7 @@ class TangkiScreenState extends State<TangkiScreen> {
             onPressed: () => AuthModal.show(context),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: context.appBackground,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),

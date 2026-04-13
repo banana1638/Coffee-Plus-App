@@ -130,11 +130,11 @@ class _MainWrapperState extends State<MainWrapper> {
   Widget _buildBottomNavigation() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appSurface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.1),
+            color: context.appPrimary.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),

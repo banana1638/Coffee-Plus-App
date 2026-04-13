@@ -45,7 +45,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: Colors.white,
+        backgroundColor: context.appSurface,
         foregroundColor: AppColors.textMain,
         leading: _isSelectionMode
             ? IconButton(
@@ -219,7 +219,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
+        backgroundColor: context.appSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
@@ -304,8 +304,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isSelected
-            ? AppColors.primary.withValues(alpha: 0.05)
-            : Colors.white,
+            ? context.appPrimary.withValues(alpha: 0.05)
+            : context.appSurface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isSelected ? AppColors.primary : AppColors.border,
@@ -313,7 +313,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
+            color: Colors.black.withValues(alpha: context.isDarkMode ? 0.3 : 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

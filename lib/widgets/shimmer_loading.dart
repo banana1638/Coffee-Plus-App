@@ -42,6 +42,11 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final baseColor = isDark ? Colors.grey[800]! : Colors.grey[300]!;
+    final highlightColor = isDark ? Colors.grey[700]! : Colors.grey[100]!;
+
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, child) {
@@ -54,7 +59,7 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               stops: const [0.1, 0.5, 0.9],
-              colors: [Colors.grey[300]!, Colors.grey[100]!, Colors.grey[300]!],
+              colors: [baseColor, highlightColor, baseColor],
               transform: _SlidingGradientTransform(_animation.value),
             ),
           ),

@@ -20,12 +20,12 @@ class CoffeeCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(24),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: context.appSurface,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.border, width: 1),
+          border: Border.all(color: context.appBorder, width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
+              color: Colors.black.withValues(alpha: context.isDarkMode ? 0.2 : 0.03),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -53,10 +53,10 @@ class CoffeeCard extends StatelessWidget {
                         borderRadius: 0,
                       ),
                       errorWidget: (context, url, error) => Container(
-                        color: AppColors.background,
-                        child: const Icon(
+                        color: context.appBackground,
+                        child: Icon(
                           Icons.coffee,
-                          color: AppColors.textMuted,
+                          color: context.appTextMuted,
                         ),
                       ),
                     ),
@@ -90,10 +90,10 @@ class CoffeeCard extends StatelessWidget {
                           product.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w900,
                             fontSize: 14,
-                            color: AppColors.textMain,
+                            color: context.appTextMain,
                           ),
                         ),
                       ),
@@ -114,15 +114,15 @@ class CoffeeCard extends StatelessWidget {
                     children: [
                       Text(
                         "RM ${product.price.toStringAsFixed(2)}",
-                        style: const TextStyle(
-                          color: AppColors.primary,
+                        style: TextStyle(
+                          color: context.appPrimary,
                           fontWeight: FontWeight.w900,
                           fontSize: 13,
                         ),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.add_circle,
-                        color: AppColors.primary,
+                        color: context.appPrimary,
                         size: 24,
                       ),
                     ],

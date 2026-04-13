@@ -212,6 +212,15 @@ class ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 24),
                   _buildAnimatedItem(1, _buildQuickLinks()),
                   const SizedBox(height: 24),
+                  if (_activeMenu == "App Appearance")
+                    _buildAnimatedItem(
+                      3,
+                      _buildSection(
+                        title: "App Appearance",
+                        subtitle: "Customize how Coffee Plus+ looks on your device.",
+                        child: _buildAppearanceSection(),
+                      ),
+                    ),
                   if (_activeMenu == "Profile Information")
                     _buildAnimatedItem(
                       2,
@@ -284,9 +293,9 @@ class ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appSurface,
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.appBorder),
       ),
       child: Column(
         children: [
@@ -311,7 +320,7 @@ class ProfileScreenState extends State<ProfileScreen> {
           ),
           Text(
             _user?.email ?? "...",
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+            style: TextStyle(color: context.appTextMuted, fontSize: 14),
           ),
           const SizedBox(height: 24),
           Row(
@@ -322,7 +331,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                   "RM ${(_user?.balance ?? 0.0).toStringAsFixed(2)}",
                 ),
               ),
-              Container(width: 1, height: 30, color: AppColors.border),
+              Container(width: 1, height: 30, color: context.appBorder),
               Expanded(
                 child: _buildMiniStat(
                   "Storage",
@@ -342,10 +351,10 @@ class ProfileScreenState extends State<ProfileScreen> {
       children: [
         Text(
           label.toUpperCase(),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.bold,
-            color: AppColors.textMuted,
+            color: context.appTextMuted,
           ),
         ),
         Text(
@@ -353,7 +362,7 @@ class ProfileScreenState extends State<ProfileScreen> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w900,
-            color: isPrimary ? AppColors.primary : AppColors.textMain,
+            color: isPrimary ? context.appPrimary : context.appTextMain,
           ),
         ),
       ],
@@ -364,13 +373,14 @@ class ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.appBorder),
       ),
       child: Column(
         children: [
           _buildNavLink(Icons.history, 'My Orders'),
+          _buildNavLink(Icons.palette_outlined, 'App Appearance'),
           _buildNavLink(Icons.person_outline, 'Profile Information'),
           _buildNavLink(Icons.lock_outline, 'Update Password'),
           const Divider(),
@@ -388,7 +398,7 @@ class ProfileScreenState extends State<ProfileScreen> {
     final bool isActive = _activeMenu == label;
     Color color = isDanger
         ? Colors.red
-        : (isActive ? AppColors.primary : AppColors.textMain);
+        : (isActive ? context.appPrimary : context.appTextMain);
     return ListTile(
       leading: Icon(icon, color: color),
       title: Text(
@@ -399,13 +409,13 @@ class ProfileScreenState extends State<ProfileScreen> {
           fontSize: 14,
         ),
       ),
-      trailing: const Icon(
+      trailing: Icon(
         Icons.chevron_right,
         size: 16,
-        color: AppColors.textMuted,
+        color: context.appTextMuted,
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      tileColor: isActive ? AppColors.primary.withValues(alpha: 0.05) : null,
+      tileColor: isActive ? context.appPrimary.withValues(alpha: 0.05) : null,
       onTap: () {
         if (label == 'My Orders') {
           Navigator.push(
@@ -428,12 +438,12 @@ class ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appSurface,
         borderRadius: BorderRadius.circular(32),
         border: Border.all(
           color: isDanger
               ? Colors.red.withValues(alpha: 0.2)
-              : AppColors.border,
+              : context.appBorder,
         ),
       ),
       child: Column(
@@ -445,7 +455,7 @@ class ProfileScreenState extends State<ProfileScreen> {
           ),
           Text(
             subtitle,
-            style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+            style: TextStyle(fontSize: 13, color: context.appTextMuted),
           ),
           const SizedBox(height: 24),
           child,
@@ -470,6 +480,102 @@ class ProfileScreenState extends State<ProfileScreen> {
         child: const Text(
           "DELETE ACCOUNT",
           style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppearanceSection() {
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: _apiService.themeModeNotifier,
+      builder: (context, currentMode, _) {
+        return Column(
+          children: [
+            _buildThemeOption(
+              ThemeMode.system,
+              "System Default",
+              "Matches your device settings.",
+              Icons.brightness_auto_rounded,
+              currentMode == ThemeMode.system,
+            ),
+            const SizedBox(height: 12),
+            _buildThemeOption(
+              ThemeMode.light,
+              "Light Mode",
+              "Classic bright experience.",
+              Icons.wb_sunny_outlined,
+              currentMode == ThemeMode.light,
+            ),
+            const SizedBox(height: 12),
+            _buildThemeOption(
+              ThemeMode.dark,
+              "Premium Midnight",
+              "Elegant charcoal & gold theme.",
+              Icons.nightlight_round_outlined,
+              currentMode == ThemeMode.dark,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildThemeOption(
+    ThemeMode mode,
+    String title,
+    String subtitle,
+    IconData icon,
+    bool isSelected,
+  ) {
+    return InkWell(
+      onTap: () {
+        _apiService.setThemeMode(mode);
+        HapticFeedback.mediumImpact();
+      },
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.1)
+              : context.appBackground,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : context.appBorder,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? context.appPrimary : context.appTextMuted,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? context.appPrimary : context.appTextMain,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.appTextMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              const Icon(Icons.check_circle, color: AppColors.primary),
+          ],
         ),
       ),
     );
@@ -529,10 +635,10 @@ class ProfileScreenState extends State<ProfileScreen> {
       children: [
         Text(
           label.toUpperCase(),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.bold,
-            color: AppColors.textMain,
+            color: context.appTextMain,
           ),
         ),
         const SizedBox(height: 8),
@@ -542,7 +648,7 @@ class ProfileScreenState extends State<ProfileScreen> {
           keyboardType: keyboardType,
           decoration: InputDecoration(
             filled: true,
-            fillColor: AppColors.background,
+            fillColor: context.appBackground,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
@@ -579,9 +685,9 @@ class ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         padding: EdgeInsets.fromLTRB(32, 32, 32, 32 + MediaQuery.of(context).viewInsets.bottom),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        decoration: BoxDecoration(
+          color: context.appSurface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -592,9 +698,9 @@ class ProfileScreenState extends State<ProfileScreen> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               "This action is permanent. Please enter your password.",
-              style: TextStyle(color: AppColors.textMuted),
+              style: TextStyle(color: context.appTextMuted),
             ),
             const SizedBox(height: 24),
             _buildTextField(

@@ -16,3 +16,35 @@ class AppColors {
   // 边框颜色 (对应 Tailwind border-gray-100)
   static const Color border = Color(0xFFF3F4F6);
 }
+
+class AppColorsDark {
+  // 基础背景 - 深邃曜石黑 (不再是纯黑，更有质感)
+  static const Color background = Color(0xFF0D1117);
+  // 卡片背景 - 午夜灰 (提升层次感)
+  static const Color surface = Color(0xFF161B22);
+  // 次级卡片背景
+  static const Color surfaceSubtle = Color(0xFF21262D);
+  // 主色调 - 荧光蓝 (在暗色下更醒目)
+  static const Color primary = Color(0xFF58A6FF);
+  // 强调色
+  static const Color accent = Color(0xFF1F6FEB);
+  // 主要文字 - 银白 (减少对比度带来的刺眼感)
+  static const Color textMain = Color(0xFFE6EDF3);
+  // 辅助文字 - 钢灰
+  static const Color textMuted = Color(0xFF8B949E);
+  // 边框颜色 - 灰岩色
+  static const Color border = Color(0xFF30363D);
+}
+
+extension AppThemeColors on BuildContext {
+  bool get isDarkMode => Theme.of(this).brightness == Brightness.dark;
+
+  Color get appBackground => isDarkMode ? AppColorsDark.background : AppColors.background;
+  Color get appSurface => isDarkMode ? AppColorsDark.surface : AppColors.surface;
+  Color get appSurfaceSubtle => isDarkMode ? AppColorsDark.surfaceSubtle : AppColors.background;
+  Color get appPrimary => isDarkMode ? AppColorsDark.primary : AppColors.primary;
+  Color get appAccent => isDarkMode ? AppColorsDark.accent : AppColors.accent;
+  Color get appTextMain => isDarkMode ? AppColorsDark.textMain : AppColors.textMain;
+  Color get appTextMuted => isDarkMode ? AppColorsDark.textMuted : AppColors.textMuted;
+  Color get appBorder => isDarkMode ? AppColorsDark.border : AppColors.border;
+}

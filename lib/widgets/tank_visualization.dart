@@ -52,7 +52,7 @@ class _TankVisualizationState extends State<TankVisualization>
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.1),
+                color: context.appPrimary.withValues(alpha: 0.1),
                 width: 4,
               ),
             ),
@@ -61,7 +61,7 @@ class _TankVisualizationState extends State<TankVisualization>
           // Tank Background & Wave
           ClipOval(
             child: Container(
-              color: AppColors.background,
+              color: context.appBackground,
               child: AnimatedBuilder(
                 animation: _controller,
                 builder: (context, child) {
@@ -70,6 +70,7 @@ class _TankVisualizationState extends State<TankVisualization>
                       painter: _WavePainter(
                         progress: percentage,
                         waveValue: _controller.value,
+                        context: context,
                       ),
                       size: Size(widget.size, widget.size),
                     ),
@@ -83,7 +84,7 @@ class _TankVisualizationState extends State<TankVisualization>
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 4),
+              border: Border.all(color: context.appSurface, width: 4),
             ),
           ),
 
@@ -103,7 +104,7 @@ class _TankVisualizationState extends State<TankVisualization>
                       fontWeight: FontWeight.w900,
                       color: percentage > 0.5
                           ? Colors.white
-                          : AppColors.primary,
+                          : context.appPrimary,
                     ),
                   ),
                   Text(
@@ -113,7 +114,7 @@ class _TankVisualizationState extends State<TankVisualization>
                       fontWeight: FontWeight.bold,
                       color: percentage > 0.5
                           ? Colors.white.withValues(alpha: 0.8)
-                          : AppColors.primary,
+                          : context.appPrimary,
                     ),
                   ),
                 ],
@@ -127,7 +128,7 @@ class _TankVisualizationState extends State<TankVisualization>
                   letterSpacing: 1.5,
                   color: percentage > 0.5
                       ? Colors.white.withValues(alpha: 0.6)
-                      : AppColors.textMuted,
+                      : context.appTextMuted,
                 ),
               ),
             ],
@@ -141,20 +142,28 @@ class _TankVisualizationState extends State<TankVisualization>
 class _WavePainter extends CustomPainter {
   final double progress;
   final double waveValue;
+  final BuildContext context;
 
-  _WavePainter({required this.progress, required this.waveValue});
+  _WavePainter({
+    required this.progress,
+    required this.waveValue,
+    required this.context,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final yOffset = size.height * (1 - progress);
-    final waveAmplitude = progress > 0 && progress < 1 ? 6.0 : 0.0; // 稍微增加振幅
+    final waveAmplitude = progress > 0 && progress < 1 ? 6.0 : 0.0;
 
-    // Layer 1: Front wave (Solid)
+    // Layer 1: Front wave
     final paint1 = Paint()
-      ..shader = const LinearGradient(
+      ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)], // 更亮一点的蓝色
+        colors: [
+          context.appPrimary,
+          context.appPrimary.withValues(alpha: 0.8),
+        ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     final path1 = Path();

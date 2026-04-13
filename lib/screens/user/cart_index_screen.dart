@@ -157,11 +157,11 @@ class CartIndexScreenState extends State<CartIndexScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appBackground,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'My Cart',
-          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24),
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: context.appTextMain),
         ),
         centerTitle: true,
         automaticallyImplyLeading: false,
@@ -207,7 +207,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
       margin: const EdgeInsets.all(20),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appSurface,
         borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
@@ -227,22 +227,22 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       "TANK OZ",
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
-                        color: AppColors.textMuted,
+                        color: context.appTextMuted,
                         letterSpacing: 1.2,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       "${remainingOz.toInt()} / ${totalOz.toInt()} OZ",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
-                        color: AppColors.primary,
+                        color: context.appPrimary,
                       ),
                     ),
                   ],
@@ -252,7 +252,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
               Container(
                 height: 40,
                 width: 1,
-                color: AppColors.border,
+                color: context.appBorder,
                 margin: const EdgeInsets.symmetric(horizontal: 16),
               ),
               // 余额统计
@@ -260,22 +260,22 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text(
+                    Text(
                       "BALANCE",
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
-                        color: AppColors.textMuted,
+                        color: context.appTextMuted,
                         letterSpacing: 1.2,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       "RM ${cashBalance.toStringAsFixed(2)}",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
-                        color: AppColors.textMain,
+                        color: context.appTextMain,
                       ),
                     ),
                   ],
@@ -289,9 +289,9 @@ class CartIndexScreenState extends State<CartIndexScreen> {
             child: LinearProgressIndicator(
               value: progress.clamp(0, 1),
               minHeight: 6,
-              backgroundColor: AppColors.border,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                AppColors.primary,
+              backgroundColor: context.appBorder,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                context.appPrimary,
               ),
             ),
           ),
@@ -311,9 +311,9 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.appSurface,
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: context.appBorder),
         ),
         child: Row(
           children: [
@@ -325,9 +325,10 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                 children: [
                   Text(
                     item.product.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 16,
+                      color: context.appTextMain,
                     ),
                   ),
                   if (item.addons.isNotEmpty)
@@ -335,8 +336,8 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         "Add-ons: ${item.addons.join(', ')}",
-                        style: const TextStyle(
-                          color: AppColors.textMuted,
+                        style: TextStyle(
+                          color: context.appTextMuted,
                           fontSize: 12,
                         ),
                       ),
@@ -348,8 +349,8 @@ class CartIndexScreenState extends State<CartIndexScreen> {
             ),
             Text(
               "${item.ozNeeded} OZ",
-              style: const TextStyle(
-                color: AppColors.textMuted,
+              style: TextStyle(
+                color: context.appTextMuted,
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
               ),
@@ -372,9 +373,9 @@ class CartIndexScreenState extends State<CartIndexScreen> {
   Widget _buildBottomCheckout() {
     return Container(
       padding: const EdgeInsets.fromLTRB(30, 20, 30, 40),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(40)),
+      decoration: BoxDecoration(
+        color: context.appSurface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -384,8 +385,8 @@ class CartIndexScreenState extends State<CartIndexScreen> {
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 "${totalOzUsed.toInt()} OZ WILL BE DEDUCTED",
-                style: const TextStyle(
-                  color: AppColors.primary,
+                style: TextStyle(
+                  color: context.appPrimary,
                   fontWeight: FontWeight.w900,
                   fontSize: 12,
                   letterSpacing: 0.5,
@@ -395,12 +396,12 @@ class CartIndexScreenState extends State<CartIndexScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Total Pay',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textMuted,
+                  color: context.appTextMuted,
                 ),
               ),
               TweenAnimationBuilder<double>(
@@ -409,10 +410,10 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                 builder: (context, value, child) {
                   return Text(
                     "RM ${value.toStringAsFixed(2)}",
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w900,
-                      color: AppColors.textMain,
+                      color: context.appTextMain,
                     ),
                   );
                 },
@@ -425,7 +426,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                 ? null
                 : _handleCheckout,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: context.appPrimary,
               minimumSize: const Size(double.infinity, 60),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
@@ -434,7 +435,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
             child: const Text(
               'CHECKOUT NOW',
               style: TextStyle(
-                color: Colors.white,
+                color: Colors.white, // Elevated button text remains white
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1.5,
               ),
@@ -456,10 +457,10 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         width: 26,
         height: 26,
         decoration: BoxDecoration(
-          color: item.isOz ? AppColors.primary : Colors.transparent,
+          color: item.isOz ? context.appPrimary : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: item.isOz ? AppColors.primary : AppColors.textMuted,
+            color: item.isOz ? context.appPrimary : context.appTextMuted,
           ),
         ),
         child: item.isOz
@@ -475,17 +476,17 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         children: [
           Text(
             "RM ${item.unitPrice}",
-            style: const TextStyle(
+            style: TextStyle(
               decoration: TextDecoration.lineThrough,
-              color: AppColors.textMuted,
+              color: context.appTextMuted,
               fontSize: 12,
             ),
           ),
           const SizedBox(width: 8),
-          const Text(
+          Text(
             "REDEEMED",
             style: TextStyle(
-              color: AppColors.primary,
+              color: context.appPrimary,
               fontWeight: FontWeight.bold,
               fontSize: 10,
             ),
@@ -495,18 +496,18 @@ class CartIndexScreenState extends State<CartIndexScreen> {
     }
     return Text(
       "RM ${item.unitPrice.toStringAsFixed(2)}",
-      style: const TextStyle(
+      style: TextStyle(
         fontWeight: FontWeight.bold,
-        color: AppColors.textMain,
+        color: context.appTextMain,
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return const Center(
+    return Center(
       child: Text(
         'Cart is empty',
-        style: TextStyle(color: AppColors.textMuted),
+        style: TextStyle(color: context.appTextMuted),
       ),
     );
   }
@@ -516,7 +517,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red : AppColors.primary,
+        backgroundColor: isError ? Colors.red : context.appPrimary,
         behavior: SnackBarBehavior.floating,
       ),
     );

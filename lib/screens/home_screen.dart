@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:coffee_plus_app/screens/user/product_detail_screen.dart'
@@ -114,10 +115,28 @@ class _HomeScreenState extends State<HomeScreen> {
           style: TextStyle(fontWeight: FontWeight.w900),
         ),
         centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textMain,
+        backgroundColor: Colors.transparent,
+        foregroundColor: context.appTextMain,
         actions: [
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: _apiService.themeModeNotifier,
+            builder: (context, mode, _) {
+              return IconButton(
+                icon: Icon(
+                  mode == ThemeMode.dark
+                      ? Icons.light_mode_rounded
+                      : Icons.dark_mode_outlined,
+                ),
+                onPressed: () {
+                  final newMode = mode == ThemeMode.dark
+                      ? ThemeMode.light
+                      : ThemeMode.dark;
+                  _apiService.setThemeMode(newMode);
+                  HapticFeedback.mediumImpact();
+                },
+              );
+            },
+          ),
           ValueListenableBuilder<int>(
             valueListenable: _apiService.notificationCountNotifier,
             builder: (context, count, _) {
@@ -222,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   pinned: true,
                   delegate: _SliverAppBarDelegate(
                     child: Container(
-                      color: Colors.white,
+                      color: Theme.of(context).scaffoldBackgroundColor,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -280,9 +299,9 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: context.appSurface,
           borderRadius: BorderRadius.circular(32),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: context.appBorder),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.03),
@@ -309,13 +328,13 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildStatItem(
                 'COFFEE TANK',
                 "${user.oz} oz",
-                AppColors.primary,
+                context.appPrimary,
               ),
               const SizedBox(height: 8),
               _buildStatItem(
                 'CASH BALANCE',
                 "RM ${user.balance.toStringAsFixed(2)}",
-                AppColors.textMain,
+                context.appTextMain,
               ),
             ],
           ),
@@ -323,22 +342,22 @@ class _HomeScreenState extends State<HomeScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            const Text(
+            Text(
               'Welcome,',
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+              style: TextStyle(fontSize: 12, color: context.appTextMuted),
             ),
             Text(
               user.name,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w900,
-                color: AppColors.primary,
+                color: context.appPrimary,
               ),
             ),
             const SizedBox(height: 5),
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
-              color: AppColors.textMuted,
+              color: context.appTextMuted,
             ),
           ],
         ),
@@ -350,17 +369,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildGuestHeader() {
     return Row(
       children: [
-        const CircleAvatar(
+        CircleAvatar(
           radius: 30,
-          backgroundColor: AppColors.background,
+          backgroundColor: context.appBackground,
           child: Icon(
             Icons.person_outline,
             size: 30,
-            color: AppColors.textMuted,
+            color: context.appTextMuted,
           ),
         ),
         const SizedBox(width: 15),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -369,14 +388,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  color: AppColors.primary,
+                  color: context.appPrimary,
                 ),
               ),
               Text(
                 "Sign in to sync your coffee tank",
                 style: TextStyle(
                   fontSize: 11,
-                  color: AppColors.textMuted,
+                  color: context.appTextMuted,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -386,7 +405,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ElevatedButton(
           onPressed: () => AuthModal.show(context),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
+            backgroundColor: context.appPrimary,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -410,11 +429,11 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Text(
           label.toUpperCase(),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 7,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.0,
-            color: AppColors.textMuted,
+            color: context.appTextMuted,
           ),
         ),
         Text(
@@ -432,17 +451,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSearchBar() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appSurface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+        border: Border.all(color: context.appBorder.withValues(alpha: 0.5)),
       ),
       child: TextField(
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           hintText: 'Search coffee...',
-          hintStyle: TextStyle(color: AppColors.textMuted, fontSize: 13),
-          prefixIcon: Icon(Icons.search, size: 20, color: AppColors.textMuted),
+          hintStyle: TextStyle(color: context.appTextMuted, fontSize: 13),
+          prefixIcon: Icon(Icons.search, size: 20, color: context.appTextMuted),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
         onChanged: (value) {
           _debounceTimer?.cancel();
@@ -477,19 +496,20 @@ class _HomeScreenState extends State<HomeScreen> {
             ? Icon(
                 icon,
                 size: 14,
-                color: isSelected ? Colors.white : AppColors.primary,
+                color: isSelected ? Colors.white : context.appPrimary,
               )
             : null,
         label: Text(label),
         selected: isSelected,
         onSelected: (selected) {
           if (selected) {
+            HapticFeedback.selectionClick();
             setState(() => _selectedCategory = id);
           }
         },
-        selectedColor: AppColors.primary,
+        selectedColor: context.appPrimary,
         labelStyle: TextStyle(
-          color: isSelected ? Colors.white : AppColors.textMain,
+          color: isSelected ? Colors.white : context.appTextMain,
           fontWeight: FontWeight.w900,
           fontSize: 12,
         ),
@@ -521,7 +541,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.5,
-                  color: AppColors.textMain.withValues(alpha: 0.8),
+                  color: context.appTextMain.withValues(alpha: 0.8),
                 ),
               ),
             ),
@@ -640,14 +660,14 @@ class _HomeScreenState extends State<HomeScreen> {
       valueListenable: _favoriteService.favoritesNotifier,
       builder: (context, favorites, _) {
         if (favorites.isEmpty) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
                   "No favorites yet",
-                  style: TextStyle(color: AppColors.textMuted),
+                  style: TextStyle(color: context.appTextMuted),
                 ),
               ],
             ),
@@ -657,15 +677,15 @@ class _HomeScreenState extends State<HomeScreen> {
         return ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(
                 "SAVED COLLECTIONS",
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.5,
-                  color: AppColors.primary,
+                  color: context.appPrimary,
                 ),
               ),
             ),

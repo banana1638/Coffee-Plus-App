@@ -106,9 +106,9 @@ class _AuthModalState extends State<AuthModal> {
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      decoration: BoxDecoration(
+        color: context.appBackground,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
       ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(30.0),
@@ -229,10 +229,10 @@ class _AuthModalState extends State<AuthModal> {
                       )
                     : Text(
                         isLogin ? "SIGN IN" : "SIGN UP",
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
-                          color: Colors.white,
+                          color: context.appBackground,
                         ),
                       ),
               ),
@@ -275,7 +275,7 @@ class _AuthModalState extends State<AuthModal> {
         hintText: hintText,
         prefixIcon: Icon(icon, color: AppColors.textMuted),
         filled: true,
-        fillColor: Colors.black.withValues(alpha: 0.05),
+        fillColor: context.appSurface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
           borderSide: BorderSide.none,

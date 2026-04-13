@@ -101,7 +101,7 @@ class _PointsMallScreenState extends State<PointsMallScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appBackground,
       appBar: AppBar(
         title: const Text('POINTS MALL', style: TextStyle(fontWeight: FontWeight.w900)),
         centerTitle: true,
@@ -175,9 +175,9 @@ class _PointsMallScreenState extends State<PointsMallScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appSurface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: context.appBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,8 +224,8 @@ class _PointsMallScreenState extends State<PointsMallScreen> {
                       child: ElevatedButton(
                         onPressed: () => _handlePurchase(item),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
+                          backgroundColor: context.appPrimary,
+                          foregroundColor: context.appBackground,
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           elevation: 0,

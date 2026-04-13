@@ -1,15 +1,14 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:flutter/widgets.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  final String baseUrl = "http://192.168.1.106/coffee_plus/public/api";
+  final String baseUrl = "http://192.168.1.105/coffee_plus/public/api";
   final String baseImageUrl =
-      "http://192.168.1.106/coffee_plus/public/images/products/";
+      "http://192.168.1.105/coffee_plus/public/images/products/";
 
   final Dio _dio = Dio();
   final _storage = const FlutterSecureStorage();
@@ -20,6 +19,7 @@ class ApiService {
   final ValueNotifier<int> cartCountNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> notificationCountNotifier = ValueNotifier<int>(0);
   final ValueNotifier<bool> authStateNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
 
   // 内存缓存
   final Map<String, dynamic> _cache = {};
@@ -43,12 +43,12 @@ class ApiService {
           }
 
           // 2. Language Header (Backend handles translation)
-          options.headers['Accept-Language'] = 'en'; 
+          options.headers['Accept-Language'] = 'en';
 
           // 3. Other Headers
           options.headers['Accept'] = 'application/json';
           options.headers['Content-Type'] = 'application/json';
-          
+
           return handler.next(options);
         },
         onError: (DioException e, handler) async {
@@ -63,6 +63,29 @@ class ApiService {
         },
       ),
     );
+    
+    // 初始化时加载主题
+    loadThemeMode();
+  }
+
+  // ==========================================
+  // 主题控制 (Theme Control)
+  // ==========================================
+
+  Future<void> loadThemeMode() async {
+    final String? mode = await _storage.read(key: 'theme_mode');
+    if (mode == 'light') {
+      themeModeNotifier.value = ThemeMode.light;
+    } else if (mode == 'dark') {
+      themeModeNotifier.value = ThemeMode.dark;
+    } else {
+      themeModeNotifier.value = ThemeMode.system;
+    }
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    themeModeNotifier.value = mode;
+    await _storage.write(key: 'theme_mode', value: mode.name);
   }
 
   // ==========================================
