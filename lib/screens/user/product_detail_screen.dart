@@ -344,6 +344,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           child: CachedNetworkImage(
             imageUrl: ApiService().getFullImageUrl(widget.product.imageUrl),
             fit: BoxFit.cover,
+            memCacheWidth: 800,
           ),
         ),
       ),
