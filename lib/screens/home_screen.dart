@@ -234,8 +234,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),
-                    minHeight: 125,
-                    maxHeight: 125,
+                    minHeight: 140,
+                    maxHeight: 140,
                   ),
                 ),
               ];
