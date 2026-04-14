@@ -129,13 +129,13 @@ class _AuthModalState extends State<AuthModal> {
             Icon(
               isLogin ? Icons.lock_outline_rounded : Icons.person_add_outlined,
               size: 60,
-              color: AppColors.primary,
+              color: context.appPrimary,
             ),
             const SizedBox(height: 20),
             Text(
               isLogin ? "WELCOME BACK" : "CREATE ACCOUNT",
-              style: const TextStyle(
-                color: AppColors.primary,
+              style: TextStyle(
+                color: context.appPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 2,
@@ -188,17 +188,17 @@ class _AuthModalState extends State<AuthModal> {
                       value: _rememberMe,
                       onChanged: (val) =>
                           setState(() => _rememberMe = val ?? true),
-                      activeColor: AppColors.primary,
+                      activeColor: context.appPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
                   ),
                   const SizedBox(width: 10),
-                  const Text(
+                  Text(
                     "Remember Me",
                     style: TextStyle(
-                      color: AppColors.textMain,
+                      color: context.appTextMain,
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
@@ -215,7 +215,7 @@ class _AuthModalState extends State<AuthModal> {
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _handleSubmit,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: context.appPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18),
                   ),
@@ -246,8 +246,8 @@ class _AuthModalState extends State<AuthModal> {
                 isLogin
                     ? "Don't have an account? Sign Up"
                     : "Already have an account? Sign In",
-                style: const TextStyle(
-                  color: AppColors.primary,
+                style: TextStyle(
+                  color: context.appPrimary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -270,10 +270,10 @@ class _AuthModalState extends State<AuthModal> {
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
-      style: const TextStyle(color: AppColors.textMain),
+      style: TextStyle(color: context.appTextMain),
       decoration: InputDecoration(
         hintText: hintText,
-        prefixIcon: Icon(icon, color: AppColors.textMuted),
+        prefixIcon: Icon(icon, color: context.appTextMuted),
         filled: true,
         fillColor: context.appSurface,
         border: OutlineInputBorder(
@@ -286,7 +286,7 @@ class _AuthModalState extends State<AuthModal> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1),
+          borderSide: BorderSide(color: context.appPrimary, width: 1),
         ),
       ),
     );

@@ -35,7 +35,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: context.appBackground,
       appBar: AppBar(
         title: Text(
           _isSelectionMode
@@ -46,7 +46,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         centerTitle: true,
         elevation: 0,
         backgroundColor: context.appSurface,
-        foregroundColor: AppColors.textMain,
+        foregroundColor: context.appTextMain,
         leading: _isSelectionMode
             ? IconButton(
                 icon: const Icon(Icons.close),
@@ -167,7 +167,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text("CANCEL", style: TextStyle(color: Colors.grey)),
+            child: Text("CANCEL", style: TextStyle(color: context.appTextMuted)),
           ),
           TextButton(
             onPressed: () async {
@@ -221,11 +221,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: context.appSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.info_outline, color: AppColors.primary),
-            SizedBox(width: 10),
-            Text(
+            Icon(Icons.info_outline, color: context.appPrimary),
+            const SizedBox(width: 10),
+            const Text(
               "Notification Detail",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
             ),
@@ -236,37 +236,37 @@ class _NotificationScreenState extends State<NotificationScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (orderId != null) ...[
-              const Text(
+              Text(
                 "ORDER ID",
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textMuted,
+                  color: context.appTextMuted,
                   letterSpacing: 1.0,
                 ),
               ),
               Text(
                 "#$orderId",
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  color: AppColors.primary,
+                  color: context.appPrimary,
                 ),
               ),
               const SizedBox(height: 16),
             ],
-            const Text(
+            Text(
               "MESSAGE",
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textMuted,
+                color: context.appTextMuted,
                 letterSpacing: 1.0,
               ),
             ),
             Text(
               message,
-              style: const TextStyle(fontSize: 14, color: AppColors.textMain),
+              style: TextStyle(fontSize: 14, color: context.appTextMain),
             ),
           ],
         ),
@@ -308,7 +308,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             : context.appSurface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isSelected ? AppColors.primary : AppColors.border,
+          color: isSelected ? context.appPrimary : context.appBorder,
           width: isSelected ? 2 : 1,
         ),
         boxShadow: [
@@ -326,7 +326,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
             if (isRead)
               Icon(
                 isSelected ? Icons.check_circle : Icons.radio_button_off,
-                color: isSelected ? AppColors.primary : AppColors.textMuted,
+                color: isSelected ? context.appPrimary : context.appTextMuted,
                 size: 24,
               )
             else
@@ -341,14 +341,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: isRead
-                  ? AppColors.background
-                  : AppColors.primary.withValues(alpha: 0.1),
+                  ? context.appBackground
+                  : context.appPrimary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.notifications_active_outlined,
               size: 20,
-              color: isRead ? AppColors.textMuted : AppColors.primary,
+              color: isRead ? context.appTextMuted : context.appPrimary,
             ),
           ),
           const SizedBox(width: 15),
@@ -361,16 +361,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-                    color: AppColors.textMain,
+                    color: context.appTextMain,
                   ),
                 ),
                 if (time != null) ...[
                   const SizedBox(height: 6),
                   Text(
                     DateFormat('MMM d, h:mm a').format(time),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      color: AppColors.textMuted,
+                      color: context.appTextMuted,
                     ),
                   ),
                 ],
@@ -399,13 +399,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
           Icon(
             Icons.notifications_none,
             size: 80,
-            color: AppColors.textMuted.withValues(alpha: 0.3),
+            color: context.appTextMuted.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             "No notifications yet",
             style: TextStyle(
-              color: AppColors.textMuted,
+              color: context.appTextMuted,
               fontWeight: FontWeight.bold,
             ),
           ),
