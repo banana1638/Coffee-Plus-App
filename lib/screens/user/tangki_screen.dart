@@ -142,13 +142,27 @@ class TangkiScreenState extends State<TangkiScreen> {
               child: Column(
                 key: ValueKey(snapshot.data.hashCode),
                 children: [
-                  _buildTankCard(user.oz.toDouble(), user.balance),
+                  RepaintBoundary(
+                    child: TankStatusCard(
+                      currentOz: user.oz.toDouble(),
+                      balance: user.balance,
+                    ),
+                  ),
                   const SizedBox(height: 16),
-                  _buildActionButtons(user.oz),
+                  RepaintBoundary(
+                    child: ActionButtons(
+                      onMallTap: () => Navigator.pushNamed(context, '/mall'),
+                    ),
+                  ),
                   const SizedBox(height: 24),
-                  _buildRefillSection(user.balance),
+                  RefillSection(
+                    balance: user.balance,
+                    isLoading: _isLoading,
+                    onRefill: _handleRefill,
+                    amountController: _amountController,
+                  ),
                   const SizedBox(height: 24),
-                  _buildTransactionList(transactions),
+                  RecentTransactionsList(transactions: transactions),
                 ],
               ),
             ),
@@ -158,11 +172,38 @@ class TangkiScreenState extends State<TangkiScreen> {
     );
   }
 
-  // ==========================================
-  // 5. 子组件构建 (Sub-Widgets)
-  // ==========================================
+  Widget _buildLoginPlaceholder() {
+    return const LoginPlaceholder();
+  }
 
-  Widget _buildTankCard(double currentOz, double balance) {
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
+
+// ==========================================
+// 5. 独立优化组件 (Standalone Optimized Widgets)
+// ==========================================
+
+class TankStatusCard extends StatelessWidget {
+  final double currentOz;
+  final double balance;
+
+  const TankStatusCard({
+    super.key,
+    required this.currentOz,
+    required this.balance,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -177,18 +218,18 @@ class TangkiScreenState extends State<TangkiScreen> {
           Row(
             children: [
               Expanded(
-                child: _buildStatItem(
-                  "Current Storage",
-                  "${currentOz.toInt()} oz",
-                  AppColors.primary,
+                child: TankStatItem(
+                  label: "Current Storage",
+                  value: "${currentOz.toInt()} oz",
+                  valueColor: AppColors.primary,
                 ),
               ),
               Container(width: 1, height: 40, color: context.appBorder),
               Expanded(
-                child: _buildStatItem(
-                  "Account Balance",
-                  "RM ${balance.toStringAsFixed(2)}",
-                  AppColors.textMain,
+                child: TankStatItem(
+                  label: "Account Balance",
+                  value: "RM ${balance.toStringAsFixed(2)}",
+                  valueColor: context.appTextMain,
                 ),
               ),
             ],
@@ -197,8 +238,129 @@ class TangkiScreenState extends State<TangkiScreen> {
       ),
     );
   }
+}
 
-  Widget _buildRefillSection(double balance) {
+class TankStatItem extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  const TankStatItem({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textMuted,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            color: valueColor,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class ActionButtons extends StatelessWidget {
+  final VoidCallback onMallTap;
+
+  const ActionButtons({super.key, required this.onMallTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: SecondaryActionButton(
+            icon: Icons.shopping_bag_outlined,
+            label: 'POINTS MALL',
+            color: const Color(0xFFFACC15),
+            onTap: onMallTap,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class SecondaryActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const SecondaryActionButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                color: color,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class RefillSection extends StatelessWidget {
+  final double balance;
+  final bool isLoading;
+  final Function(double, double) onRefill;
+  final TextEditingController amountController;
+
+  const RefillSection({
+    super.key,
+    required this.balance,
+    required this.isLoading,
+    required this.onRefill,
+    required this.amountController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -230,7 +392,7 @@ class TangkiScreenState extends State<TangkiScreen> {
               return OutlinedButton(
                 onPressed: () {
                   HapticFeedback.lightImpact();
-                  _handleRefill(v.toDouble(), balance);
+                  onRefill(v.toDouble(), balance);
                 },
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFFE0E7FF)),
@@ -245,7 +407,7 @@ class TangkiScreenState extends State<TangkiScreen> {
           ),
           const SizedBox(height: 16),
           TextField(
-            controller: _amountController,
+            controller: amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             textAlign: TextAlign.center,
             decoration: InputDecoration(
@@ -263,12 +425,12 @@ class TangkiScreenState extends State<TangkiScreen> {
             width: double.infinity,
             height: 56,
             child: ElevatedButton(
-              onPressed: _isLoading
+              onPressed: isLoading
                   ? null
                   : () {
                       HapticFeedback.mediumImpact();
-                      _handleRefill(
-                        double.tryParse(_amountController.text) ?? 0,
+                      onRefill(
+                        double.tryParse(amountController.text) ?? 0,
                         balance,
                       );
                     },
@@ -280,7 +442,7 @@ class TangkiScreenState extends State<TangkiScreen> {
                 ),
                 elevation: 0,
               ),
-              child: _isLoading
+              child: isLoading
                   ? const CoffeeLoadingIndicator(size: 20)
                   : const Text(
                       "CONFIRM WATERING",
@@ -292,8 +454,15 @@ class TangkiScreenState extends State<TangkiScreen> {
       ),
     );
   }
+}
 
-  Widget _buildTransactionList(List<Transaction> transactions) {
+class RecentTransactionsList extends StatelessWidget {
+  final List<Transaction> transactions;
+
+  const RecentTransactionsList({super.key, required this.transactions});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -317,7 +486,7 @@ class TangkiScreenState extends State<TangkiScreen> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.background,
+                  color: context.appBackground,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
@@ -332,7 +501,9 @@ class TangkiScreenState extends State<TangkiScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          ...transactions.take(5).map((trx) => _buildTransactionItem(trx)),
+          ...transactions.take(5).map((trx) => RepaintBoundary(
+                child: TransactionItemTile(trx: trx),
+              )),
           const SizedBox(height: 16),
           OutlinedButton(
             onPressed: () {
@@ -364,8 +535,15 @@ class TangkiScreenState extends State<TangkiScreen> {
       ),
     );
   }
+}
 
-  Widget _buildTransactionItem(Transaction trx) {
+class TransactionItemTile extends StatelessWidget {
+  final Transaction trx;
+
+  const TransactionItemTile({super.key, required this.trx});
+
+  @override
+  Widget build(BuildContext context) {
     bool isCredit = trx.type == 'refill' || trx.ozDelta.startsWith('+');
     bool hasDetail = trx.billId.isNotEmpty;
 
@@ -448,31 +626,13 @@ class TangkiScreenState extends State<TangkiScreen> {
       ),
     );
   }
+}
 
-  Widget _buildStatItem(String label, String value, Color valueColor) {
-    return Column(
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 8,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textMuted,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
-            color: valueColor,
-          ),
-        ),
-      ],
-    );
-  }
+class LoginPlaceholder extends StatelessWidget {
+  const LoginPlaceholder({super.key});
 
-  Widget _buildLoginPlaceholder() {
+  @override
+  Widget build(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -508,71 +668,6 @@ class TangkiScreenState extends State<TangkiScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  // ==========================================
-  // 6. 辅助方法 (Helpers)
-  // ==========================================
-
-  Widget _buildActionButtons(int currentOz) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildSecondaryButton(
-            Icons.shopping_bag_outlined,
-            'POINTS MALL',
-            const Color(0xFFFACC15),
-            () => Navigator.pushNamed(context, '/mall'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSecondaryButton(
-    IconData icon,
-    String label,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                color: color,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showSnackBar(String message, {bool isError = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : AppColors.primary,
-        behavior: SnackBarBehavior.floating,
       ),
     );
   }

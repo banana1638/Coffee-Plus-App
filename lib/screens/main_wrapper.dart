@@ -122,8 +122,12 @@ class _MainWrapperState extends State<MainWrapper> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: _screens),
-      bottomNavigationBar: _buildBottomNavigation(),
+      body: RepaintBoundary(
+        child: IndexedStack(index: _selectedIndex, children: _screens),
+      ),
+      bottomNavigationBar: RepaintBoundary(
+        child: _buildBottomNavigation(),
+      ),
     );
   }
 

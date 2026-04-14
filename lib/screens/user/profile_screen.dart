@@ -208,45 +208,73 @@ class ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  _buildAnimatedItem(0, _buildUserSummaryCard()),
+                  _buildAnimatedItem(
+                      0,
+                      RepaintBoundary(
+                        child: UserSummaryCard(user: _user),
+                      )),
                   const SizedBox(height: 24),
-                  _buildAnimatedItem(1, _buildQuickLinks()),
+                  _buildAnimatedItem(
+                      1,
+                      RepaintBoundary(
+                        child: QuickLinks(
+                          activeMenu: _activeMenu,
+                          onMenuChanged: (menu) {
+                            setState(() => _activeMenu = menu);
+                          },
+                        ),
+                      )),
                   const SizedBox(height: 24),
                   if (_activeMenu == "App Appearance")
                     _buildAnimatedItem(
                       3,
-                      _buildSection(
+                      const ProfileSection(
                         title: "App Appearance",
-                        subtitle: "Customize how Coffee Plus+ looks on your device.",
-                        child: _buildAppearanceSection(),
+                        subtitle:
+                            "Customize how Coffee Plus+ looks on your device.",
+                        child: AppearanceSection(),
                       ),
                     ),
                   if (_activeMenu == "Profile Information")
                     _buildAnimatedItem(
                       2,
-                      _buildSection(
+                      ProfileSection(
                         title: "Profile Information",
                         subtitle: "Update your account details.",
-                        child: _buildProfileInfoForm(),
+                        child: ProfileInfoForm(
+                          nameController: _nameController,
+                          emailController: _emailController,
+                          isLoading: _isLoading,
+                          onUpdate: _handleUpdateProfile,
+                        ),
                       ),
                     ),
                   if (_activeMenu == "Update Password")
                     _buildAnimatedItem(
                       3,
-                      _buildSection(
+                      ProfileSection(
                         title: "Update Password",
-                        subtitle: "Ensure your account is using a strong password.",
-                        child: _buildUpdatePasswordForm(),
+                        subtitle:
+                            "Ensure your account is using a strong password.",
+                        child: UpdatePasswordForm(
+                          currentPasswordController: _currentPasswordController,
+                          newPasswordController: _newPasswordController,
+                          confirmPasswordController: _confirmPasswordController,
+                          isLoading: _isLoading,
+                          onUpdate: _handleUpdatePassword,
+                        ),
                       ),
                     ),
                   if (_activeMenu == "Delete Account")
                     _buildAnimatedItem(
                       4,
-                      _buildSection(
+                      ProfileSection(
                         title: "Delete Account",
                         subtitle: "This action is permanent.",
                         isDanger: true,
-                        child: _buildDeleteAccountSection(),
+                        child: DeleteAccountSection(
+                          onDelete: _showDeleteConfirmation,
+                        ),
                       ),
                     ),
                   const SizedBox(height: 40),
@@ -256,40 +284,107 @@ class ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileInfoForm() {
-    return Column(
-      children: [
-        _buildTextField("Full Name", _nameController),
-        const SizedBox(height: 16),
-        _buildTextField(
-          "Email Address",
-          _emailController,
-          keyboardType: TextInputType.emailAddress,
+  Widget _buildAnimatedItem(int index, Widget child) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 400 + (index * 100)),
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, 20 * (1 - value)),
+          child: child,
         ),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _isLoading ? null : _handleUpdateProfile,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            child: const Text(
-              "UPDATE PROFILE",
-              style: TextStyle(fontWeight: FontWeight.w900),
-            ),
-          ),
-        ),
-      ],
+      ),
+      child: child,
     );
   }
 
-  Widget _buildUserSummaryCard() {
+  void _showDeleteConfirmation() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: EdgeInsets.fromLTRB(
+            32, 32, 32, 32 + MediaQuery.of(context).viewInsets.bottom),
+        decoration: BoxDecoration(
+          color: context.appSurface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Are you sure?",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "This action is permanent. Please enter your password.",
+              style: TextStyle(color: context.appTextMuted),
+            ),
+            const SizedBox(height: 24),
+            ProfileTextField(
+              label: "Password",
+              controller: _deletePasswordController,
+              isPassword: true,
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("CANCEL"),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () => _handleDeleteAccount(
+                              _deletePasswordController.text,
+                            ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    child: const Text("DELETE"),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.redAccent : AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+}
+
+// ==========================================
+// 6. 独立优化组件 (Standalone Optimized Widgets)
+// ==========================================
+
+class UserSummaryCard extends StatelessWidget {
+  final User? user;
+
+  const UserSummaryCard({super.key, required this.user});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -303,8 +398,8 @@ class ProfileScreenState extends State<ProfileScreen> {
             radius: 40,
             backgroundColor: AppColors.primary,
             child: Text(
-              (_user?.name.isNotEmpty ?? false)
-                  ? _user!.name[0].toUpperCase()
+              (user?.name.isNotEmpty ?? false)
+                  ? user!.name[0].toUpperCase()
                   : "U",
               style: const TextStyle(
                 fontSize: 32,
@@ -315,27 +410,27 @@ class ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            _user?.name ?? 'PREPARING...',
+            user?.name ?? 'PREPARING...',
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
           ),
           Text(
-            _user?.email ?? "...",
+            user?.email ?? "...",
             style: TextStyle(color: context.appTextMuted, fontSize: 14),
           ),
           const SizedBox(height: 24),
           Row(
             children: [
               Expanded(
-                child: _buildMiniStat(
-                  "Balance",
-                  "RM ${(_user?.balance ?? 0.0).toStringAsFixed(2)}",
+                child: MiniStat(
+                  label: "Balance",
+                  value: "RM ${(user?.balance ?? 0.0).toStringAsFixed(2)}",
                 ),
               ),
               Container(width: 1, height: 30, color: context.appBorder),
               Expanded(
-                child: _buildMiniStat(
-                  "Storage",
-                  "${_user?.oz ?? 0} oz",
+                child: MiniStat(
+                  label: "Storage",
+                  value: "${user?.oz ?? 0} oz",
                   isPrimary: true,
                 ),
               ),
@@ -345,8 +440,22 @@ class ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+}
 
-  Widget _buildMiniStat(String label, String value, {bool isPrimary = false}) {
+class MiniStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isPrimary;
+
+  const MiniStat({
+    super.key,
+    required this.label,
+    required this.value,
+    this.isPrimary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
         Text(
@@ -368,8 +477,20 @@ class ProfileScreenState extends State<ProfileScreen> {
       ],
     );
   }
+}
 
-  Widget _buildQuickLinks() {
+class QuickLinks extends StatelessWidget {
+  final String activeMenu;
+  final ValueChanged<String> onMenuChanged;
+
+  const QuickLinks({
+    super.key,
+    required this.activeMenu,
+    required this.onMenuChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -379,23 +500,67 @@ class ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Column(
         children: [
-          _buildNavLink(Icons.history, 'My Orders'),
-          _buildNavLink(Icons.palette_outlined, 'App Appearance'),
-          _buildNavLink(Icons.person_outline, 'Profile Information'),
-          _buildNavLink(Icons.lock_outline, 'Update Password'),
+          NavLink(
+            icon: Icons.history,
+            label: 'My Orders',
+            isActive: activeMenu == 'My Orders',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TransactionHistoryScreen(),
+              ),
+            ),
+          ),
+          NavLink(
+            icon: Icons.palette_outlined,
+            label: 'App Appearance',
+            isActive: activeMenu == 'App Appearance',
+            onTap: () => onMenuChanged('App Appearance'),
+          ),
+          NavLink(
+            icon: Icons.person_outline,
+            label: 'Profile Information',
+            isActive: activeMenu == 'Profile Information',
+            onTap: () => onMenuChanged('Profile Information'),
+          ),
+          NavLink(
+            icon: Icons.lock_outline,
+            label: 'Update Password',
+            isActive: activeMenu == 'Update Password',
+            onTap: () => onMenuChanged('Update Password'),
+          ),
           const Divider(),
-          _buildNavLink(
-            Icons.delete_outline,
-            'Delete Account',
+          NavLink(
+            icon: Icons.delete_outline,
+            label: 'Delete Account',
             isDanger: true,
+            isActive: activeMenu == 'Delete Account',
+            onTap: () => onMenuChanged('Delete Account'),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildNavLink(IconData icon, String label, {bool isDanger = false}) {
-    final bool isActive = _activeMenu == label;
+class NavLink extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final bool isDanger;
+  final VoidCallback onTap;
+
+  const NavLink({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    this.isDanger = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     Color color = isDanger
         ? Colors.red
         : (isActive ? context.appPrimary : context.appTextMain);
@@ -416,25 +581,27 @@ class ProfileScreenState extends State<ProfileScreen> {
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       tileColor: isActive ? context.appPrimary.withValues(alpha: 0.05) : null,
-      onTap: () {
-        if (label == 'My Orders') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const TransactionHistoryScreen()),
-          );
-        } else {
-          setState(() => _activeMenu = label);
-        }
-      },
+      onTap: onTap,
     );
   }
+}
 
-  Widget _buildSection({
-    required String title,
-    required String subtitle,
-    required Widget child,
-    bool isDanger = false,
-  }) {
+class ProfileSection extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final Widget child;
+  final bool isDanger;
+
+  const ProfileSection({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.child,
+    this.isDanger = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -463,73 +630,75 @@ class ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+}
 
-  Widget _buildDeleteAccountSection() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: () => _showDeleteConfirmation(),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        child: const Text(
-          "DELETE ACCOUNT",
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-      ),
-    );
-  }
+class AppearanceSection extends StatelessWidget {
+  const AppearanceSection({super.key});
 
-  Widget _buildAppearanceSection() {
+  @override
+  Widget build(BuildContext context) {
+    final ApiService apiService = ApiService();
     return ValueListenableBuilder<ThemeMode>(
-      valueListenable: _apiService.themeModeNotifier,
+      valueListenable: apiService.themeModeNotifier,
       builder: (context, currentMode, _) {
         return Column(
           children: [
-            _buildThemeOption(
-              ThemeMode.system,
-              "System Default",
-              "Matches your device settings.",
-              Icons.brightness_auto_rounded,
-              currentMode == ThemeMode.system,
+            ThemeOption(
+              mode: ThemeMode.system,
+              title: "System Default",
+              subtitle: "Matches your device settings.",
+              icon: Icons.brightness_auto_rounded,
+              isSelected: currentMode == ThemeMode.system,
+              onTap: () => apiService.setThemeMode(ThemeMode.system),
             ),
             const SizedBox(height: 12),
-            _buildThemeOption(
-              ThemeMode.light,
-              "Light Mode",
-              "Classic bright experience.",
-              Icons.wb_sunny_outlined,
-              currentMode == ThemeMode.light,
+            ThemeOption(
+              mode: ThemeMode.light,
+              title: "Light Mode",
+              subtitle: "Classic bright experience.",
+              icon: Icons.wb_sunny_outlined,
+              isSelected: currentMode == ThemeMode.light,
+              onTap: () => apiService.setThemeMode(ThemeMode.light),
             ),
             const SizedBox(height: 12),
-            _buildThemeOption(
-              ThemeMode.dark,
-              "Premium Midnight",
-              "Elegant charcoal & gold theme.",
-              Icons.nightlight_round_outlined,
-              currentMode == ThemeMode.dark,
+            ThemeOption(
+              mode: ThemeMode.dark,
+              title: "Premium Midnight",
+              subtitle: "Elegant charcoal & gold theme.",
+              icon: Icons.nightlight_round_outlined,
+              isSelected: currentMode == ThemeMode.dark,
+              onTap: () => apiService.setThemeMode(ThemeMode.dark),
             ),
           ],
         );
       },
     );
   }
+}
 
-  Widget _buildThemeOption(
-    ThemeMode mode,
-    String title,
-    String subtitle,
-    IconData icon,
-    bool isSelected,
-  ) {
+class ThemeOption extends StatelessWidget {
+  final ThemeMode mode;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const ThemeOption({
+    super.key,
+    required this.mode,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        _apiService.setThemeMode(mode);
+        onTap();
         HapticFeedback.mediumImpact();
       },
       borderRadius: BorderRadius.circular(20),
@@ -580,32 +749,99 @@ class ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+}
 
-  Widget _buildUpdatePasswordForm() {
+class ProfileInfoForm extends StatelessWidget {
+  final TextEditingController nameController;
+  final TextEditingController emailController;
+  final bool isLoading;
+  final VoidCallback onUpdate;
+
+  const ProfileInfoForm({
+    super.key,
+    required this.nameController,
+    required this.emailController,
+    required this.isLoading,
+    required this.onUpdate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
-        _buildTextField(
-          "Current Password",
-          _currentPasswordController,
+        ProfileTextField(label: "Full Name", controller: nameController),
+        const SizedBox(height: 16),
+        ProfileTextField(
+          label: "Email Address",
+          controller: emailController,
+          keyboardType: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: isLoading ? null : onUpdate,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: const Text(
+              "UPDATE PROFILE",
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class UpdatePasswordForm extends StatelessWidget {
+  final TextEditingController currentPasswordController;
+  final TextEditingController newPasswordController;
+  final TextEditingController confirmPasswordController;
+  final bool isLoading;
+  final VoidCallback onUpdate;
+
+  const UpdatePasswordForm({
+    super.key,
+    required this.currentPasswordController,
+    required this.newPasswordController,
+    required this.confirmPasswordController,
+    required this.isLoading,
+    required this.onUpdate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ProfileTextField(
+          label: "Current Password",
+          controller: currentPasswordController,
           isPassword: true,
         ),
         const SizedBox(height: 16),
-        _buildTextField(
-          "New Password",
-          _newPasswordController,
+        ProfileTextField(
+          label: "New Password",
+          controller: newPasswordController,
           isPassword: true,
         ),
         const SizedBox(height: 16),
-        _buildTextField(
-          "Confirm Password",
-          _confirmPasswordController,
+        ProfileTextField(
+          label: "Confirm Password",
+          controller: confirmPasswordController,
           isPassword: true,
         ),
         const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: _isLoading ? null : _handleUpdatePassword,
+            onPressed: isLoading ? null : onUpdate,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
@@ -623,13 +859,52 @@ class ProfileScreenState extends State<ProfileScreen> {
       ],
     );
   }
+}
 
-  Widget _buildTextField(
-    String label,
-    TextEditingController controller, {
-    bool isPassword = false,
-    TextInputType? keyboardType,
-  }) {
+class DeleteAccountSection extends StatelessWidget {
+  final VoidCallback onDelete;
+
+  const DeleteAccountSection({super.key, required this.onDelete});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onDelete,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.red,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        child: const Text(
+          "DELETE ACCOUNT",
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+      ),
+    );
+  }
+}
+
+class ProfileTextField extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final bool isPassword;
+  final TextInputType? keyboardType;
+
+  const ProfileTextField({
+    super.key,
+    required this.label,
+    required this.controller,
+    this.isPassword = false,
+    this.keyboardType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -660,94 +935,6 @@ class ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildAnimatedItem(int index, Widget child) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 400 + (index * 100)),
-      builder: (context, value, child) => Opacity(
-        opacity: value,
-        child: Transform.translate(
-          offset: Offset(0, 20 * (1 - value)),
-          child: child,
-        ),
-      ),
-      child: child,
-    );
-  }
-
-  void _showDeleteConfirmation() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: EdgeInsets.fromLTRB(32, 32, 32, 32 + MediaQuery.of(context).viewInsets.bottom),
-        decoration: BoxDecoration(
-          color: context.appSurface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Are you sure?",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              "This action is permanent. Please enter your password.",
-              style: TextStyle(color: context.appTextMuted),
-            ),
-            const SizedBox(height: 24),
-            _buildTextField(
-              "Password",
-              _deletePasswordController,
-              isPassword: true,
-            ),
-            const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("CANCEL"),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () => _handleDeleteAccount(
-                            _deletePasswordController.text,
-                          ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                    ),
-                    child: const Text("DELETE"),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showSnackBar(String message, {bool isError = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.redAccent : AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-      ),
     );
   }
 }

@@ -47,7 +47,9 @@ class OrderDetailScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(40),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: context.isDarkMode ? 0.4 : 0.05),
+                    color: Colors.black.withValues(
+                      alpha: context.isDarkMode ? 0.4 : 0.05,
+                    ),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),
@@ -56,23 +58,21 @@ class OrderDetailScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  _buildHeader(context),
+                  const RepaintBoundary(child: OrderHeader()),
                   Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildRowDetail(
-                          context,
-                          'BILL ID',
-                          orderData['bill_id']?.toString() ?? 'N/A',
+                        OrderRowDetail(
+                          label: 'BILL ID',
+                          value: orderData['bill_id']?.toString() ?? 'N/A',
                           isBold: true,
                         ),
                         const SizedBox(height: 12),
-                        _buildRowDetail(
-                          context,
-                          'DATE',
-                          orderData['created_at']?.toString() ?? '-',
+                        OrderRowDetail(
+                          label: 'DATE',
+                          value: orderData['created_at']?.toString() ?? '-',
                           isBold: true,
                         ),
                         const SizedBox(height: 12),
@@ -124,20 +124,24 @@ class OrderDetailScreen extends StatelessWidget {
                         ),
 
                         // 商品列表渲染
-                        ...(orderData['items'] as List? ?? []).map(
-                          (item) =>
-                              _buildOrderItem(context, Map<String, dynamic>.from(item)),
-                        ),
+                        ...((orderData['items'] as List?)
+                                ?.map((item) => Map<String, dynamic>.from(item))
+                                .map(
+                                  (item) => RepaintBoundary(
+                                    child: OrderItemTile(item: item),
+                                  ),
+                                ) ??
+                            []),
 
                         const SizedBox(height: 20),
-                        _buildDashedLine(context),
+                        const DashedLine(),
                         const SizedBox(height: 20),
 
                         // 金额统计
-                        _buildRowDetail(
-                          context,
-                          "SUBTOTAL",
-                          "RM ${double.tryParse(orderData['subtotal']?.toString() ?? '0')?.toStringAsFixed(2) ?? '0.00'}",
+                        OrderRowDetail(
+                          label: "SUBTOTAL",
+                          value:
+                              "RM ${double.tryParse(orderData['subtotal']?.toString() ?? '0')?.toStringAsFixed(2) ?? '0.00'}",
                           isBold: true,
                         ),
                         const SizedBox(height: 12),
@@ -145,14 +149,14 @@ class OrderDetailScreen extends StatelessWidget {
                         // 优惠券折扣
                         if (orderData['coupon_discount'] != null &&
                             (double.tryParse(
-                                  orderData['coupon_discount'].toString(),
-                                ) ??
-                                0) >
+                                      orderData['coupon_discount'].toString(),
+                                    ) ??
+                                    0) >
                                 0) ...[
-                          _buildRowDetail(
-                            context,
-                            "COUPON DISCOUNT",
-                            "-RM ${(double.tryParse(orderData['coupon_discount'].toString()) ?? 0).toStringAsFixed(2)}",
+                          OrderRowDetail(
+                            label: "COUPON DISCOUNT",
+                            value:
+                                "-RM ${(double.tryParse(orderData['coupon_discount'].toString()) ?? 0).toStringAsFixed(2)}",
                           ),
                           const SizedBox(height: 12),
                         ],
@@ -160,23 +164,24 @@ class OrderDetailScreen extends StatelessWidget {
                         // 积分抵扣
                         if (orderData['points_discount'] != null &&
                             (double.tryParse(
-                                  orderData['points_discount'].toString(),
-                                ) ??
-                                0) >
+                                      orderData['points_discount'].toString(),
+                                    ) ??
+                                    0) >
                                 0) ...[
-                          _buildRowDetail(
-                            context,
-                            "POINTS DISCOUNT",
-                            "-RM ${(double.tryParse(orderData['points_discount'].toString()) ?? 0).toStringAsFixed(2)}",
+                          OrderRowDetail(
+                            label: "POINTS DISCOUNT",
+                            value:
+                                "-RM ${(double.tryParse(orderData['points_discount'].toString()) ?? 0).toStringAsFixed(2)}",
                           ),
                           const SizedBox(height: 12),
                         ],
 
                         // 储水箱/OZ 使用显示
                         if (orderData['oz_used'] != null &&
-                            (double.tryParse(orderData['oz_used'].toString()) ?? 0) >
+                            (double.tryParse(orderData['oz_used'].toString()) ??
+                                    0) >
                                 0) ...[
-                          _buildTankDeduction(context, orderData['oz_used']),
+                          TankDeductionCard(ozUsed: orderData['oz_used']),
                           const SizedBox(height: 24),
                         ],
 
@@ -222,7 +227,7 @@ class OrderDetailScreen extends StatelessWidget {
                         ),
 
                         const SizedBox(height: 20),
-                        _buildPaymentMethod(context, orderData['payment_method']),
+                        PaymentMethodBadge(method: orderData['payment_method']),
                       ],
                     ),
                   ),
@@ -269,129 +274,17 @@ class OrderDetailScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  // ==========================================
-  // 2. 子组件渲染逻辑
-  // ==========================================
+// ==========================================
+// 3. 独立优化组件 (Standalone Optimized Widgets)
+// ==========================================
 
-  Widget _buildOrderItem(BuildContext context, Map<String, dynamic> item) {
-    // 判断是否为 OZ 储水箱支付商品
-    bool isOzPayment = (item['oz_at_time'] ?? 0) > 0;
+class OrderHeader extends StatelessWidget {
+  const OrderHeader({super.key});
 
-    // --- 关键修正：从后端 Resource 定义的 'customizations' 中提取数据 ---
-    Map<String, dynamic> customizations = {};
-    if (item['customizations'] != null && item['customizations'] is Map) {
-      customizations = Map<String, dynamic>.from(item['customizations']);
-    }
-
-    // 提取 Addons
-    List<dynamic> addons = customizations['addons'] is List
-        ? customizations['addons']
-        : [];
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "${item['product_name'] ?? 'Product'}",
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                    color: context.appTextMain,
-                  ),
-                ),
-
-                // 渲染 Addon Badge
-                if (addons.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      children: addons.map((addon) {
-                        return _buildOptionBadge(context, "+ $addon", isAddon: true);
-                      }).toList(),
-                    ),
-                  ),
-
-                // 渲染 Size 和 Temp (从 customizations 中获取)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    "${customizations['size'] ?? ''} | ${customizations['temp'] ?? ''}",
-                    style: TextStyle(
-                      color: context.appTextMuted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                if (isOzPayment)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 2),
-                    child: Text(
-                      "PAID WITH TANK BALANCE",
-                      style: TextStyle(
-                        color: Color(0xFF2563EB),
-                        fontSize: 8,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    "Quantity: ${item['quantity']}",
-                    style: TextStyle(
-                      color: context.appTextMuted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                isOzPayment
-                    ? "${((item['oz_at_time'] ?? 0) * (item['quantity'] ?? 1)).toStringAsFixed(1)} OZ"
-                    : "RM ${((item['price_at_time'] ?? 0) * (item['quantity'] ?? 1)).toStringAsFixed(2)}",
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 12,
-                  color: isOzPayment
-                      ? context.appPrimary
-                      : context.appTextMain,
-                ),
-              ),
-              if (isOzPayment)
-                Text(
-                  "${item['oz_at_time']} OZ / unit",
-                  style: TextStyle(
-                    color: context.appTextMuted,
-                    fontSize: 8,
-                    fontStyle: FontStyle.italic,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -454,8 +347,128 @@ class OrderDetailScreen extends StatelessWidget {
       ],
     );
   }
+}
 
-  Widget _buildOptionBadge(BuildContext context, String text, {bool isAddon = false}) {
+class OrderItemTile extends StatelessWidget {
+  final Map<String, dynamic> item;
+
+  const OrderItemTile({super.key, required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    bool isOzPayment = (item['oz_at_time'] ?? 0) > 0;
+    Map<String, dynamic> customizations = {};
+    if (item['customizations'] != null && item['customizations'] is Map) {
+      customizations = Map<String, dynamic>.from(item['customizations']);
+    }
+    List<dynamic> addons = customizations['addons'] is List
+        ? customizations['addons']
+        : [];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "${item['product_name'] ?? 'Product'}",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    color: context.appTextMain,
+                  ),
+                ),
+                if (addons.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: addons.map((addon) {
+                        return OptionBadge(text: "+ $addon", isAddon: true);
+                      }).toList(),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    "${customizations['size'] ?? ''} | ${customizations['temp'] ?? ''}",
+                    style: TextStyle(
+                      color: context.appTextMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (isOzPayment)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Text(
+                      "PAID WITH TANK BALANCE",
+                      style: TextStyle(
+                        color: Color(0xFF2563EB),
+                        fontSize: 8,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    "Quantity: ${item['quantity']}",
+                    style: TextStyle(
+                      color: context.appTextMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                isOzPayment
+                    ? "${((item['oz_at_time'] ?? 0) * (item['quantity'] ?? 1)).toStringAsFixed(1)} OZ"
+                    : "RM ${((item['price_at_time'] ?? 0) * (item['quantity'] ?? 1)).toStringAsFixed(2)}",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                  color: isOzPayment ? context.appPrimary : context.appTextMain,
+                ),
+              ),
+              if (isOzPayment)
+                Text(
+                  "${item['oz_at_time']} OZ / unit",
+                  style: TextStyle(
+                    color: context.appTextMuted,
+                    fontSize: 8,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class OptionBadge extends StatelessWidget {
+  final String text;
+  final bool isAddon;
+
+  const OptionBadge({super.key, required this.text, this.isAddon = false});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -474,8 +487,15 @@ class OrderDetailScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildTankDeduction(BuildContext context, dynamic ozUsed) {
+class TankDeductionCard extends StatelessWidget {
+  final dynamic ozUsed;
+
+  const TankDeductionCard({super.key, required this.ozUsed});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -499,7 +519,10 @@ class OrderDetailScreen extends StatelessWidget {
               ),
               Text(
                 "Balance Payment Applied",
-                style: TextStyle(color: context.appPrimary.withValues(alpha: 0.6), fontSize: 9),
+                style: TextStyle(
+                  color: context.appPrimary.withValues(alpha: 0.6),
+                  fontSize: 9,
+                ),
               ),
             ],
           ),
@@ -515,8 +538,22 @@ class OrderDetailScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildRowDetail(BuildContext context, String label, String value, {bool isBold = false}) {
+class OrderRowDetail extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isBold;
+
+  const OrderRowDetail({
+    super.key,
+    required this.label,
+    required this.value,
+    this.isBold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -540,8 +577,13 @@ class OrderDetailScreen extends StatelessWidget {
       ],
     );
   }
+}
 
-  Widget _buildDashedLine(BuildContext context) {
+class DashedLine extends StatelessWidget {
+  const DashedLine({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       children: List.generate(
         30,
@@ -554,8 +596,15 @@ class OrderDetailScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildPaymentMethod(BuildContext context, dynamic method) {
+class PaymentMethodBadge extends StatelessWidget {
+  final dynamic method;
+
+  const PaymentMethodBadge({super.key, required this.method});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(

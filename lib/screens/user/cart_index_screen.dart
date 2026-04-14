@@ -172,21 +172,50 @@ class CartIndexScreenState extends State<CartIndexScreen> {
           ? const Center(child: CoffeeLoadingIndicator())
           : Column(
               children: [
-                _buildOzBalanceHeader(),
+                RepaintBoundary(
+                  child: OzBalanceHeader(
+                    totalOz: _user?.oz.toDouble() ?? 0.0,
+                    totalOzUsed: totalOzUsed.toDouble(),
+                    cashBalance: _user?.balance ?? 0.0,
+                  ),
+                ),
                 Expanded(
                   child: RefreshIndicator(
                     onRefresh: refreshData,
                     child: _cartItems.isEmpty
-                        ? _buildEmptyState()
+                        ? const EmptyState()
                         : ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 20),
                             itemCount: _cartItems.length,
-                            itemBuilder: (context, index) =>
-                                _buildCartItem(_cartItems[index], index: index),
+                            itemBuilder: (context, index) {
+                              final item = _cartItems[index];
+                              final needed = item.ozNeeded;
+                              final canToggle = item.isOz ||
+                                  (totalOzUsed + needed <=
+                                      (_user?.oz ?? 0));
+                              return RepaintBoundary(
+                                child: CartItemTile(
+                                  item: item,
+                                  canToggle: canToggle,
+                                  onToggle: (val) {
+                                    setState(() => item.isOz = val);
+                                  },
+                                  onRemove: () =>
+                                      _handleRemoveItem(item.id, index),
+                                ),
+                              );
+                            },
                           ),
                   ),
                 ),
-                _buildBottomCheckout(),
+                BottomCheckout(
+                  totalOzUsed: totalOzUsed.toDouble(),
+                  totalCashPrice: totalCashPrice,
+                  isLoading: _isLoading,
+                  isCartEmpty: _cartItems.isEmpty,
+                  onCheckout: _handleCheckout,
+                ),
               ],
             ),
     );
@@ -196,12 +225,38 @@ class CartIndexScreenState extends State<CartIndexScreen> {
   // 5. 私有 UI 组件 (Private Widgets)
   // ==========================================
 
-  /// 顶部 OZ 余额卡片
-  Widget _buildOzBalanceHeader() {
-    double totalOz = _user?.oz.toDouble() ?? 0.0;
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : context.appPrimary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
+
+// ==========================================
+// 6. 独立优化组件 (Standalone Optimized Widgets)
+// ==========================================
+
+class OzBalanceHeader extends StatelessWidget {
+  final double totalOz;
+  final double totalOzUsed;
+  final double cashBalance;
+
+  const OzBalanceHeader({
+    super.key,
+    required this.totalOz,
+    required this.totalOzUsed,
+    required this.cashBalance,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     double remainingOz = totalOz - totalOzUsed;
     double progress = (totalOz > 0) ? remainingOz / totalOz : 0;
-    double cashBalance = _user?.balance ?? 0.0;
 
     return Container(
       margin: const EdgeInsets.all(20),
@@ -222,7 +277,6 @@ class CartIndexScreenState extends State<CartIndexScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // OZ 统计
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,14 +302,12 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                   ],
                 ),
               ),
-              // 分割线
               Container(
                 height: 40,
                 width: 1,
                 color: context.appBorder,
                 margin: const EdgeInsets.symmetric(horizontal: 16),
               ),
-              // 余额统计
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -299,12 +351,24 @@ class CartIndexScreenState extends State<CartIndexScreen> {
       ),
     );
   }
+}
 
-  Widget _buildCartItem(CartItem item, {int? index}) {
-    bool isOz = item.isOz;
-    int needed = item.ozNeeded;
-    bool canToggle = isOz || (totalOzUsed + needed <= (_user?.oz ?? 0));
+class CartItemTile extends StatelessWidget {
+  final CartItem item;
+  final bool canToggle;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onRemove;
 
+  const CartItemTile({
+    super.key,
+    required this.item,
+    required this.canToggle,
+    required this.onToggle,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Opacity(
       opacity: canToggle ? 1.0 : 0.4,
       child: Container(
@@ -317,7 +381,11 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         ),
         child: Row(
           children: [
-            _buildCustomCheckbox(item, canToggle),
+            CustomCheckbox(
+              value: item.isOz,
+              enabled: canToggle,
+              onChanged: onToggle,
+            ),
             const SizedBox(width: 20),
             Expanded(
               child: Column(
@@ -343,7 +411,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                       ),
                     ),
                   const SizedBox(height: 4),
-                  _buildItemPrice(item),
+                  ItemPriceLabel(item: item),
                 ],
               ),
             ),
@@ -355,22 +423,113 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                 fontSize: 12,
               ),
             ),
-            if (index != null)
-              IconButton(
-                icon: const Icon(
-                  Icons.delete_outline,
-                  color: Colors.red,
-                  size: 20,
-                ),
-                onPressed: () => _handleRemoveItem(item.id, index),
+            IconButton(
+              icon: const Icon(
+                Icons.delete_outline,
+                color: Colors.red,
+                size: 20,
               ),
+              onPressed: onRemove,
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildBottomCheckout() {
+class CustomCheckbox extends StatelessWidget {
+  final bool value;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  const CustomCheckbox({
+    super.key,
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? () => onChanged(!value) : null,
+      child: Container(
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          color: value ? context.appPrimary : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: value ? context.appPrimary : context.appTextMuted,
+          ),
+        ),
+        child: value
+            ? const Icon(Icons.check, color: Colors.white, size: 18)
+            : null,
+      ),
+    );
+  }
+}
+
+class ItemPriceLabel extends StatelessWidget {
+  final CartItem item;
+
+  const ItemPriceLabel({super.key, required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    if (item.isOz) {
+      return Row(
+        children: [
+          Text(
+            "RM ${item.unitPrice}",
+            style: TextStyle(
+              decoration: TextDecoration.lineThrough,
+              color: context.appTextMuted,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            "REDEEMED",
+            style: TextStyle(
+              color: context.appPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      );
+    }
+    return Text(
+      "RM ${item.unitPrice.toStringAsFixed(2)}",
+      style: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: context.appTextMain,
+      ),
+    );
+  }
+}
+
+class BottomCheckout extends StatelessWidget {
+  final double totalOzUsed;
+  final double totalCashPrice;
+  final bool isLoading;
+  final bool isCartEmpty;
+  final VoidCallback onCheckout;
+
+  const BottomCheckout({
+    super.key,
+    required this.totalOzUsed,
+    required this.totalCashPrice,
+    required this.isLoading,
+    required this.isCartEmpty,
+    required this.onCheckout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(30, 20, 30, 40),
       decoration: BoxDecoration(
@@ -422,9 +581,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
           ),
           const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: (_isLoading || _cartItems.isEmpty)
-                ? null
-                : _handleCheckout,
+            onPressed: (isLoading || isCartEmpty) ? null : onCheckout,
             style: ElevatedButton.styleFrom(
               backgroundColor: context.appPrimary,
               minimumSize: const Size(double.infinity, 60),
@@ -435,7 +592,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
             child: const Text(
               'CHECKOUT NOW',
               style: TextStyle(
-                color: Colors.white, // Elevated button text remains white
+                color: Colors.white,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1.5,
               ),
@@ -445,80 +602,18 @@ class CartIndexScreenState extends State<CartIndexScreen> {
       ),
     );
   }
+}
 
-  // ==========================================
-  // 6. 辅助方法 (Helpers)
-  // ==========================================
 
-  Widget _buildCustomCheckbox(CartItem item, bool enabled) {
-    return GestureDetector(
-      onTap: enabled ? () => setState(() => item.isOz = !item.isOz) : null,
-      child: Container(
-        width: 26,
-        height: 26,
-        decoration: BoxDecoration(
-          color: item.isOz ? context.appPrimary : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: item.isOz ? context.appPrimary : context.appTextMuted,
-          ),
-        ),
-        child: item.isOz
-            ? const Icon(Icons.check, color: Colors.white, size: 18)
-            : null,
-      ),
-    );
-  }
+class EmptyState extends StatelessWidget {
+  const EmptyState({super.key});
 
-  Widget _buildItemPrice(CartItem item) {
-    if (item.isOz) {
-      return Row(
-        children: [
-          Text(
-            "RM ${item.unitPrice}",
-            style: TextStyle(
-              decoration: TextDecoration.lineThrough,
-              color: context.appTextMuted,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            "REDEEMED",
-            style: TextStyle(
-              color: context.appPrimary,
-              fontWeight: FontWeight.bold,
-              fontSize: 10,
-            ),
-          ),
-        ],
-      );
-    }
-    return Text(
-      "RM ${item.unitPrice.toStringAsFixed(2)}",
-      style: TextStyle(
-        fontWeight: FontWeight.bold,
-        color: context.appTextMain,
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
+  @override
+  Widget build(BuildContext context) {
     return Center(
       child: Text(
         'Cart is empty',
         style: TextStyle(color: context.appTextMuted),
-      ),
-    );
-  }
-
-  void _showSnackBar(String message, {bool isError = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : context.appPrimary,
-        behavior: SnackBarBehavior.floating,
       ),
     );
   }

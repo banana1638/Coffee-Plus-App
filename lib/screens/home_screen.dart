@@ -170,14 +170,16 @@ class _HomeScreenState extends State<HomeScreen> {
           if (data == null) {
             if (snapshot.hasError) {
               final error = snapshot.error;
-              // Ignore cancellation errors as a new request is likely in flight
               if (error is DioException &&
                   error.type == DioExceptionType.cancel) {
-                return _buildShimmerSkeleton();
+                return const HomeShimmerSkeleton();
               }
-              return _buildErrorState(error.toString());
+              return HomeErrorState(
+                error: error.toString(),
+                onRetry: _refreshData,
+              );
             }
-            return _buildShimmerSkeleton();
+            return const HomeShimmerSkeleton();
           }
 
           // 这里的 User 解析直接使用 snapshot 中的数据
@@ -197,8 +199,9 @@ class _HomeScreenState extends State<HomeScreen> {
               .toList();
 
           // 寻找最近的订单 (usage 类型)
-          final activeOrder = transactions.isNotEmpty && transactions.first.type == 'usage' 
-              ? transactions.first 
+          final activeOrder =
+              transactions.isNotEmpty && transactions.first.type == 'usage'
+              ? transactions.first
               : null;
 
           // Client-side filtering logic
@@ -222,7 +225,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: _buildDashboardHeader(isGuest, user),
+                    child: RepaintBoundary(
+                      child: DashboardHeader(
+                        isGuest: isGuest,
+                        user: user,
+                        onRefresh: () => _refreshData(forceRefresh: true),
+                      ),
+                    ),
                   ),
                 ),
                 if (activeOrder != null)
@@ -232,7 +241,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => OrderDetailScreen(order: activeOrder.rawJson),
+                          builder: (context) =>
+                              OrderDetailScreen(order: activeOrder.rawJson),
                         ),
                       ),
                     ),
@@ -246,10 +256,29 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                            child: _buildSearchBar(),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                              vertical: 8.0,
+                            ),
+                            child: HomeSearchBar(
+                              onChanged: (value) {
+                                _debounceTimer?.cancel();
+                                _debounceTimer = Timer(
+                                  const Duration(milliseconds: 300),
+                                  () {
+                                    _refreshData(search: value);
+                                  },
+                                );
+                              },
+                            ),
                           ),
-                          _buildCategoryList(allCategoryNames),
+                          CategorySelectionBar(
+                            allCategoryNames: allCategoryNames,
+                            selectedCategory: _selectedCategory,
+                            onCategorySelected: (id) {
+                              setState(() => _selectedCategory = id);
+                            },
+                          ),
                         ],
                       ),
                     ),
@@ -262,17 +291,17 @@ class _HomeScreenState extends State<HomeScreen> {
             body: AnimatedSwitcher(
               duration: const Duration(milliseconds: 400),
               child: _selectedCategory == 'collections'
-                  ? _buildCollectionsList(data['options'])
+                  ? CollectionsList(options: data['options'])
                   : categories.isEmpty
-                      ? const Center(
-                          key: ValueKey('no-products'),
-                          child: Text("No products found"),
-                        )
-                      : _buildProductList(
-                          categories,
-                          options: data['options'],
-                          key: ValueKey(_selectedCategory),
-                        ),
+                  ? const Center(
+                      key: ValueKey('no-products'),
+                      child: Text("No products found"),
+                    )
+                  : ProductCategorySection(
+                      categories: categories,
+                      options: data['options'],
+                      key: ValueKey(_selectedCategory),
+                    ),
             ),
           );
         },
@@ -280,19 +309,71 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ==========================================
-  // 4. 子组件构建 (Sub-Widgets)
-  // ==========================================
+}
 
-  // 顶部 Dashboard 卡片
-  Widget _buildDashboardHeader(bool isGuest, User user) {
+// ==========================================
+// 5. 独立优化组件 (Standalone Optimized Widgets)
+// ==========================================
+
+class HomeErrorState extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+
+  const HomeErrorState({
+    super.key,
+    required this.error,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const SizedBox(height: 11),
+          Text('Data Loading Error: $error'),
+          TextButton(
+            onPressed: onRetry,
+            child: const Text("Retry"),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class HomeShimmerSkeleton extends StatelessWidget {
+  const HomeShimmerSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const ShimmerSkeleton();
+  }
+}
+
+class DashboardHeader extends StatelessWidget {
+  final bool isGuest;
+  final User user;
+  final VoidCallback onRefresh;
+
+  const DashboardHeader({
+    super.key,
+    required this.isGuest,
+    required this.user,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return InkWell(
       onTap: () async {
         if (isGuest) {
           AuthModal.show(context);
         } else {
           await Navigator.pushNamed(context, '/tangki');
-          _refreshData(forceRefresh: true);
+          onRefresh();
         }
       },
       borderRadius: BorderRadius.circular(32),
@@ -310,13 +391,19 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        child: isGuest ? _buildGuestHeader() : _buildMemberHeader(user),
+        child: isGuest ? const GuestHeader() : MemberHeader(user: user),
       ),
     );
   }
+}
 
-  // 登录后的会员头部
-  Widget _buildMemberHeader(User user) {
+class MemberHeader extends StatelessWidget {
+  final User user;
+
+  const MemberHeader({super.key, required this.user});
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       children: [
         TankVisualization(currentOz: user.oz.toDouble(), size: 70),
@@ -325,16 +412,16 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildStatItem(
-                'COFFEE TANK',
-                "${user.oz} oz",
-                context.appPrimary,
+              StatItem(
+                label: 'COFFEE TANK',
+                value: "${user.oz} oz",
+                valueColor: context.appPrimary,
               ),
               const SizedBox(height: 8),
-              _buildStatItem(
-                'CASH BALANCE',
-                "RM ${user.balance.toStringAsFixed(2)}",
-                context.appTextMain,
+              StatItem(
+                label: 'CASH BALANCE',
+                value: "RM ${user.balance.toStringAsFixed(2)}",
+                valueColor: context.appTextMain,
               ),
             ],
           ),
@@ -355,18 +442,19 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 5),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: context.appTextMuted,
-            ),
+            Icon(Icons.chevron_right_rounded, color: context.appTextMuted),
           ],
         ),
       ],
     );
   }
+}
 
-  // 游客状态头部
-  Widget _buildGuestHeader() {
+class GuestHeader extends StatelessWidget {
+  const GuestHeader({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       children: [
         CircleAvatar(
@@ -422,8 +510,22 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
+}
 
-  Widget _buildStatItem(String label, String value, Color valueColor) {
+class StatItem extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  const StatItem({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -447,8 +549,15 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
+}
 
-  Widget _buildSearchBar() {
+class HomeSearchBar extends StatelessWidget {
+  final ValueChanged<String> onChanged;
+
+  const HomeSearchBar({super.key, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         color: context.appSurface,
@@ -463,32 +572,75 @@ class _HomeScreenState extends State<HomeScreen> {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
-        onChanged: (value) {
-          _debounceTimer?.cancel();
-          _debounceTimer = Timer(const Duration(milliseconds: 300), () {
-            _refreshData(search: value);
-          });
-        },
+        onChanged: onChanged,
       ),
     );
   }
+}
 
-  Widget _buildCategoryList(List<String> allCategoryNames) {
+class CategorySelectionBar extends StatelessWidget {
+  final List<String> allCategoryNames;
+  final String selectedCategory;
+  final ValueChanged<String> onCategorySelected;
+
+  const CategorySelectionBar({
+    super.key,
+    required this.allCategoryNames,
+    required this.selectedCategory,
+    required this.onCategorySelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          _buildCategoryChip('all', 'All Items'),
-          _buildCategoryChip('collections', 'Collections'),
-          ...allCategoryNames.map((name) => _buildCategoryChip(name, name)),
+          CategoryChip(
+            id: 'all',
+            label: 'All Items',
+            isSelected: selectedCategory == 'all',
+            onSelected: onCategorySelected,
+          ),
+          CategoryChip(
+            id: 'collections',
+            label: 'Collections',
+            isSelected: selectedCategory == 'collections',
+            onSelected: onCategorySelected,
+          ),
+          ...allCategoryNames.map(
+            (name) => CategoryChip(
+              id: name,
+              label: name,
+              isSelected: selectedCategory == name,
+              onSelected: onCategorySelected,
+            ),
+          ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildCategoryChip(String id, String label, {IconData? icon}) {
-    bool isSelected = _selectedCategory == id;
+class CategoryChip extends StatelessWidget {
+  final String id;
+  final String label;
+  final bool isSelected;
+  final ValueChanged<String> onSelected;
+  final IconData? icon;
+
+  const CategoryChip({
+    super.key,
+    required this.id,
+    required this.label,
+    required this.isSelected,
+    required this.onSelected,
+    this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: ChoiceChip(
@@ -504,7 +656,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onSelected: (selected) {
           if (selected) {
             HapticFeedback.selectionClick();
-            setState(() => _selectedCategory = id);
+            onSelected(id);
           }
         },
         selectedColor: context.appPrimary,
@@ -518,14 +670,21 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
 
-  Widget _buildProductList(
-    List<Category> categories, {
-    required Map<String, dynamic>? options,
-    Key? key,
-  }) {
+class ProductCategorySection extends StatelessWidget {
+  final List<Category> categories;
+  final Map<String, dynamic>? options;
+
+  const ProductCategorySection({
+    super.key,
+    required this.categories,
+    required this.options,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return ListView.builder(
-      key: key,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: categories.length,
       itemBuilder: (context, index) {
@@ -557,12 +716,14 @@ class _HomeScreenState extends State<HomeScreen> {
               itemCount: category.products.length,
               itemBuilder: (context, pIndex) {
                 final product = category.products[pIndex];
-                return CoffeeCard(
-                  product: product,
-                  onTap: () => detail.ProductDetailScreen.show(
-                    context,
+                return RepaintBoundary(
+                  child: CoffeeCard(
                     product: product,
-                    dynamicOptions: options,
+                    onTap: () => detail.ProductDetailScreen.show(
+                      context,
+                      product: product,
+                      dynamicOptions: options,
+                    ),
                   ),
                 );
               },
@@ -573,29 +734,13 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
+}
 
-  // ==========================================
-  // 5. 辅助 UI 状态 (Loading & Error)
-  // ==========================================
+class ShimmerSkeleton extends StatelessWidget {
+  const ShimmerSkeleton({super.key});
 
-  Widget _buildErrorState(String error) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          Text('Data Loading Error: $error'),
-          TextButton(
-            onPressed: () => _refreshData(),
-            child: const Text("Retry"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildShimmerSkeleton() {
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: [
         const Padding(
@@ -614,7 +759,6 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: 20,
           ),
         ),
-        // ... (其余 Shimmer 部分保持不变)
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -654,10 +798,18 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
+}
 
-  Widget _buildCollectionsList(Map<String, dynamic>? options) {
+class CollectionsList extends StatelessWidget {
+  final Map<String, dynamic>? options;
+
+  const CollectionsList({super.key, required this.options});
+
+  @override
+  Widget build(BuildContext context) {
+    final FavoriteService favoriteService = FavoriteService();
     return ValueListenableBuilder<List<FavoriteItem>>(
-      valueListenable: _favoriteService.favoritesNotifier,
+      valueListenable: favoriteService.favoritesNotifier,
       builder: (context, favorites, _) {
         if (favorites.isEmpty) {
           return Center(
@@ -701,13 +853,15 @@ class _HomeScreenState extends State<HomeScreen> {
               itemCount: favorites.length,
               itemBuilder: (context, index) {
                 final favorite = favorites[index];
-                return CoffeeCard(
-                  product: favorite.product,
-                  onTap: () => detail.ProductDetailScreen.show(
-                    context,
+                return RepaintBoundary(
+                  child: CoffeeCard(
                     product: favorite.product,
-                    dynamicOptions: options,
-                    initialFavorite: favorite,
+                    onTap: () => detail.ProductDetailScreen.show(
+                      context,
+                      product: favorite.product,
+                      dynamicOptions: options,
+                      initialFavorite: favorite,
+                    ),
                   ),
                 );
               },
@@ -739,7 +893,10 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   Widget build(
-      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return SizedBox.expand(child: child);
   }
 

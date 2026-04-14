@@ -84,17 +84,20 @@ class _NotificationScreenState extends State<NotificationScreen> {
           future: _notificationsFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return _buildShimmerList();
+              return const NotificationShimmerList();
             }
 
             if (snapshot.hasError) {
-              return _buildErrorState(snapshot.error.toString());
+              return NotificationErrorState(
+                error: snapshot.error.toString(),
+                onRetry: _refreshNotifications,
+              );
             }
 
             final notifications = snapshot.data ?? [];
 
             if (notifications.isEmpty) {
-              return _buildEmptyState();
+              return const NotificationEmptyState();
             }
 
             return ListView.separated(
@@ -232,7 +235,17 @@ class _NotificationScreenState extends State<NotificationScreen> {
     }
   }
 
-  Widget _buildEmptyState() {
+}
+
+// ==========================================
+// 4. 独立优化组件 (Standalone Optimized Widgets)
+// ==========================================
+
+class NotificationEmptyState extends StatelessWidget {
+  const NotificationEmptyState({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -254,8 +267,20 @@ class _NotificationScreenState extends State<NotificationScreen> {
       ),
     );
   }
+}
 
-  Widget _buildErrorState(String error) {
+class NotificationErrorState extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+
+  const NotificationErrorState({
+    super.key,
+    required this.error,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -264,15 +289,20 @@ class _NotificationScreenState extends State<NotificationScreen> {
           const SizedBox(height: 16),
           Text('Error: $error'),
           TextButton(
-            onPressed: _refreshNotifications,
+            onPressed: onRetry,
             child: const Text("Retry"),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildShimmerList() {
+class NotificationShimmerList extends StatelessWidget {
+  const NotificationShimmerList({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: 5,

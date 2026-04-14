@@ -86,13 +86,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   List<Map<String, dynamic>> get addonOptions {
     if (widget.product.addons != null && widget.product.addons!.isNotEmpty) {
       return widget.product.addons!
-          .map((addon) => {
-                'name': addon.name,
-                'price': addon.price,
-              })
+          .map((addon) => {'name': addon.name, 'price': addon.price})
           .toList();
     }
-    
+
     if (widget.dynamicOptions != null &&
         widget.dynamicOptions!['add_ons'] != null) {
       return List<Map<String, dynamic>>.from(widget.dynamicOptions!['add_ons']);
@@ -194,7 +191,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(25),
+          ),
           title: const Text(
             "Add to Collection",
             style: TextStyle(fontWeight: FontWeight.w900),
@@ -293,35 +292,73 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              _buildAppBar(),
+              ProductAppBar(
+                product: widget.product,
+                selectedSize: selectedSize,
+                selectedTemp: selectedTemp,
+                selectedAddons: selectedAddons,
+                isFavoriting: _isFavoriting,
+                onFavorite: _handleFavorite,
+              ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildProductInfo(),
+                      ProductInfo(product: widget.product),
                       const SizedBox(height: 30),
-
-                      _buildSectionTitle("SELECT TEMPERATURE"),
-                      _buildTempSelector(),
-
-                      _buildSectionTitle("CUP SIZE"),
-                      _buildSizeSelector(),
-
-                      _buildSectionTitle("EXTRA ADD-ONS"),
-                      _buildAddonSelector(),
-
+                      const SectionTitle(title: "SELECT TEMPERATURE"),
+                      TempSelector(
+                        selectedTemp: selectedTemp,
+                        onTempSelected: (temp) {
+                          setState(() => selectedTemp = temp);
+                        },
+                      ),
+                      const SectionTitle(title: "CUP SIZE"),
+                      SizeSelector(
+                        sizeOptions: sizeOptions,
+                        selectedSize: selectedSize,
+                        onSizeSelected: (size) {
+                          setState(() => selectedSize = size);
+                        },
+                      ),
+                      const SectionTitle(title: "EXTRA ADD-ONS"),
+                      AddonSelector(
+                        addonOptions: addonOptions,
+                        selectedAddons: selectedAddons,
+                        onAddonToggled: (addon, isSelected) {
+                          setState(() {
+                            if (isSelected) {
+                              selectedAddons.add(addon);
+                            } else {
+                              selectedAddons.remove(addon);
+                            }
+                          });
+                        },
+                      ),
                       const SizedBox(height: 20),
-
-                      const SizedBox(height: 140), // 为底部悬浮按钮留出空间
+                      const SizedBox(height: 140), // Space for bottom action
                     ],
                   ),
                 ),
               ),
             ],
           ),
-          Positioned(bottom: 0, left: 0, right: 0, child: _buildBottomAction()),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: BottomAction(
+              quantity: quantity,
+              totalPrice: _totalPrice,
+              isAdding: _isAdding,
+              onQtyChanged: (newQty) {
+                setState(() => quantity = newQty);
+              },
+              onAddToCart: _handleAddToCart,
+            ),
+          ),
         ],
       ),
     );
@@ -331,20 +368,56 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   // 3. 子组件构建 (Sub-Widgets)
   // ==========================================
 
-  // 商品头部图片和关闭按钮
-  Widget _buildAppBar() {
+  void _showSnackBar(String message, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
+
+// ==========================================
+// 4. 独立优化组件 (Standalone Optimized Widgets)
+// ==========================================
+
+class ProductAppBar extends StatelessWidget {
+  final Product product;
+  final String selectedSize;
+  final String selectedTemp;
+  final List<String> selectedAddons;
+  final bool isFavoriting;
+  final VoidCallback onFavorite;
+
+  const ProductAppBar({
+    super.key,
+    required this.product,
+    required this.selectedSize,
+    required this.selectedTemp,
+    required this.selectedAddons,
+    required this.isFavoriting,
+    required this.onFavorite,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final FavoriteService favoriteService = FavoriteService();
     return SliverAppBar(
       expandedHeight: 350,
       pinned: true,
       automaticallyImplyLeading: false,
       backgroundColor: context.appSurface,
       flexibleSpace: FlexibleSpaceBar(
-        background: Hero(
-          tag: 'product-image-${widget.product.id}',
-          child: CachedNetworkImage(
-            imageUrl: ApiService().getFullImageUrl(widget.product.imageUrl),
-            fit: BoxFit.cover,
-            memCacheWidth: 800,
+        background: RepaintBoundary(
+          child: Hero(
+            tag: 'product-image-${product.id}',
+            child: CachedNetworkImage(
+              imageUrl: ApiService().getFullImageUrl(product.imageUrl),
+              fit: BoxFit.cover,
+              memCacheWidth: 800,
+            ),
           ),
         ),
       ),
@@ -354,24 +427,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           child: Row(
             children: [
               ValueListenableBuilder(
-                valueListenable: _favoriteService.favoritesNotifier,
+                valueListenable: favoriteService.favoritesNotifier,
                 builder: (context, favorites, _) {
                   String currentId = FavoriteItem(
-                    product: widget.product,
+                    product: product,
                     size: selectedSize,
                     temp: selectedTemp,
                     addons: selectedAddons,
                     remark: '',
                     createdAt: DateTime.now(),
                   ).uniqueId;
-                  bool isSaved = _favoriteService.isFavorite(currentId);
-                  
+                  bool isSaved = favoriteService.isFavorite(currentId);
+
                   return CircleAvatar(
                     backgroundColor: Colors.black26,
                     child: IconButton(
                       icon: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 300),
-                        transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: child),
+                        transitionBuilder: (child, anim) =>
+                            ScaleTransition(scale: anim, child: child),
                         child: Icon(
                           isSaved ? Icons.favorite : Icons.favorite_border,
                           key: ValueKey(isSaved),
@@ -379,7 +453,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           size: 20,
                         ),
                       ),
-                      onPressed: _isFavoriting ? null : _handleFavorite,
+                      onPressed: isFavoriting ? null : onFavorite,
                     ),
                   );
                 },
@@ -398,9 +472,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ],
     );
   }
+}
 
-  // 名称和基础价格
-  Widget _buildProductInfo() {
+class ProductInfo extends StatelessWidget {
+  final Product product;
+
+  const ProductInfo({super.key, required this.product});
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -415,20 +495,31 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          widget.product.name,
+          product.name,
           style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 12),
         Text(
-          widget.product.description,
+          product.description,
           style: TextStyle(color: context.appTextMuted, height: 1.5),
         ),
       ],
     );
   }
+}
 
-  // 温度选择 (Hot/Iced)
-  Widget _buildTempSelector() {
+class TempSelector extends StatelessWidget {
+  final String selectedTemp;
+  final ValueChanged<String> onTempSelected;
+
+  const TempSelector({
+    super.key,
+    required this.selectedTemp,
+    required this.onTempSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       children: ['Hot', 'Iced'].map((temp) {
         bool isSelected = selectedTemp == temp;
@@ -436,7 +527,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           child: GestureDetector(
             onTap: () {
               HapticFeedback.selectionClick();
-              setState(() => selectedTemp = temp);
+              onTempSelected(temp);
             },
             child: Container(
               margin: EdgeInsets.only(right: temp == 'Hot' ? 10 : 0),
@@ -470,16 +561,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }).toList(),
     );
   }
+}
 
-  // 杯型选择 (带额外价格)
-  Widget _buildSizeSelector() {
+class SizeSelector extends StatelessWidget {
+  final List<Map<String, dynamic>> sizeOptions;
+  final String selectedSize;
+  final ValueChanged<String> onSizeSelected;
+
+  const SizeSelector({
+    super.key,
+    required this.sizeOptions,
+    required this.selectedSize,
+    required this.onSizeSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: sizeOptions.map((size) {
         bool isSelected = selectedSize == size['name'];
         return GestureDetector(
           onTap: () {
             HapticFeedback.selectionClick();
-            setState(() => selectedSize = size['name']);
+            onSizeSelected(size['name']);
           },
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),
@@ -502,10 +606,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 if (size['extra'] > 0)
                   Text(
                     "+ RM ${size['extra'].toStringAsFixed(2)}",
-                    style: TextStyle(
-                      color: context.appTextMuted,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: context.appTextMuted, fontSize: 12),
                   ),
               ],
             ),
@@ -514,22 +615,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }).toList(),
     );
   }
+}
 
-  // 加料选择 (多选)
-  Widget _buildAddonSelector() {
+class AddonSelector extends StatelessWidget {
+  final List<Map<String, dynamic>> addonOptions;
+  final List<String> selectedAddons;
+  final Function(String, bool) onAddonToggled;
+
+  const AddonSelector({
+    super.key,
+    required this.addonOptions,
+    required this.selectedAddons,
+    required this.onAddonToggled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       children: addonOptions.map((addon) {
         bool isSelected = selectedAddons.contains(addon['name']);
         return GestureDetector(
           onTap: () {
             HapticFeedback.selectionClick();
-            setState(() {
-              if (isSelected) {
-                selectedAddons.remove(addon['name']);
-              } else {
-                selectedAddons.add(addon['name']);
-              }
-            });
+            onAddonToggled(addon['name'], !isSelected);
           },
           child: Container(
             margin: const EdgeInsets.only(bottom: 10),
@@ -570,9 +678,26 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       }).toList(),
     );
   }
+}
 
-  // 底部悬浮操作条 (包含实时价格)
-  Widget _buildBottomAction() {
+class BottomAction extends StatelessWidget {
+  final int quantity;
+  final double totalPrice;
+  final bool isAdding;
+  final ValueChanged<int> onQtyChanged;
+  final VoidCallback onAddToCart;
+
+  const BottomAction({
+    super.key,
+    required this.quantity,
+    required this.totalPrice,
+    required this.isAdding,
+    required this.onQtyChanged,
+    required this.onAddToCart,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
       decoration: BoxDecoration(
@@ -581,7 +706,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
       child: Row(
         children: [
-          // 数量选择器
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
@@ -590,9 +714,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             child: Row(
               children: [
-                _qtyBtn(
-                  Icons.remove,
-                  () => setState(() => quantity > 1 ? quantity-- : null),
+                QtyBtn(
+                  icon: Icons.remove,
+                  onTap: () => quantity > 1 ? onQtyChanged(quantity - 1) : null,
                 ),
                 SizedBox(
                   width: 30,
@@ -606,17 +730,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                   ),
                 ),
-                _qtyBtn(Icons.add, () => setState(() => quantity++)),
+                QtyBtn(
+                  icon: Icons.add,
+                  onTap: () => onQtyChanged(quantity + 1),
+                ),
               ],
             ),
           ),
           const SizedBox(width: 16),
-          // 添加按钮
           Expanded(
             child: ElevatedButton(
-              onPressed: _isAdding ? null : _handleAddToCart,
+              onPressed: isAdding ? null : onAddToCart,
               style: ElevatedButton.styleFrom(
-                backgroundColor: context.appPrimary, // Standardize to primary color
+                backgroundColor: context.appPrimary,
                 padding: const EdgeInsets.symmetric(
                   vertical: 18,
                   horizontal: 20,
@@ -642,9 +768,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       border: Border(left: BorderSide(color: Colors.white24)),
                     ),
                     child: Text(
-                      "RM ${_totalPrice.toStringAsFixed(2)}",
+                      "RM ${totalPrice.toStringAsFixed(2)}",
                       style: TextStyle(
-                        color: context.appBackground, // Contrast with primary
+                        color: context.appBackground,
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                       ),
@@ -658,9 +784,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
     );
   }
+}
 
-  // --- 辅助小组件 ---
-  Widget _qtyBtn(IconData icon, VoidCallback onTap) {
+class QtyBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const QtyBtn({super.key, required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
@@ -672,8 +805,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       ),
     );
   }
+}
 
-  Widget _buildSectionTitle(String title) {
+class SectionTitle extends StatelessWidget {
+  final String title;
+
+  const SectionTitle({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 25, bottom: 15),
       child: Text(
@@ -684,16 +824,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           color: context.appTextMuted,
           letterSpacing: 1.5,
         ),
-      ),
-    );
-  }
-
-  void _showSnackBar(String message, {required bool isError}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
-        behavior: SnackBarBehavior.floating,
       ),
     );
   }

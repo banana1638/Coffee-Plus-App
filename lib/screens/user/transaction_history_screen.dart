@@ -55,19 +55,15 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       ),
       body: Column(
         children: [
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: context.appSurfaceSubtle,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                _buildFilterButton('all', 'All'),
-                _buildFilterButton('in', 'Refills'),
-                _buildFilterButton('out', 'Usage'),
-              ],
+          RepaintBoundary(
+            child: TransactionFilterBar(
+              activeFilter: _activeFilter,
+              onFilterChanged: (type) {
+                if (_activeFilter != type) {
+                  setState(() => _activeFilter = type);
+                  _loadTransactions();
+                }
+              },
             ),
           ),
           Expanded(
@@ -82,26 +78,16 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                 }
                 final transactions = snapshot.data ?? [];
                 if (transactions.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.history, size: 64, color: Colors.grey[300]),
-                        const SizedBox(height: 16),
-                        Text(
-                          "No transactions found",
-                          style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  );
+                  return const EmptyTransactionsState();
                 }
 
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   itemCount: transactions.length,
                   itemBuilder: (context, index) {
-                    return _buildTransactionCard(transactions[index]);
+                    return RepaintBoundary(
+                      child: TransactionCard(trx: transactions[index]),
+                    );
                   },
                 );
               },
@@ -111,23 +97,76 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       ),
     );
   }
+}
 
-  // ==========================================
-  // 2. 子组件构建 (Sub-Widgets)
-  // ==========================================
+// ==========================================
+// 3. 独立优化组件 (Standalone Optimized Widgets)
+// ==========================================
 
-  Widget _buildFilterButton(String type, String label) {
-    bool isActive = _activeFilter == type;
+class TransactionFilterBar extends StatelessWidget {
+  final String activeFilter;
+  final ValueChanged<String> onFilterChanged;
+
+  const TransactionFilterBar({
+    super.key,
+    required this.activeFilter,
+    required this.onFilterChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: context.appSurfaceSubtle,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          TransactionFilterButton(
+            type: 'all',
+            label: 'All',
+            isActive: activeFilter == 'all',
+            onTap: () => onFilterChanged('all'),
+          ),
+          TransactionFilterButton(
+            type: 'in',
+            label: 'Refills',
+            isActive: activeFilter == 'in',
+            onTap: () => onFilterChanged('in'),
+          ),
+          TransactionFilterButton(
+            type: 'out',
+            label: 'Usage',
+            isActive: activeFilter == 'out',
+            onTap: () => onFilterChanged('out'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class TransactionFilterButton extends StatelessWidget {
+  final String type;
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const TransactionFilterButton({
+    super.key,
+    required this.type,
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Expanded(
       child: GestureDetector(
-        onTap: () {
-          if (_activeFilter != type) {
-            setState(() {
-              _activeFilter = type;
-            });
-            _loadTransactions();
-          }
-        },
+        onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -137,7 +176,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             boxShadow: isActive
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: context.isDarkMode ? 0.3 : 0.05),
+                      color: Colors.black.withValues(
+                          alpha: context.isDarkMode ? 0.3 : 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -158,8 +198,15 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       ),
     );
   }
+}
 
-  Widget _buildTransactionCard(Transaction trx) {
+class TransactionCard extends StatelessWidget {
+  final Transaction trx;
+
+  const TransactionCard({super.key, required this.trx});
+
+  @override
+  Widget build(BuildContext context) {
     bool isCredit = trx.type == 'refill' || trx.ozDelta.startsWith('+');
     bool hasDetail = trx.billId.isNotEmpty;
 
@@ -172,7 +219,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         border: Border.all(color: context.appBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: context.isDarkMode ? 0.4 : 0.02),
+            color:
+                Colors.black.withValues(alpha: context.isDarkMode ? 0.4 : 0.02),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -266,7 +314,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => OrderDetailScreen(order: trx.rawJson),
+                      builder: (context) =>
+                          OrderDetailScreen(order: trx.rawJson),
                     ),
                   );
                 },
@@ -290,6 +339,28 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class EmptyTransactionsState extends StatelessWidget {
+  const EmptyTransactionsState({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.history, size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(
+            "No transactions found",
+            style:
+                TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );

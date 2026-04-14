@@ -103,33 +103,53 @@ class _PointsMallScreenState extends State<PointsMallScreen> {
     return Scaffold(
       backgroundColor: context.appBackground,
       appBar: AppBar(
-        title: const Text('POINTS MALL', style: TextStyle(fontWeight: FontWeight.w900)),
+        title: const Text('POINTS MALL',
+            style: TextStyle(fontWeight: FontWeight.w900)),
         centerTitle: true,
       ),
       body: _isLoading
           ? const Center(child: CoffeeLoadingIndicator())
           : Column(
               children: [
-                _buildOZBalanceHeader(),
+                RepaintBoundary(
+                  child: OzPointsHeader(balance: _user?.oz ?? 0),
+                ),
                 Expanded(
                   child: GridView.builder(
                     padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       childAspectRatio: 0.8,
                       crossAxisSpacing: 16,
                       mainAxisSpacing: 16,
                     ),
                     itemCount: _mallItems.length,
-                    itemBuilder: (context, index) => _buildMallItem(_mallItems[index]),
+                    itemBuilder: (context, index) {
+                      final item = _mallItems[index];
+                      return RepaintBoundary(
+                        child: MallItemTile(
+                          item: item,
+                          userOz: _user?.oz ?? 0,
+                          onRedeem: () => _handlePurchase(item),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
             ),
     );
   }
+}
 
-  Widget _buildOZBalanceHeader() {
+class OzPointsHeader extends StatelessWidget {
+  final int balance;
+
+  const OzPointsHeader({super.key, required this.balance});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(24),
@@ -152,26 +172,48 @@ class _PointsMallScreenState extends State<PointsMallScreen> {
             children: [
               Text(
                 'YOUR BALANCE',
-                style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5),
               ),
               SizedBox(height: 4),
               Text(
                 'OZ POINTS',
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900),
               ),
             ],
           ),
           Text(
-            "${_user?.oz ?? 0}",
-            style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
+            "$balance",
+            style: const TextStyle(
+                color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildMallItem(Map<String, dynamic> item) {
-    bool canAfford = (_user?.oz ?? 0) >= item['oz_cost'];
+class MallItemTile extends StatelessWidget {
+  final Map<String, dynamic> item;
+  final int userOz;
+  final VoidCallback onRedeem;
+
+  const MallItemTile({
+    super.key,
+    required this.item,
+    required this.userOz,
+    required this.onRedeem,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    bool canAfford = userOz >= item['oz_cost'];
 
     return Container(
       decoration: BoxDecoration(
@@ -187,9 +229,11 @@ class _PointsMallScreenState extends State<PointsMallScreen> {
               width: double.infinity,
               decoration: BoxDecoration(
                 color: (item['color'] as Color).withValues(alpha: 0.1),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
               ),
-              child: Icon(item['image'] as IconData, size: 48, color: item['color'] as Color),
+              child: Icon(item['image'] as IconData,
+                  size: 48, color: item['color'] as Color),
             ),
           ),
           Padding(
@@ -199,13 +243,15 @@ class _PointsMallScreenState extends State<PointsMallScreen> {
               children: [
                 Text(
                   item['name'],
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                  style:
+                      const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
                 ),
                 Text(
                   item['description'],
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                  style:
+                      const TextStyle(color: AppColors.textMuted, fontSize: 10),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -222,15 +268,18 @@ class _PointsMallScreenState extends State<PointsMallScreen> {
                     SizedBox(
                       height: 32,
                       child: ElevatedButton(
-                        onPressed: () => _handlePurchase(item),
+                        onPressed: onRedeem,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: context.appPrimary,
-                          foregroundColor: context.appBackground,
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                           elevation: 0,
                         ),
-                        child: const Text('REDEEM', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900)),
+                        child: const Text('REDEEM',
+                            style: TextStyle(
+                                fontSize: 10, fontWeight: FontWeight.w900)),
                       ),
                     ),
                   ],
