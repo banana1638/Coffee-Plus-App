@@ -13,6 +13,9 @@ class AppColors {
   static const Color textMain = Color(0xFF111827);
   // 副文本颜色 (对应 Tailwind text-gray-400)
   static const Color textMuted = Color(0xFF9CA3AF);
+  // 咖啡相关颜色
+  static const Color coffee = Color(0xFF6F4E37);
+  static const Color coffeeDark = Color(0xFF5D3A1A);
   // 边框颜色 (对应 Tailwind border-gray-100)
   static const Color border = Color(0xFFF3F4F6);
 }
@@ -32,6 +35,9 @@ class AppColorsDark {
   static const Color textMain = Color(0xFFE6EDF3);
   // 辅助文字 - 钢灰
   static const Color textMuted = Color(0xFF8B949E);
+  // 咖啡相关颜色 (暗色模式下稍微提亮)
+  static const Color coffee = Color(0xFF8B5E3C);
+  static const Color coffeeDark = Color(0xFF6F4E37);
   // 边框颜色 - 灰岩色
   static const Color border = Color(0xFF30363D);
 }
@@ -46,5 +52,7 @@ extension AppThemeColors on BuildContext {
   Color get appAccent => isDarkMode ? AppColorsDark.accent : AppColors.accent;
   Color get appTextMain => isDarkMode ? AppColorsDark.textMain : AppColors.textMain;
   Color get appTextMuted => isDarkMode ? AppColorsDark.textMuted : AppColors.textMuted;
+  Color get appCoffee => isDarkMode ? AppColorsDark.coffee : AppColors.coffee;
+  Color get appCoffeeDark => isDarkMode ? AppColorsDark.coffeeDark : AppColors.coffeeDark;
   Color get appBorder => isDarkMode ? AppColorsDark.border : AppColors.border;
 }

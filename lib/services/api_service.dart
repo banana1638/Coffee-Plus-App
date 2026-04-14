@@ -6,9 +6,9 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  final String baseUrl = "http://192.168.1.105/coffee_plus/public/api";
+  final String baseUrl = "http://192.168.1.104/coffee_plus/public/api";
   final String baseImageUrl =
-      "http://192.168.1.105/coffee_plus/public/images/products/";
+      "http://192.168.1.104/coffee_plus/public/images/products/";
 
   final Dio _dio = Dio();
   final _storage = const FlutterSecureStorage();
@@ -19,7 +19,9 @@ class ApiService {
   final ValueNotifier<int> cartCountNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> notificationCountNotifier = ValueNotifier<int>(0);
   final ValueNotifier<bool> authStateNotifier = ValueNotifier<bool>(false);
-  final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
+  final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(
+    ThemeMode.system,
+  );
 
   // 内存缓存
   final Map<String, dynamic> _cache = {};
@@ -63,7 +65,7 @@ class ApiService {
         },
       ),
     );
-    
+
     // 初始化时加载主题
     loadThemeMode();
   }
@@ -433,9 +435,9 @@ class ApiService {
   // 5. 通知 (Notifications)
   // ==========================================
 
-  Future<Map<String, dynamic>> fetchNotifications() async {
+  Future<Map<String, dynamic>> fetchNotifications({bool forceRefresh = false}) async {
     const cacheKey = 'notifications';
-    if (_cache.containsKey(cacheKey)) {
+    if (!forceRefresh && _cache.containsKey(cacheKey)) {
       return _cache[cacheKey];
     }
 

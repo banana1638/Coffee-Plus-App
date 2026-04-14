@@ -12,11 +12,17 @@ class OrderDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 兼容可能嵌套在交易数据中的订单详情
+    // 性能优化：将计算逻辑移出 build，或者使用 const 处理不变部分
     final Map<String, dynamic> orderData =
         order.containsKey('order_details') && order['order_details'] != null
         ? Map<String, dynamic>.from(order['order_details'])
         : order;
+
+    final double subtotal = double.tryParse(orderData['subtotal']?.toString() ?? '0') ?? 0.0;
+    final double couponDiscount = double.tryParse(orderData['coupon_discount']?.toString() ?? '0') ?? 0.0;
+    final double pointsDiscount = double.tryParse(orderData['points_discount']?.toString() ?? '0') ?? 0.0;
+    final double finalAmount = double.tryParse(orderData['final_amount']?.toString() ?? '0') ?? 0.0;
+    final List items = orderData['items'] as List? ?? [];
 
     return Scaffold(
       backgroundColor: context.appBackground,
@@ -124,14 +130,17 @@ class OrderDetailScreen extends StatelessWidget {
                         ),
 
                         // 商品列表渲染
-                        ...((orderData['items'] as List?)
-                                ?.map((item) => Map<String, dynamic>.from(item))
-                                .map(
-                                  (item) => RepaintBoundary(
-                                    child: OrderItemTile(item: item),
-                                  ),
-                                ) ??
-                            []),
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: items.length,
+                          itemBuilder: (context, index) {
+                            final item = Map<String, dynamic>.from(items[index]);
+                            return RepaintBoundary(
+                              child: OrderItemTile(item: item),
+                            );
+                          },
+                        ),
 
                         const SizedBox(height: 20),
                         const DashedLine(),
@@ -140,38 +149,25 @@ class OrderDetailScreen extends StatelessWidget {
                         // 金额统计
                         OrderRowDetail(
                           label: "SUBTOTAL",
-                          value:
-                              "RM ${double.tryParse(orderData['subtotal']?.toString() ?? '0')?.toStringAsFixed(2) ?? '0.00'}",
+                          value: "RM ${subtotal.toStringAsFixed(2)}",
                           isBold: true,
                         ),
                         const SizedBox(height: 12),
 
                         // 优惠券折扣
-                        if (orderData['coupon_discount'] != null &&
-                            (double.tryParse(
-                                      orderData['coupon_discount'].toString(),
-                                    ) ??
-                                    0) >
-                                0) ...[
+                        if (couponDiscount > 0) ...[
                           OrderRowDetail(
                             label: "COUPON DISCOUNT",
-                            value:
-                                "-RM ${(double.tryParse(orderData['coupon_discount'].toString()) ?? 0).toStringAsFixed(2)}",
+                            value: "-RM ${couponDiscount.toStringAsFixed(2)}",
                           ),
                           const SizedBox(height: 12),
                         ],
 
                         // 积分抵扣
-                        if (orderData['points_discount'] != null &&
-                            (double.tryParse(
-                                      orderData['points_discount'].toString(),
-                                    ) ??
-                                    0) >
-                                0) ...[
+                        if (pointsDiscount > 0) ...[
                           OrderRowDetail(
                             label: "POINTS DISCOUNT",
-                            value:
-                                "-RM ${(double.tryParse(orderData['points_discount'].toString()) ?? 0).toStringAsFixed(2)}",
+                            value: "-RM ${pointsDiscount.toStringAsFixed(2)}",
                           ),
                           const SizedBox(height: 12),
                         ],
@@ -210,11 +206,7 @@ class OrderDetailScreen extends StatelessWidget {
                                   ),
                                 ),
                                 Text(
-                                  double.tryParse(
-                                        orderData['final_amount']?.toString() ??
-                                            '0',
-                                      )?.toStringAsFixed(2) ??
-                                      "0.00",
+                                  finalAmount.toStringAsFixed(2),
                                   style: const TextStyle(
                                     fontSize: 32,
                                     fontWeight: FontWeight.w900,
