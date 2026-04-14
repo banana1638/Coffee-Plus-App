@@ -4,8 +4,16 @@ import '../core/app_colors.dart';
 
 class CartoonCoffeePainter extends CustomPainter {
   final double progress;
+  final Color outlineColor;
+  final Color liquidColor;
+  final Color steamColor;
 
-  CartoonCoffeePainter({required this.progress});
+  CartoonCoffeePainter({
+    required this.progress,
+    required this.outlineColor,
+    required this.liquidColor,
+    required this.steamColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -20,14 +28,14 @@ class CartoonCoffeePainter extends CustomPainter {
     final double centerX = (cupLeft + cupRight) / 2;
 
     final outlinePaint = Paint()
-      ..color = AppColors.textMain
+      ..color = outlineColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.5
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
     final liquidPaint = Paint()
-      ..color = const Color(0xFF6F4E37) // Typical Coffee Brown
+      ..color = liquidColor
       ..style = PaintingStyle.fill;
 
     // 1. Draw Cup Handle
@@ -37,7 +45,7 @@ class CartoonCoffeePainter extends CustomPainter {
     canvas.drawPath(handlePath, outlinePaint);
 
     // 2. Liquid Filling Logic
-    // Start rising only after 10% progress to look like it's being "poured in" first
+    // Start rising only after 10% progress
     double fillProgress = (progress - 0.1).clamp(0.0, 1.0) / 0.9;
     final double fillLevel = cupBottom - (cupBottom - (cupTop + 8)) * fillProgress;
 
@@ -54,13 +62,14 @@ class CartoonCoffeePainter extends CustomPainter {
       clipPath.close();
       canvas.clipPath(clipPath);
 
+      // Draw Main Liquid
       final liquidPath = Path();
       liquidPath.moveTo(-20, fillLevel);
       
       // Dynamic Wave Effect
-      const double waveHeight = 3.5;
+      const double waveHeight = 3.0;
       for (double i = 0; i <= w + 40; i += 5) {
-        final double waveOffset = math.sin(i / 12 + progress * 15) * waveHeight;
+        final double waveOffset = math.sin(i / 15 + progress * 2 * math.pi) * waveHeight;
         liquidPath.lineTo(i - 20, fillLevel + waveOffset);
       }
       
@@ -68,29 +77,56 @@ class CartoonCoffeePainter extends CustomPainter {
       liquidPath.lineTo(-20, h);
       liquidPath.close();
       canvas.drawPath(liquidPath, liquidPaint);
+
+      // Draw Foam/Surface Light Layer
+      final foamPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.15)
+        ..style = PaintingStyle.fill;
+      
+      final foamPath = Path();
+      foamPath.moveTo(-20, fillLevel);
+      for (double i = 0; i <= w + 40; i += 5) {
+        final double foamOffset = math.cos(i / 12 + progress * 2 * math.pi) * (waveHeight * 0.8);
+        foamPath.lineTo(i - 20, fillLevel + foamOffset - 2);
+      }
+      foamPath.lineTo(w + 20, fillLevel + 10);
+      foamPath.lineTo(-20, fillLevel + 10);
+      foamPath.close();
+      canvas.drawPath(foamPath, foamPaint);
+      
       canvas.restore();
     }
 
     // 4. Pouring Stream (From Top)
     if (progress < 0.98) {
       final streamPaint = Paint()
-        ..color = const Color(0xFF5D3A1A) // Slightly darker for contrast
+        ..color = liquidColor.withValues(alpha: 0.9)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 4.5
         ..strokeCap = StrokeCap.round;
 
-      // Solid Stream
-      canvas.drawLine(Offset(centerX, 0), Offset(centerX, fillLevel), streamPaint);
+      // Draw a slightly wobbly stream
+      final streamPath = Path();
+      streamPath.moveTo(centerX, 0);
+      final double wobble = math.sin(progress * 30) * 1.5;
+      streamPath.quadraticBezierTo(centerX + wobble, fillLevel / 2, centerX, fillLevel);
+      canvas.drawPath(streamPath, streamPaint);
 
       // 5. Splash Effect
       if (progress > 0.1) {
         final splashPaint = Paint()
-          ..color = const Color(0xFF6F4E37)
+          ..color = liquidColor
           ..style = PaintingStyle.fill;
         
-        final double splashAnim = math.sin(progress * 40).abs();
-        canvas.drawCircle(Offset(centerX - 8, fillLevel - 2), splashAnim * 3 + 1, splashPaint);
-        canvas.drawCircle(Offset(centerX + 8, fillLevel - 4), splashAnim * 2 + 1, splashPaint);
+        for (int i = 0; i < 3; i++) {
+          final double splashAnim = (progress * 50 + i * 2) % 10 / 10;
+          final double offsetX = math.sin(i * 123.0) * 10;
+          final double offsetY = - (splashAnim * 15);
+          final double radius = (1 - splashAnim) * 2.5;
+          if (radius > 0) {
+            canvas.drawCircle(Offset(centerX + offsetX, fillLevel + offsetY), radius, splashPaint);
+          }
+        }
       }
     }
 
@@ -103,26 +139,39 @@ class CartoonCoffeePainter extends CustomPainter {
     cupPath.lineTo(cupRight, cupTop);
     canvas.drawPath(cupPath, outlinePaint);
 
-    // 7. Steam Effect (near end of fill)
-    if (fillProgress > 0.8) {
-      final double steamOpacity = (fillProgress - 0.8) * 5.0;
+    // 7. Organic Steam Effect
+    if (fillProgress > 0.6) {
+      final double steamOpacity = (fillProgress - 0.6) * 2.5;
       final steamPaint = Paint()
-        ..color = AppColors.textMain.withValues(alpha: 0.15 * steamOpacity)
+        ..color = steamColor.withValues(alpha: 0.2 * steamOpacity)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
+        ..strokeWidth = 2.0
         ..strokeCap = StrokeCap.round;
       
       for (int i = 0; i < 3; i++) {
-        final double sx = centerX - 12 + i * 12;
-        final double sy = cupTop - 8 - (progress * 25 % 12);
-        canvas.drawLine(Offset(sx, sy), Offset(sx, sy - 12), steamPaint);
+        final double time = (progress + i * 0.33) % 1.0;
+        final double sx = centerX - 15 + i * 15;
+        final double sy = cupTop - 10 - (time * 30);
+        
+        final steamPath = Path();
+        steamPath.moveTo(sx, sy);
+        steamPath.relativeQuadraticBezierTo(
+          math.sin(time * 6) * 8, -10,
+          0, -20
+        );
+        
+        // Fade out steam as it rises
+        steamPaint.color = steamColor.withValues(alpha: (0.2 * (1 - time)) * steamOpacity);
+        canvas.drawPath(steamPath, steamPaint);
       }
     }
   }
 
   @override
   bool shouldRepaint(covariant CartoonCoffeePainter oldDelegate) =>
-      oldDelegate.progress != progress;
+      oldDelegate.progress != progress ||
+      oldDelegate.outlineColor != outlineColor ||
+      oldDelegate.liquidColor != liquidColor;
 }
 
 class CoffeeLoadingIndicator extends StatefulWidget {
@@ -142,7 +191,7 @@ class _CoffeeLoadingIndicatorState extends State<CoffeeLoadingIndicator>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200), // Slightly faster
+      duration: const Duration(milliseconds: 1500),
     )..repeat();
   }
 
@@ -154,6 +203,7 @@ class _CoffeeLoadingIndicatorState extends State<CoffeeLoadingIndicator>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context;
     return Center(
       child: SizedBox(
         width: widget.size,
@@ -162,7 +212,12 @@ class _CoffeeLoadingIndicatorState extends State<CoffeeLoadingIndicator>
           animation: _controller,
           builder: (context, child) {
             return CustomPaint(
-              painter: CartoonCoffeePainter(progress: _controller.value),
+              painter: CartoonCoffeePainter(
+                progress: _controller.value,
+                outlineColor: colors.appTextMain,
+                liquidColor: const Color(0xFF6F4E37),
+                steamColor: colors.appTextMain,
+              ),
             );
           },
         ),
