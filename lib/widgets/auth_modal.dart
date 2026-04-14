@@ -144,7 +144,7 @@ class _AuthModalState extends State<AuthModal> {
             const SizedBox(height: 30),
 
             if (!isLogin) ...[
-              _buildTextField(
+              AuthTextField(
                 controller: _nameController,
                 hintText: "Full Name",
                 icon: Icons.person_outline,
@@ -152,7 +152,7 @@ class _AuthModalState extends State<AuthModal> {
               const SizedBox(height: 15),
             ],
 
-            _buildTextField(
+            AuthTextField(
               controller: _emailController,
               hintText: "Email Address",
               icon: Icons.email_outlined,
@@ -160,7 +160,7 @@ class _AuthModalState extends State<AuthModal> {
             ),
             const SizedBox(height: 15),
 
-            _buildTextField(
+            AuthTextField(
               controller: _passwordController,
               hintText: "Password",
               icon: Icons.lock_outline,
@@ -169,7 +169,7 @@ class _AuthModalState extends State<AuthModal> {
 
             if (!isLogin) ...[
               const SizedBox(height: 15),
-              _buildTextField(
+              AuthTextField(
                 controller: _confirmPasswordController,
                 hintText: "Confirm Password",
                 icon: Icons.lock_outline,
@@ -259,13 +259,26 @@ class _AuthModalState extends State<AuthModal> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hintText,
-    required IconData icon,
-    bool obscureText = false,
-    TextInputType? keyboardType,
-  }) {
+}
+
+class AuthTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hintText;
+  final IconData icon;
+  final bool obscureText;
+  final TextInputType? keyboardType;
+
+  const AuthTextField({
+    super.key,
+    required this.controller,
+    required this.hintText,
+    required this.icon,
+    this.obscureText = false,
+    this.keyboardType,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return TextField(
       controller: controller,
       obscureText: obscureText,

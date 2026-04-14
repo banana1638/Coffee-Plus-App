@@ -26,7 +26,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   void _refreshNotifications() {
     setState(() {
-      _notificationsFuture = _apiService.fetchNotifications().then((data) {
+      _notificationsFuture =
+          _apiService.fetchNotifications(forceRefresh: true).then((data) {
         return data['notifications'] as List? ?? [];
       });
     });
@@ -111,36 +112,38 @@ class _NotificationScreenState extends State<NotificationScreen> {
                 final notificationId = notification['id']?.toString() ?? "";
                 final bool isSelected = _selectedIds.contains(notificationId);
 
-                return InkWell(
-                  onTap: () {
-                    if (_isSelectionMode) {
-                      if (!isRead) {
-                        return;
-                      }
-                      setState(() {
-                        if (isSelected) {
-                          _selectedIds.remove(notificationId);
-                          debugPrint(
-                            "NotificationScreen: Deselected $notificationId",
-                          );
-                        } else {
-                          _selectedIds.add(notificationId);
-                          debugPrint(
-                            "NotificationScreen: Selected $notificationId",
-                          );
+                return RepaintBoundary(
+                  child: InkWell(
+                    onTap: () {
+                      if (_isSelectionMode) {
+                        if (!isRead) {
+                          return;
                         }
-                      });
-                    } else {
-                      _showNotificationDetails(notification);
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(20),
-                  child: _buildNotificationCard(
-                    data['message'] ?? "New notification",
-                    createdAt,
-                    isRead,
-                    isSelected: isSelected,
-                    isSelectionMode: _isSelectionMode,
+                        setState(() {
+                          if (isSelected) {
+                            _selectedIds.remove(notificationId);
+                            debugPrint(
+                              "NotificationScreen: Deselected $notificationId",
+                            );
+                          } else {
+                            _selectedIds.add(notificationId);
+                            debugPrint(
+                              "NotificationScreen: Selected $notificationId",
+                            );
+                          }
+                        });
+                      } else {
+                        _showNotificationDetails(notification);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: NotificationCard(
+                      message: data['message'] ?? "New notification",
+                      time: createdAt,
+                      isRead: isRead,
+                      isSelected: isSelected,
+                      isSelectionMode: _isSelectionMode,
+                    ),
                   ),
                 );
               },
@@ -211,75 +214,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   void _showNotificationDetails(Map<String, dynamic> notification) async {
-    final data = notification['data'] as Map<String, dynamic>? ?? {};
-    final String message = data['message'] ?? "No message";
-    final String? orderId = data['order_id']?.toString();
     final bool isRead = notification['read_at'] != null;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: context.appSurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(Icons.info_outline, color: context.appPrimary),
-            const SizedBox(width: 10),
-            const Text(
-              "Notification Detail",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (orderId != null) ...[
-              Text(
-                "ORDER ID",
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: context.appTextMuted,
-                  letterSpacing: 1.0,
-                ),
-              ),
-              Text(
-                "#$orderId",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: context.appPrimary,
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-            Text(
-              "MESSAGE",
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: context.appTextMuted,
-                letterSpacing: 1.0,
-              ),
-            ),
-            Text(
-              message,
-              style: TextStyle(fontSize: 14, color: context.appTextMain),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              "CLOSE",
-              style: TextStyle(fontWeight: FontWeight.w900),
-            ),
-          ),
-        ],
-      ),
+      builder: (context) => NotificationDetailDialog(notification: notification),
     );
 
     // Mark as read if it's currently unread
@@ -291,104 +230,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
         debugPrint("Error marking notification as read: $e");
       }
     }
-  }
-
-  Widget _buildNotificationCard(
-    String message,
-    DateTime? time,
-    bool isRead, {
-    bool isSelected = false,
-    bool isSelectionMode = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isSelected
-            ? context.appPrimary.withValues(alpha: 0.05)
-            : context.appSurface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isSelected ? context.appPrimary : context.appBorder,
-          width: isSelected ? 2 : 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: context.isDarkMode ? 0.3 : 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (isSelectionMode) ...[
-            if (isRead)
-              Icon(
-                isSelected ? Icons.check_circle : Icons.radio_button_off,
-                color: isSelected ? context.appPrimary : context.appTextMuted,
-                size: 24,
-              )
-            else
-              const Icon(
-                Icons.block,
-                color: Colors.transparent, // Placeholder for unread items
-                size: 24,
-              ),
-            const SizedBox(width: 15),
-          ],
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: isRead
-                  ? context.appBackground
-                  : context.appPrimary.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.notifications_active_outlined,
-              size: 20,
-              color: isRead ? context.appTextMuted : context.appPrimary,
-            ),
-          ),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  message,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-                    color: context.appTextMain,
-                  ),
-                ),
-                if (time != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    DateFormat('MMM d, h:mm a').format(time),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: context.appTextMuted,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (!isRead)
-            Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: Colors.redAccent,
-                shape: BoxShape.circle,
-              ),
-            ),
-        ],
-      ),
-    );
   }
 
   Widget _buildEmptyState() {
@@ -443,6 +284,194 @@ class _NotificationScreenState extends State<NotificationScreen> {
           borderRadius: 20,
         ),
       ),
+    );
+  }
+}
+
+
+class NotificationCard extends StatelessWidget {
+  final String message;
+  final DateTime? time;
+  final bool isRead;
+  final bool isSelected;
+  final bool isSelectionMode;
+
+  const NotificationCard({
+    super.key,
+    required this.message,
+    required this.time,
+    required this.isRead,
+    this.isSelected = false,
+    this.isSelectionMode = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? context.appPrimary.withValues(alpha: 0.05)
+            : context.appSurface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isSelected ? context.appPrimary : context.appBorder,
+          width: isSelected ? 2 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color:
+                Colors.black.withValues(alpha: context.isDarkMode ? 0.3 : 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isSelectionMode) ...[
+            if (isRead)
+              Icon(
+                isSelected ? Icons.check_circle : Icons.radio_button_off,
+                color: isSelected ? context.appPrimary : context.appTextMuted,
+                size: 24,
+              )
+            else
+              const Icon(
+                Icons.block,
+                color: Colors.transparent, // Placeholder for unread items
+                size: 24,
+              ),
+            const SizedBox(width: 15),
+          ],
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isRead
+                  ? context.appBackground
+                  : context.appPrimary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.notifications_active_outlined,
+              size: 20,
+              color: isRead ? context.appTextMuted : context.appPrimary,
+            ),
+          ),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                    color: context.appTextMain,
+                  ),
+                ),
+                if (time != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    DateFormat('MMM d, h:mm a').format(time!),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.appTextMuted,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (!isRead)
+            Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: Colors.redAccent,
+                shape: BoxShape.circle,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class NotificationDetailDialog extends StatelessWidget {
+  final Map<String, dynamic> notification;
+
+  const NotificationDetailDialog({super.key, required this.notification});
+
+  @override
+  Widget build(BuildContext context) {
+    final data = notification['data'] as Map<String, dynamic>? ?? {};
+    final String message = data['message'] ?? "No message";
+    final String? orderId = data['order_id']?.toString();
+
+    return AlertDialog(
+      backgroundColor: context.appSurface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          Icon(Icons.info_outline, color: context.appPrimary),
+          const SizedBox(width: 10),
+          const Text(
+            "Notification Detail",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (orderId != null) ...[
+            Text(
+              "ORDER ID",
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: context.appTextMuted,
+                letterSpacing: 1.0,
+              ),
+            ),
+            Text(
+              "#$orderId",
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: context.appPrimary,
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          Text(
+            "MESSAGE",
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: context.appTextMuted,
+              letterSpacing: 1.0,
+            ),
+          ),
+          Text(
+            message,
+            style: TextStyle(fontSize: 14, color: context.appTextMain),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text(
+            "CLOSE",
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+        ),
+      ],
     );
   }
 }
