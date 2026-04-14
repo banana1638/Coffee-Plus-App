@@ -62,11 +62,11 @@ class NotificationService with WidgetsBindingObserver {
   Future<void> _connectReverb() async {
     try {
       _reverbClient = ReverbClient.instance(
-        host: '192.168.1.105',
+        host: '192.168.1.104',
         port: 8080,
         appKey: "coffepluskey123",
         useTLS: false,
-        authEndpoint: 'http://192.168.1.105/coffee_plus/broadcasting/auth',
+        authEndpoint: 'http://192.168.1.104/coffee_plus/broadcasting/auth',
         authorizer: (channelName, socketId) async {
           final token = await _apiService.getToken();
           if (kDebugMode) print("Authorizing channel: $channelName");

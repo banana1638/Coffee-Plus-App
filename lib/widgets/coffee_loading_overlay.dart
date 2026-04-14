@@ -2,17 +2,36 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../core/app_colors.dart';
 
+/// 咖啡动画配置类
+class CoffeePainterConfig {
+  final Color? outlineColor;
+  final Color? liquidColor;
+  final Color? steamColor;
+  final double strokeWidth;
+  final double waveHeight;
+
+  const CoffeePainterConfig({
+    this.outlineColor,
+    this.liquidColor,
+    this.steamColor,
+    this.strokeWidth = 3.5,
+    this.waveHeight = 3.0,
+  });
+}
+
 class CartoonCoffeePainter extends CustomPainter {
   final double progress;
   final Color outlineColor;
   final Color liquidColor;
   final Color steamColor;
+  final CoffeePainterConfig config;
 
   CartoonCoffeePainter({
     required this.progress,
     required this.outlineColor,
     required this.liquidColor,
     required this.steamColor,
+    this.config = const CoffeePainterConfig(),
   });
 
   @override
@@ -30,7 +49,7 @@ class CartoonCoffeePainter extends CustomPainter {
     final outlinePaint = Paint()
       ..color = outlineColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.5
+      ..strokeWidth = config.strokeWidth
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
@@ -67,7 +86,7 @@ class CartoonCoffeePainter extends CustomPainter {
       liquidPath.moveTo(-20, fillLevel);
       
       // Dynamic Wave Effect
-      const double waveHeight = 3.0;
+      final double waveHeight = config.waveHeight;
       for (double i = 0; i <= w + 40; i += 5) {
         final double waveOffset = math.sin(i / 15 + progress * 2 * math.pi) * waveHeight;
         liquidPath.lineTo(i - 20, fillLevel + waveOffset);
@@ -102,7 +121,7 @@ class CartoonCoffeePainter extends CustomPainter {
       final streamPaint = Paint()
         ..color = liquidColor.withValues(alpha: 0.9)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 4.5
+        ..strokeWidth = config.strokeWidth * 1.3
         ..strokeCap = StrokeCap.round;
 
       // Draw a slightly wobbly stream
@@ -171,12 +190,19 @@ class CartoonCoffeePainter extends CustomPainter {
   bool shouldRepaint(covariant CartoonCoffeePainter oldDelegate) =>
       oldDelegate.progress != progress ||
       oldDelegate.outlineColor != outlineColor ||
-      oldDelegate.liquidColor != liquidColor;
+      oldDelegate.liquidColor != liquidColor ||
+      oldDelegate.config != config;
 }
 
 class CoffeeLoadingIndicator extends StatefulWidget {
   final double size;
-  const CoffeeLoadingIndicator({super.key, this.size = 70});
+  final CoffeePainterConfig config;
+  
+  const CoffeeLoadingIndicator({
+    super.key, 
+    this.size = 70,
+    this.config = const CoffeePainterConfig(),
+  });
 
   @override
   State<CoffeeLoadingIndicator> createState() => _CoffeeLoadingIndicatorState();
@@ -203,28 +229,31 @@ class _CoffeeLoadingIndicatorState extends State<CoffeeLoadingIndicator>
 
   @override
   Widget build(BuildContext context) {
-    final colors = context;
     return Center(
-      child: SizedBox(
-        width: widget.size,
-        height: widget.size,
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            return CustomPaint(
-              painter: CartoonCoffeePainter(
-                progress: _controller.value,
-                outlineColor: colors.appTextMain,
-                liquidColor: const Color(0xFF6F4E37),
-                steamColor: colors.appTextMain,
-              ),
-            );
-          },
+      child: RepaintBoundary(
+        child: SizedBox(
+          width: widget.size,
+          height: widget.size,
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return CustomPaint(
+                painter: CartoonCoffeePainter(
+                  progress: _controller.value,
+                  outlineColor: widget.config.outlineColor ?? context.appTextMain,
+                  liquidColor: widget.config.liquidColor ?? context.appCoffee,
+                  steamColor: widget.config.steamColor ?? context.appTextMain,
+                  config: widget.config,
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
   }
 }
+
 
 class CoffeeLoadingOverlay {
   static Future<T> show<T>(BuildContext context, Future<T> future) async {
