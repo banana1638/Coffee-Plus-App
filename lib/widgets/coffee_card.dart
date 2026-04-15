@@ -15,122 +15,132 @@ class CoffeeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        decoration: BoxDecoration(
-          color: context.appSurface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: context.appBorder, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: context.isDarkMode ? 0.2 : 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 图片区域
-            Expanded(
-              child: Stack(
-                children: [
-                  Hero(
-                    tag: 'product-image-${product.id}',
-                    child: CachedNetworkImage(
-                      imageUrl: ApiService().getFullImageUrl(product.imageUrl),
-                      width: double.infinity,
-                      height: double.infinity,
-                      fit: BoxFit.cover,
-                      memCacheWidth: 400,
-                      placeholder: (context, url) => const ShimmerLoading(
-                        width: double.infinity,
-                        height: double.infinity,
-                        borderRadius: 0,
-                      ),
-                      errorWidget: (context, url, error) => Container(
-                        color: context.appBackground,
-                        child: Icon(
-                          Icons.coffee,
-                          color: context.appTextMuted,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (!product.isAvailable)
-                    Container(
-                      color: Colors.black45,
-                      child: const Center(
-                        child: Text(
-                          "SOLD OUT",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
+    // 性能优化：提前获取颜色和状态，减少 build 树深度和重复计算
+    final isDarkMode = context.isDarkMode;
+    final surfaceColor = context.appSurface;
+    final borderColor = context.appBorder;
+    final primaryColor = context.appPrimary;
+    final textMainColor = context.appTextMain;
+
+    return RepaintBoundary( // 核心优化：隔离单个卡片的重绘（如点赞、点击动画）
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: DecoratedBox( // 替代 Container
+          decoration: BoxDecoration(
+            color: surfaceColor,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: borderColor, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDarkMode ? 0.2 : 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ClipRRect( // 替代 clipBehavior: Clip.antiAlias
+            borderRadius: BorderRadius.circular(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 图片区域
+                Expanded(
+                  child: Stack(
+                    fit: StackFit.expand, // 优化：占满容器，减少布局计算
+                    children: [
+                      Hero(
+                        tag: 'product-image-${product.id}',
+                        child: CachedNetworkImage(
+                          imageUrl: ApiService().getFullImageUrl(product.imageUrl),
+                          fit: BoxFit.cover,
+                          memCacheWidth: 350, // 性能优化：进一步适配卡片尺寸，减少内存占用
+                          maxWidthDiskCache: 600, // 性能优化：限制磁盘缓存尺寸
+                          placeholder: (context, url) => const ShimmerLoading(
+                            width: double.infinity,
+                            height: double.infinity,
+                            borderRadius: 0,
+                          ),
+                          errorWidget: (context, url, error) => ColoredBox(
+                            color: context.appBackground,
+                            child: Icon(
+                              Icons.coffee,
+                              color: context.appTextMuted,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          product.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 14,
-                            color: context.appTextMain,
+                      if (!product.isAvailable)
+                        const ColoredBox(
+                          color: Colors.black45,
+                          child: Center(
+                            child: Text(
+                              "SOLD OUT",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                      ValueListenableBuilder<List<FavoriteItem>>(
-                        valueListenable: FavoriteService().favoritesNotifier,
-                        builder: (context, favorites, child) {
-                          final bool isFavorited = favorites.any((f) => f.product.id == product.id);
-                          return isFavorited
-                              ? const Icon(Icons.favorite, color: Colors.redAccent, size: 14)
-                              : const SizedBox.shrink();
-                        },
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        "RM ${product.price.toStringAsFixed(2)}",
-                        style: TextStyle(
-                          color: context.appPrimary,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 13,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              product.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 14,
+                                color: textMainColor,
+                              ),
+                            ),
+                          ),
+                          ValueListenableBuilder<List<FavoriteItem>>(
+                            valueListenable: FavoriteService().favoritesNotifier,
+                            builder: (context, favorites, child) {
+                              final bool isFavorited = favorites.any((f) => f.product.id == product.id);
+                              if (!isFavorited) return const SizedBox.shrink();
+                              return const Icon(Icons.favorite, color: Colors.redAccent, size: 14);
+                            },
+                          ),
+                        ],
                       ),
-                      Icon(
-                        Icons.add_circle,
-                        color: context.appPrimary,
-                        size: 24,
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "RM ${product.price.toStringAsFixed(2)}",
+                            style: TextStyle(
+                              color: primaryColor,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13,
+                            ),
+                          ),
+                          Icon(
+                            Icons.add_circle,
+                            color: primaryColor,
+                            size: 24,
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

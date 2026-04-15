@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/app_colors.dart';
 
 class ShimmerLoading extends StatefulWidget {
   final double width;
@@ -29,7 +30,8 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
       duration: const Duration(milliseconds: 1500),
     )..repeat();
 
-    _animation = Tween<double>(begin: -2, end: 2).animate(
+    // 优化：调整范围使过渡更平滑
+    _animation = Tween<double>(begin: -1.5, end: 1.5).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
     );
   }
@@ -42,36 +44,38 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // 性能优化：将主题颜色计算移出 Builder，减少每帧开销
+    final baseColor = context.appBorder;
+    final highlightColor = context.appSurfaceSubtle;
 
-    final baseColor = isDark ? Colors.grey[800]! : Colors.grey[300]!;
-    final highlightColor = isDark ? Colors.grey[700]! : Colors.grey[100]!;
-
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        return Container(
-          width: widget.width,
-          height: widget.height,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(widget.borderRadius),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              stops: const [0.1, 0.5, 0.9],
-              colors: [baseColor, highlightColor, baseColor],
-              transform: _SlidingGradientTransform(_animation.value),
+    return RepaintBoundary( // 核心优化：隔离 Shimmer 动画的重绘区域
+      child: AnimatedBuilder(
+        animation: _animation,
+        builder: (context, child) {
+          return DecoratedBox( // 使用更轻量的 DecoratedBox 替代 Container
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(widget.borderRadius),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                stops: const [0.1, 0.5, 0.9],
+                colors: [baseColor, highlightColor, baseColor],
+                transform: _SlidingGradientTransform(_animation.value),
+              ),
             ),
-          ),
-        );
-      },
+            child: SizedBox(
+              width: widget.width,
+              height: widget.height,
+            ),
+          );
+        },
+      ),
     );
   }
 }
 
 class _SlidingGradientTransform extends GradientTransform {
   final double slidePercent;
-
   const _SlidingGradientTransform(this.slidePercent);
 
   @override

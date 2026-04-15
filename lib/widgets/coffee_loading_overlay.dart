@@ -321,6 +321,29 @@ class _CoffeeLoadingIndicatorState extends State<CoffeeLoadingIndicator>
 }
 
 class CoffeeLoadingOverlay {
+  static const int _cycleMs = 1800; // 动画周期
+
+  /// 对 Future 进行包装，确保其至少运行一个完整周期，并在周期结束点返回
+  static Future<T> wrap<T>(Future<T> future) async {
+    final startTime = DateTime.now();
+    final result = await future;
+    final elapsed = DateTime.now().difference(startTime).inMilliseconds;
+
+    // 计算补齐到下一个完整周期所需的毫秒数
+    int remaining;
+    if (elapsed < _cycleMs) {
+      remaining = _cycleMs - elapsed;
+    } else {
+      remaining = _cycleMs - (elapsed % _cycleMs);
+    }
+
+    // 如果剩余时间太短（比如正好在临界点），补一个完整周期以防闪烁
+    if (remaining < 100) remaining += _cycleMs;
+
+    await Future.delayed(Duration(milliseconds: remaining));
+    return result;
+  }
+
   static Future<T> show<T>(BuildContext context, Future<T> future) async {
     showDialog(
       context: context,
@@ -330,7 +353,8 @@ class CoffeeLoadingOverlay {
     );
 
     try {
-      final result = await future;
+      // 使用 wrap 确保动画播完
+      final result = await wrap(future);
       if (context.mounted) Navigator.of(context).pop();
       return result;
     } catch (e) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../models/transaction_model.dart';
+import '../../widgets/coffee_loading_overlay.dart';
 import 'order_detail_screen.dart';
 
 class TransactionHistoryScreen extends StatefulWidget {
@@ -71,7 +72,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               future: _transactionsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const CoffeeLoadingIndicator();
                 }
                 if (snapshot.hasError) {
                   return Center(child: Text("Error: ${snapshot.error}"));
