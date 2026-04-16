@@ -219,7 +219,12 @@ class _HomeScreenState extends State<HomeScreen> {
             data['allCategoryNames'] ?? [],
           );
 
-          return NestedScrollView(
+          return RefreshIndicator(
+            onRefresh: () async {
+              _refreshData(forceRefresh: true);
+              await _dashboardData;
+            },
+            child: NestedScrollView(
             headerSliverBuilder: (context, innerBoxIsScrolled) {
               return [
                 SliverToBoxAdapter(
@@ -302,6 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       options: data['options'],
                       key: ValueKey(_selectedCategory),
                     ),
+            ),
             ),
           );
         },

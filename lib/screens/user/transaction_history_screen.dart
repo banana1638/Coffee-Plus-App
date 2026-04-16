@@ -82,7 +82,13 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   return const EmptyTransactionsState();
                 }
 
-                return ListView.builder(
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    _loadTransactions();
+                    await _transactionsFuture;
+                  },
+                  child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   itemCount: transactions.length,
                   itemBuilder: (context, index) {
@@ -90,13 +96,14 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                       child: TransactionCard(trx: transactions[index]),
                     );
                   },
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
-        ],
-      ),
-    );
+        ),
+      ],
+    ),
+  );
   }
 }
 

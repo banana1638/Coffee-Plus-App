@@ -204,8 +204,11 @@ class ProfileScreenState extends State<ProfileScreen> {
       ),
       body: _isLoading && _user == null
           ? const Center(child: CoffeeLoadingIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+          : RefreshIndicator(
+              onRefresh: refreshData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
                   _buildAnimatedItem(
@@ -281,6 +284,7 @@ class ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+          ),
     );
   }
 

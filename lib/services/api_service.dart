@@ -6,9 +6,9 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  final String baseUrl = "http://192.168.1.104/coffee_plus/public/api";
+  final String baseUrl = "http://192.168.1.103/coffee_plus/public/api";
   final String baseImageUrl =
-      "http://192.168.1.104/coffee_plus/public/images/products/";
+      "http://192.168.1.103/coffee_plus/public/images/products/";
 
   final Dio _dio = Dio();
   final _storage = const FlutterSecureStorage();
@@ -210,7 +210,8 @@ class ApiService {
     final cacheKey =
         'dashboard_${token == null ? "guest" : "user"}_${search ?? ""}_${category ?? ""}';
 
-    if (!forceRefresh && _cache.containsKey(cacheKey)) return _cache[cacheKey];
+    // 强制获取最新数据
+    // if (!forceRefresh && _cache.containsKey(cacheKey)) return _cache[cacheKey];
 
     try {
       final response = await _dio.get(
@@ -435,11 +436,14 @@ class ApiService {
   // 5. 通知 (Notifications)
   // ==========================================
 
-  Future<Map<String, dynamic>> fetchNotifications({bool forceRefresh = false}) async {
+  Future<Map<String, dynamic>> fetchNotifications({
+    bool forceRefresh = false,
+  }) async {
     const cacheKey = 'notifications';
-    if (!forceRefresh && _cache.containsKey(cacheKey)) {
-      return _cache[cacheKey];
-    }
+    // 强制获取最新数据
+    // if (!forceRefresh && _cache.containsKey(cacheKey)) {
+    //   return _cache[cacheKey];
+    // }
 
     final response = await _dio.get('/profile/notifications');
     if (response.statusCode == 200) {
