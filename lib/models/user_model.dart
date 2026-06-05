@@ -24,7 +24,9 @@ class User {
           : int.tryParse(json['id']?.toString() ?? ''),
       name: json['name'] ?? 'GUEST',
       email: json['email'] ?? '',
-      balance: (json['balance'] ?? 0).toDouble(),
+      balance: json['balance'] is num
+          ? (json['balance'] as num).toDouble()
+          : double.tryParse(json['balance']?.toString() ?? '0') ?? 0.0,
       oz: json['oz'] is int
           ? json['oz']
           : int.tryParse(json['oz']?.toString() ?? '0') ?? 0,

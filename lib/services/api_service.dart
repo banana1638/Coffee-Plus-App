@@ -1,121 +1,45 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import 'api_client.dart';
+import 'auth_service.dart';
+import 'cart_service.dart';
+import 'notification_utils.dart';
+import 'profile_service.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  final String baseUrl = "http://192.168.1.103/coffee_plus/public/api";
-  final String baseImageUrl =
-      "http://192.168.1.103/coffee_plus/public/images/products/";
+  final ApiClient _client = ApiClient();
+  final AuthService _authService = AuthService();
+  final CartService _cartService = CartService();
+  final ProfileService _profileService = ProfileService();
 
-  final Dio _dio = Dio();
-  final _storage = const FlutterSecureStorage();
+  ApiService._internal();
 
-  String? _sessionToken;
+  String get baseUrl => _client.baseUrl;
+  String get baseImageUrl => _client.baseImageUrl;
+  Dio get _dio => _client.dio;
+  Map<String, dynamic> get _cache => _client.cache;
 
-  // 状态监听器
-  final ValueNotifier<int> cartCountNotifier = ValueNotifier<int>(0);
-  final ValueNotifier<int> notificationCountNotifier = ValueNotifier<int>(0);
-  final ValueNotifier<bool> authStateNotifier = ValueNotifier<bool>(false);
-  final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(
-    ThemeMode.system,
-  );
+  ValueNotifier<int> get cartCountNotifier => _client.cartCountNotifier;
+  ValueNotifier<int> get notificationCountNotifier =>
+      _client.notificationCountNotifier;
+  ValueNotifier<bool> get authStateNotifier => _client.authStateNotifier;
+  ValueNotifier<ThemeMode> get themeModeNotifier => _client.themeModeNotifier;
 
-  // 内存缓存
-  final Map<String, dynamic> _cache = {};
-
-  // ==========================================
-  // 0. 初始化与拦截器 (Initialization)
-  // ==========================================
-
-  ApiService._internal() {
-    _dio.options.baseUrl = baseUrl;
-    _dio.options.connectTimeout = const Duration(seconds: 10);
-    _dio.options.receiveTimeout = const Duration(seconds: 10);
-
-    _dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) async {
-          // 1. Auth Header
-          String? token = await getToken();
-          if (token != null) {
-            options.headers['Authorization'] = 'Bearer $token';
-          }
-
-          // 2. Language Header (Backend handles translation)
-          options.headers['Accept-Language'] = 'en';
-
-          // 3. Other Headers
-          options.headers['Accept'] = 'application/json';
-          options.headers['Content-Type'] = 'application/json';
-
-          return handler.next(options);
-        },
-        onError: (DioException e, handler) async {
-          if (e.response?.statusCode == 401) {
-            await _storage.delete(key: 'auth_token');
-            _sessionToken = null;
-            authStateNotifier.value = false;
-            cartCountNotifier.value = 0;
-            notificationCountNotifier.value = 0;
-          }
-          return handler.next(e);
-        },
-      ),
-    );
-
-    // 初始化时加载主题
-    loadThemeMode();
-  }
-
-  // ==========================================
-  // 主题控制 (Theme Control)
-  // ==========================================
-
-  Future<void> loadThemeMode() async {
-    final String? mode = await _storage.read(key: 'theme_mode');
-    if (mode == 'light') {
-      themeModeNotifier.value = ThemeMode.light;
-    } else if (mode == 'dark') {
-      themeModeNotifier.value = ThemeMode.dark;
-    } else {
-      themeModeNotifier.value = ThemeMode.system;
-    }
-  }
-
-  Future<void> setThemeMode(ThemeMode mode) async {
-    themeModeNotifier.value = mode;
-    await _storage.write(key: 'theme_mode', value: mode.name);
-  }
-
-  // ==========================================
-  // 1. 身份验证与会话 (Auth & Session)
-  // ==========================================
-
-  Future<String?> getToken() async {
-    if (_sessionToken != null) return _sessionToken;
-    return await _storage.read(key: 'auth_token');
-  }
+  Future<void> loadThemeMode() => _client.loadThemeMode();
+  Future<void> setThemeMode(ThemeMode mode) => _client.setThemeMode(mode);
+  Future<String?> getToken() => _authService.getToken();
 
   Future<bool> validateSession() async {
-    try {
-      final token = await getToken();
-      if (token == null) return false;
-
-      final response = await _dio.get('/profile');
-      if (response.statusCode == 200) {
-        updateCartCount();
-        updateNotificationCount();
-        authStateNotifier.value = true;
-        return true;
-      }
-      return false;
-    } catch (e) {
-      authStateNotifier.value = false;
-      return false;
+    final isValid = await _authService.validateSession();
+    if (isValid) {
+      updateCartCount();
+      updateNotificationCount();
     }
+    return isValid;
   }
 
   Future<Map<String, dynamic>> login(
@@ -123,31 +47,16 @@ class ApiService {
     String password, {
     bool rememberMe = true,
   }) async {
-    try {
-      final response = await _dio.post(
-        '/login',
-        data: {'email': email, 'password': password},
-      );
-      if (response.statusCode == 200 && response.data['status'] == 'success') {
-        String token = response.data['access_token'];
-        if (rememberMe) {
-          await _storage.write(key: 'auth_token', value: token);
-        } else {
-          _sessionToken = token;
-        }
-        clearCache(); // 登录后清除旧缓存
-        updateCartCount();
-        updateNotificationCount();
-        authStateNotifier.value = true;
-        return {'success': true};
-      }
-      return {
-        'success': false,
-        'message': response.data['message'] ?? 'Invalid credentials',
-      };
-    } catch (e) {
-      return {'success': false, 'message': 'Network error'};
+    final result = await _authService.login(
+      email,
+      password,
+      rememberMe: rememberMe,
+    );
+    if (result['success'] == true) {
+      updateCartCount();
+      updateNotificationCount();
     }
+    return result;
   }
 
   Future<Map<String, dynamic>> register({
@@ -156,49 +65,20 @@ class ApiService {
     required String password,
     required String passwordConfirmation,
   }) async {
-    try {
-      final response = await _dio.post(
-        '/register',
-        data: {
-          'name': name,
-          'email': email,
-          'password': password,
-          'password_confirmation': passwordConfirmation,
-        },
-      );
-      if ((response.statusCode == 200 || response.statusCode == 201)) {
-        await _storage.write(
-          key: 'auth_token',
-          value: response.data['access_token'],
-        );
-        clearCache();
-        authStateNotifier.value = true;
-        return {'success': true};
-      }
-      return {'success': false, 'message': 'Registration failed'};
-    } catch (e) {
-      return {'success': false, 'message': 'Network error'};
+    final result = await _authService.register(
+      name: name,
+      email: email,
+      password: password,
+      passwordConfirmation: passwordConfirmation,
+    );
+    if (result['success'] == true) {
+      updateCartCount();
+      updateNotificationCount();
     }
+    return result;
   }
 
-  Future<Map<String, dynamic>> logout() async {
-    try {
-      String? token = await getToken();
-      if (token != null) await _dio.post('/logout');
-      return {'success': true};
-    } finally {
-      _sessionToken = null;
-      await _storage.delete(key: 'auth_token');
-      clearCache();
-      cartCountNotifier.value = 0;
-      notificationCountNotifier.value = 0;
-      authStateNotifier.value = false;
-    }
-  }
-
-  // ==========================================
-  // 2. 核心业务：仪表盘与结账 (Core Business)
-  // ==========================================
+  Future<Map<String, dynamic>> logout() => _authService.logout();
 
   Future<Map<String, dynamic>> fetchDashboard({
     String? search,
@@ -209,9 +89,6 @@ class ApiService {
     final token = await getToken();
     final cacheKey =
         'dashboard_${token == null ? "guest" : "user"}_${search ?? ""}_${category ?? ""}';
-
-    // 强制获取最新数据
-    // if (!forceRefresh && _cache.containsKey(cacheKey)) return _cache[cacheKey];
 
     try {
       final response = await _dio.get(
@@ -243,32 +120,72 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> checkoutWithOz(List<int> useOzIds) async {
-    try {
-      final response = await _dio.post('/checkout', data: {'use_oz': useOzIds});
-      clearCache(); // 清除所有缓存，确保首页余额和购物车刷新
-      return response.data;
-    } on DioException catch (e) {
-      throw e.response?.data['message'] ?? "Checkout failed";
-    }
+  Future<void> updateCartCount() => _cartService.updateCartCount();
+  Future<Map<String, dynamic>> fetchCart() => _cartService.fetchCart();
+
+  Future<void> addToCart({
+    required int productId,
+    required int quantity,
+    required String size,
+    required String temp,
+    required List<String> addons,
+  }) {
+    return _cartService.addToCart(
+      productId: productId,
+      quantity: quantity,
+      size: size,
+      temp: temp,
+      addons: addons,
+    );
   }
 
-  // ==========================================
-  // 3. 购物车逻辑 (Cart Logic)
-  // ==========================================
+  Future<Map<String, dynamic>> updateCartItem(
+    int cartItemId,
+    int quantity,
+  ) {
+    return _cartService.updateCartItem(cartItemId, quantity);
+  }
 
-  Future<void> updateCartCount() async {
-    try {
-      final token = await getToken();
-      if (token == null) {
-        cartCountNotifier.value = 0;
-        return;
-      }
-      final cartData = await fetchCart();
-      cartCountNotifier.value = (cartData['cartItems'] as List).length;
-    } catch (e) {
-      // Ignore background sync errors
-    }
+  Future<Map<String, dynamic>> removeFromCart(int cartItemId) {
+    return _cartService.removeFromCart(cartItemId);
+  }
+
+  Future<Map<String, dynamic>> checkoutWithOz(List<int> useOzIds) {
+    return _cartService.checkoutWithOz(useOzIds);
+  }
+
+  Future<Map<String, dynamic>> fetchTangki() => _profileService.fetchTangki();
+  Future<Map<String, dynamic>> refillTangki(double amount) {
+    return _profileService.refillTangki(amount);
+  }
+
+  Future<Map<String, dynamic>> fetchTransactions({String? type}) {
+    return _profileService.fetchTransactions(type: type);
+  }
+
+  Future<Map<String, dynamic>> fetchProfile() => _profileService.fetchProfile();
+
+  Future<Map<String, dynamic>> updateProfile({
+    String? name,
+    String? email,
+  }) {
+    return _profileService.updateProfile(name: name, email: email);
+  }
+
+  Future<Map<String, dynamic>> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) {
+    return _profileService.updatePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+      confirmPassword: confirmPassword,
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteAccount(String password) {
+    return _profileService.deleteAccount(password);
   }
 
   Future<void> updateNotificationCount() async {
@@ -281,169 +198,18 @@ class ApiService {
       final data = await fetchNotifications();
       final notifications = data['notifications'] as List? ?? [];
       final unreadCount = notifications
-          .where((n) => n['read_at'] == null)
+          .where((notification) => notification['read_at'] == null)
           .length;
       notificationCountNotifier.value = unreadCount;
     } catch (e) {
-      // Ignore background sync errors
+      // Background count refresh should not interrupt the UI.
     }
   }
-
-  Future<Map<String, dynamic>> fetchCart() async {
-    final response = await _dio.get('/cart');
-    if (response.statusCode == 200) return response.data;
-    throw Exception('Fetch Cart Error');
-  }
-
-  Future<void> addToCart({
-    required int productId,
-    required int quantity,
-    required String size,
-    required String temp,
-    required List<String> addons,
-  }) async {
-    await _dio.post(
-      '/cart/add',
-      data: {
-        'product_id': productId,
-        'quantity': quantity,
-        'size': size,
-        'temp': temp,
-        'addons': addons,
-      },
-    );
-    updateCartCount();
-  }
-
-  Future<Map<String, dynamic>> updateCartItem(
-    int cartItemId,
-    int quantity,
-  ) async {
-    final response = await _dio.post(
-      '/cart/update',
-      data: {'cart_item_id': cartItemId, 'quantity': quantity},
-    );
-    if (response.statusCode == 200) return response.data;
-    throw Exception('Update Cart Error');
-  }
-
-  Future<Map<String, dynamic>> removeFromCart(int cartItemId) async {
-    final response = await _dio.post(
-      '/cart/remove',
-      data: {'cart_item_id': cartItemId},
-    );
-    if (response.statusCode == 200) {
-      updateCartCount();
-      return response.data;
-    }
-    throw Exception('Remove Error');
-  }
-
-  // ==========================================
-  // 4. 用户资产与资料 (User Assets & Profile)
-  // ==========================================
-
-  Future<Map<String, dynamic>> fetchTangki() async {
-    final response = await _dio.get('/tangki');
-    if (response.statusCode == 200) return response.data;
-    throw Exception('Tangki Error');
-  }
-
-  Future<Map<String, dynamic>> refillTangki(double amount) async {
-    final response = await _dio.post(
-      '/tangki/refill',
-      data: {'amount': amount},
-    );
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      clearCache(pattern: 'dashboard'); // 清理缓存，确保首页余额更新
-      return response.data;
-    }
-    throw Exception('Refill Error');
-  }
-
-  Future<Map<String, dynamic>> fetchTransactions({String? type}) async {
-    final Map<String, dynamic> queryParams = {};
-    if (type != null && type != 'all') {
-      queryParams['type'] = type;
-    }
-
-    final response = await _dio.get(
-      '/transactions',
-      queryParameters: queryParams,
-    );
-
-    if (response.statusCode == 200) return response.data;
-    throw Exception('Transactions Error');
-  }
-
-  Future<Map<String, dynamic>> fetchProfile() async {
-    final response = await _dio.get('/profile');
-    if (response.statusCode == 200) return response.data;
-    throw Exception('Profile Error');
-  }
-
-  Future<Map<String, dynamic>> updateProfile({
-    String? name,
-    String? email,
-  }) async {
-    final response = await _dio.post(
-      '/profile/update',
-      data: {'name': name, 'email': email}..removeWhere((_, v) => v == null),
-    );
-    if (response.statusCode == 200) {
-      clearCache(pattern: 'dashboard');
-      return response.data;
-    }
-    throw Exception('Update Error');
-  }
-
-  Future<Map<String, dynamic>> updatePassword({
-    required String currentPassword,
-    required String newPassword,
-    required String confirmPassword,
-  }) async {
-    try {
-      final response = await _dio.post(
-        '/profile/password',
-        data: {
-          'current_password': currentPassword,
-          'password': newPassword,
-          'password_confirmation': confirmPassword,
-        },
-      );
-      return response.data;
-    } on DioException catch (e) {
-      throw e.response?.data['message'] ?? "Password update failed";
-    }
-  }
-
-  Future<Map<String, dynamic>> deleteAccount(String password) async {
-    final response = await _dio.post(
-      '/profile/delete',
-      data: {'password': password},
-    );
-    // 清理 auth 状态，与 logout 保持一致
-    _sessionToken = null;
-    await _storage.delete(key: 'auth_token');
-    clearCache();
-    cartCountNotifier.value = 0;
-    notificationCountNotifier.value = 0;
-    authStateNotifier.value = false;
-    return response.data;
-  }
-
-  // ==========================================
-  // 5. 通知 (Notifications)
-  // ==========================================
 
   Future<Map<String, dynamic>> fetchNotifications({
     bool forceRefresh = false,
   }) async {
     const cacheKey = 'notifications';
-    // 强制获取最新数据
-    // if (!forceRefresh && _cache.containsKey(cacheKey)) {
-    //   return _cache[cacheKey];
-    // }
 
     final response = await _dio.get('/profile/notifications');
     if (response.statusCode == 200) {
@@ -455,48 +221,12 @@ class ApiService {
         return data;
       }
 
-      final now = DateTime.now();
-      final thirtyDaysAgo = now.subtract(const Duration(days: 30));
-
-      // 1. Time-based filter: Remove notifications older than 30 days
-      notifications = notifications.where((n) {
-        final createdAtStr = n['created_at'];
-        if (createdAtStr == null) return true;
-        final createdAt = DateTime.tryParse(createdAtStr);
-        if (createdAt == null) return true;
-        return createdAt.isAfter(thirtyDaysAgo);
-      }).toList();
-
-      // 2. Count-based filter: If more than 30, remove oldest read first
-      if (notifications.length > 30) {
-        // Sort: Unread first, then by date (newest first)
-        notifications.sort((a, b) {
-          final aIsRead = a['read_at'] != null;
-          final bIsRead = b['read_at'] != null;
-
-          if (aIsRead != bIsRead) {
-            return aIsRead ? 1 : -1; // Unread (-1) comes before Read (1)
-          }
-
-          // If both have same read status, sort by date (newest first)
-          final aDate = DateTime.tryParse(a['created_at'] ?? "") ?? DateTime(0);
-          final bDate = DateTime.tryParse(b['created_at'] ?? "") ?? DateTime(0);
-          return bDate.compareTo(aDate);
-        });
-
-        // 3. Keep only the top 30 based on the priority sort
-        notifications = notifications.take(30).toList();
-
-        // 4. Final sort: Newest first for display (ignoring read status for UI order)
-        notifications.sort((a, b) {
-          final aDate = DateTime.tryParse(a['created_at'] ?? "") ?? DateTime(0);
-          final bDate = DateTime.tryParse(b['created_at'] ?? "") ?? DateTime(0);
-          return bDate.compareTo(aDate);
-        });
-      }
+      notifications = NotificationUtils.filterRecentAndPrioritized(
+        notifications,
+      );
 
       final filteredData = {...data, 'notifications': notifications};
-      _cache[cacheKey] = filteredData; // 缓存过滤后的数据
+      _cache[cacheKey] = filteredData;
       return filteredData;
     }
     throw Exception('Fetch Notifications Error');
@@ -509,42 +239,26 @@ class ApiService {
   }
 
   Future<void> deleteReadNotifications() async {
-    try {
-      await _dio.post('/profile/notifications/delete-read');
-      _cache.removeWhere((key, value) => key.contains('notifications'));
-      updateNotificationCount();
-    } catch (e) {
-      rethrow;
-    }
+    await _dio.post('/profile/notifications/delete-read');
+    _cache.removeWhere((key, value) => key.contains('notifications'));
+    updateNotificationCount();
   }
 
   Future<void> deleteNotifications(List<String> ids) async {
-    try {
-      final response = await _dio.post(
-        '/profile/notifications/batch-delete',
-        data: {'ids': ids},
-      );
-      if (response.statusCode == 200) {
-        _cache.removeWhere((key, value) => key.contains('notifications'));
-        await updateNotificationCount();
-      }
-    } catch (e) {
-      rethrow;
+    final response = await _dio.post(
+      '/profile/notifications/batch-delete',
+      data: {'ids': ids},
+    );
+    if (response.statusCode == 200) {
+      _cache.removeWhere((key, value) => key.contains('notifications'));
+      await updateNotificationCount();
     }
   }
 
   Future<void> deleteNotification(String id) async {
-    try {
-      await _dio.post('/profile/notifications/$id/delete');
-      updateNotificationCount();
-    } catch (e) {
-      rethrow;
-    }
+    await _dio.post('/profile/notifications/$id/delete');
+    updateNotificationCount();
   }
-
-  // ==========================================
-  // 6. 收藏夹 (Favorites)
-  // ==========================================
 
   Future<List<Map<String, dynamic>>> fetchFavorites() async {
     final response = await _dio.get('/favorites');
@@ -581,24 +295,10 @@ class ApiService {
     await _dio.delete('/favorites/$favoriteId');
   }
 
-  // ==========================================
-  // 7. 工具方法 (Utilities)
-  // ==========================================
-
-  /// 清理缓存。pattern 为空则清理全部，传入字符串则清理包含该 Key 的缓存。
-  void clearCache({String? pattern}) {
-    if (pattern == null) {
-      _cache.clear();
-    } else {
-      _cache.removeWhere((key, value) => key.contains(pattern));
-    }
-  }
+  void clearCache({String? pattern}) => _client.clearCache(pattern: pattern);
 
   String getFullImageUrl(dynamic relativePath) {
-    if (relativePath == null || relativePath.toString().isEmpty) return "";
-    String path = relativePath.toString().trim().replaceAll('\\', '/');
-    if (path.contains('/')) path = path.split('/').last;
-    return "$baseImageUrl$path";
+    return _client.getFullImageUrl(relativePath);
   }
 
   Future<bool> checkConnection() async {

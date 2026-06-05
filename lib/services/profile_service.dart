@@ -1,0 +1,92 @@
+import 'package:dio/dio.dart';
+
+import 'api_client.dart';
+
+class ProfileService {
+  final ApiClientContract _client;
+
+  ProfileService({ApiClientContract? client}) : _client = client ?? ApiClient();
+
+  Future<Map<String, dynamic>> fetchTangki() async {
+    final response = await _client.dio.get('/tangki');
+    if (response.statusCode == 200) return response.data;
+    throw Exception('Tangki Error');
+  }
+
+  Future<Map<String, dynamic>> refillTangki(double amount) async {
+    final response = await _client.dio.post(
+      '/tangki/refill',
+      data: {'amount': amount},
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      _client.clearCache(pattern: 'dashboard');
+      return response.data;
+    }
+    throw Exception('Refill Error');
+  }
+
+  Future<Map<String, dynamic>> fetchTransactions({String? type}) async {
+    final Map<String, dynamic> queryParams = {};
+    if (type != null && type != 'all') {
+      queryParams['type'] = type;
+    }
+
+    final response = await _client.dio.get(
+      '/transactions',
+      queryParameters: queryParams,
+    );
+
+    if (response.statusCode == 200) return response.data;
+    throw Exception('Transactions Error');
+  }
+
+  Future<Map<String, dynamic>> fetchProfile() async {
+    final response = await _client.dio.get('/profile');
+    if (response.statusCode == 200) return response.data;
+    throw Exception('Profile Error');
+  }
+
+  Future<Map<String, dynamic>> updateProfile({
+    String? name,
+    String? email,
+  }) async {
+    final response = await _client.dio.post(
+      '/profile/update',
+      data: {'name': name, 'email': email}..removeWhere((_, v) => v == null),
+    );
+    if (response.statusCode == 200) {
+      _client.clearCache(pattern: 'dashboard');
+      return response.data;
+    }
+    throw Exception('Update Error');
+  }
+
+  Future<Map<String, dynamic>> updatePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    try {
+      final response = await _client.dio.post(
+        '/profile/password',
+        data: {
+          'current_password': currentPassword,
+          'password': newPassword,
+          'password_confirmation': confirmPassword,
+        },
+      );
+      return response.data;
+    } on DioException catch (e) {
+      throw e.response?.data['message'] ?? "Password update failed";
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteAccount(String password) async {
+    final response = await _client.dio.post(
+      '/profile/delete',
+      data: {'password': password},
+    );
+    await _client.clearAuthState();
+    return response.data;
+  }
+}
