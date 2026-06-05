@@ -71,11 +71,18 @@ class CartService {
     throw Exception('Remove Error');
   }
 
-  Future<Map<String, dynamic>> checkoutWithOz(List<int> useOzIds) async {
+  Future<Map<String, dynamic>> checkoutWithOz(
+    List<int> useOzIds, {
+    String? couponCode,
+  }) async {
     try {
       final response = await _client.dio.post(
         '/checkout',
-        data: {'use_oz': useOzIds},
+        data: {
+          'use_oz': useOzIds,
+          if (couponCode != null && couponCode.trim().isNotEmpty)
+            'coupon_code': couponCode.trim(),
+        },
       );
       _client.clearCache();
       return response.data;

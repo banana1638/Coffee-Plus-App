@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'api_client.dart';
 import 'auth_service.dart';
 import 'cart_service.dart';
+import 'coupon_service.dart';
 import 'notification_utils.dart';
 import 'profile_service.dart';
 
@@ -14,6 +15,7 @@ class ApiService {
   final ApiClient _client = ApiClient();
   final AuthService _authService = AuthService();
   final CartService _cartService = CartService();
+  final CouponService _couponService = CouponService();
   final ProfileService _profileService = ProfileService();
 
   ApiService._internal();
@@ -147,8 +149,18 @@ class ApiService {
     return _cartService.removeFromCart(cartItemId);
   }
 
-  Future<Map<String, dynamic>> checkoutWithOz(List<int> useOzIds) {
-    return _cartService.checkoutWithOz(useOzIds);
+  Future<Map<String, dynamic>> checkoutWithOz(
+    List<int> useOzIds, {
+    String? couponCode,
+  }) {
+    return _cartService.checkoutWithOz(useOzIds, couponCode: couponCode);
+  }
+
+  Future<Map<String, dynamic>> validateCoupon({
+    required String code,
+    required double subtotal,
+  }) {
+    return _couponService.validateCoupon(code: code, subtotal: subtotal);
   }
 
   Future<Map<String, dynamic>> fetchTangki() => _profileService.fetchTangki();

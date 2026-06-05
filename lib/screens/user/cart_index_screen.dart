@@ -17,10 +17,15 @@ class CartIndexScreen extends StatefulWidget {
 
 class CartIndexScreenState extends State<CartIndexScreen> {
   final ApiService _apiService = ApiService();
+  final TextEditingController _couponController = TextEditingController();
 
   User? _user;
   List<CartItem> _cartItems = [];
   bool _isLoading = false;
+  bool _isValidatingCoupon = false;
+  String? _appliedCouponCode;
+  String? _couponMessage;
+  double _couponDiscount = 0.0;
 
   // ==========================================
   // 1. 生命周期 (Lifecycle)
@@ -30,6 +35,12 @@ class CartIndexScreenState extends State<CartIndexScreen> {
   void initState() {
     super.initState();
     refreshData();
+  }
+
+  @override
+  void dispose() {
+    _couponController.dispose();
+    super.dispose();
   }
 
   // ==========================================
@@ -78,6 +89,12 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         .fold(0.0, (sum, item) => sum + item.totalItemPrice);
   }
 
+  double get payableCashPrice {
+    return (totalCashPrice - _couponDiscount)
+        .clamp(0.0, double.infinity)
+        .toDouble();
+  }
+
   // ==========================================
   // 3. 业务动作 (Actions)
   // ==========================================
@@ -94,6 +111,9 @@ class CartIndexScreenState extends State<CartIndexScreen> {
       await _apiService.removeFromCart(cartItemId);
       _apiService.cartCountNotifier.value =
           (_apiService.cartCountNotifier.value - 1).clamp(0, 99999);
+      if (_appliedCouponCode != null) {
+        _clearCoupon();
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -102,6 +122,70 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         _showSnackBar("Delete failed: $e", isError: true);
       }
     }
+  }
+
+  Future<void> _handleApplyCoupon() async {
+    final code = _couponController.text.trim();
+    if (code.isEmpty) {
+      setState(() {
+        _appliedCouponCode = null;
+        _couponDiscount = 0.0;
+        _couponMessage = null;
+      });
+      return;
+    }
+
+    if (totalCashPrice <= 0) {
+      _showSnackBar(
+        "Coupon can only be applied to cash payments.",
+        isError: true,
+      );
+      return;
+    }
+
+    HapticFeedback.selectionClick();
+    setState(() => _isValidatingCoupon = true);
+
+    try {
+      final result = await _apiService.validateCoupon(
+        code: code,
+        subtotal: totalCashPrice,
+      );
+
+      if (!mounted) return;
+      final isValid = result['valid'] == true;
+      setState(() {
+        _appliedCouponCode = isValid ? result['code']?.toString() ?? code : null;
+        _couponDiscount = isValid
+            ? double.tryParse(result['discount']?.toString() ?? '0') ?? 0.0
+            : 0.0;
+        _couponMessage = result['message']?.toString();
+      });
+
+      _showSnackBar(
+        _couponMessage ?? (isValid ? "Coupon applied." : "Invalid coupon."),
+        isError: !isValid,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _appliedCouponCode = null;
+        _couponDiscount = 0.0;
+        _couponMessage = null;
+      });
+      _showSnackBar("Coupon validation failed: $e", isError: true);
+    } finally {
+      if (mounted) setState(() => _isValidatingCoupon = false);
+    }
+  }
+
+  void _clearCoupon() {
+    setState(() {
+      _couponController.clear();
+      _appliedCouponCode = null;
+      _couponDiscount = 0.0;
+      _couponMessage = null;
+    });
   }
 
   Future<void> _handleCheckout() async {
@@ -115,7 +199,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
 
     if (_user == null) return;
 
-    if (totalCashPrice > _user!.balance) {
+    if (payableCashPrice > _user!.balance) {
       _showSnackBar('Insufficient Cash Balance', isError: true);
       return;
     }
@@ -136,7 +220,10 @@ class CartIndexScreenState extends State<CartIndexScreen> {
 
       final result = await CoffeeLoadingOverlay.show(
         context,
-        _apiService.checkoutWithOz(useOzIds),
+        _apiService.checkoutWithOz(
+          useOzIds,
+          couponCode: _appliedCouponCode,
+        ),
       );
 
       if (mounted) {
@@ -202,7 +289,12 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                                   item: item,
                                   canToggle: canToggle,
                                   onToggle: (val) {
-                                    setState(() => item.isOz = val);
+                                    setState(() {
+                                      item.isOz = val;
+                                    });
+                                    if (_appliedCouponCode != null) {
+                                      _clearCoupon();
+                                    }
                                   },
                                   onRemove: () =>
                                       _handleRemoveItem(item.id, index),
@@ -215,8 +307,16 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                 BottomCheckout(
                   totalOzUsed: totalOzUsed.toDouble(),
                   totalCashPrice: totalCashPrice,
+                  payableCashPrice: payableCashPrice,
+                  couponDiscount: _couponDiscount,
+                  couponCode: _appliedCouponCode,
+                  couponMessage: _couponMessage,
+                  couponController: _couponController,
+                  isValidatingCoupon: _isValidatingCoupon,
                   isLoading: _isLoading,
                   isCartEmpty: _cartItems.isEmpty,
+                  onApplyCoupon: _handleApplyCoupon,
+                  onClearCoupon: _clearCoupon,
                   onCheckout: _handleCheckout,
                 ),
               ],
@@ -513,16 +613,32 @@ class ItemPriceLabel extends StatelessWidget {
 class BottomCheckout extends StatelessWidget {
   final double totalOzUsed;
   final double totalCashPrice;
+  final double payableCashPrice;
+  final double couponDiscount;
+  final String? couponCode;
+  final String? couponMessage;
+  final TextEditingController couponController;
+  final bool isValidatingCoupon;
   final bool isLoading;
   final bool isCartEmpty;
+  final VoidCallback onApplyCoupon;
+  final VoidCallback onClearCoupon;
   final VoidCallback onCheckout;
 
   const BottomCheckout({
     super.key,
     required this.totalOzUsed,
     required this.totalCashPrice,
+    required this.payableCashPrice,
+    required this.couponDiscount,
+    required this.couponCode,
+    required this.couponMessage,
+    required this.couponController,
+    required this.isValidatingCoupon,
     required this.isLoading,
     required this.isCartEmpty,
+    required this.onApplyCoupon,
+    required this.onClearCoupon,
     required this.onCheckout,
   });
 
@@ -550,6 +666,17 @@ class BottomCheckout extends StatelessWidget {
                 ),
               ),
             ),
+          CouponInputCard(
+            controller: couponController,
+            couponCode: couponCode,
+            couponMessage: couponMessage,
+            discount: couponDiscount,
+            isLoading: isValidatingCoupon,
+            isDisabled: isCartEmpty || totalCashPrice <= 0,
+            onApply: onApplyCoupon,
+            onClear: onClearCoupon,
+          ),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -562,7 +689,7 @@ class BottomCheckout extends StatelessWidget {
                 ),
               ),
               TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: 0, end: totalCashPrice),
+                tween: Tween<double>(begin: 0, end: payableCashPrice),
                 duration: const Duration(milliseconds: 500),
                 builder: (context, value, child) {
                   return Text(
@@ -577,6 +704,30 @@ class BottomCheckout extends StatelessWidget {
               ),
             ],
           ),
+          if (couponDiscount > 0) ...[
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Subtotal RM ${totalCashPrice.toStringAsFixed(2)}",
+                  style: TextStyle(
+                    color: context.appTextMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  "- RM ${couponDiscount.toStringAsFixed(2)}",
+                  style: const TextStyle(
+                    color: Colors.green,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: (isLoading || isCartEmpty) ? null : onCheckout,
@@ -596,6 +747,139 @@ class BottomCheckout extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class CouponInputCard extends StatelessWidget {
+  final TextEditingController controller;
+  final String? couponCode;
+  final String? couponMessage;
+  final double discount;
+  final bool isLoading;
+  final bool isDisabled;
+  final VoidCallback onApply;
+  final VoidCallback onClear;
+
+  const CouponInputCard({
+    super.key,
+    required this.controller,
+    required this.couponCode,
+    required this.couponMessage,
+    required this.discount,
+    required this.isLoading,
+    required this.isDisabled,
+    required this.onApply,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasAppliedCoupon = couponCode != null;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: context.appBackground,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: hasAppliedCoupon
+              ? Colors.green.withValues(alpha: 0.35)
+              : context.appBorder,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  enabled: !isDisabled && !hasAppliedCoupon,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: InputDecoration(
+                    hintText: 'Coupon code',
+                    prefixIcon: Icon(
+                      Icons.confirmation_number_outlined,
+                      color: context.appTextMuted,
+                      size: 20,
+                    ),
+                    filled: true,
+                    fillColor: context.appSurface,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: 48,
+                child: hasAppliedCoupon
+                    ? IconButton(
+                        onPressed: onClear,
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Remove coupon',
+                      )
+                    : ElevatedButton(
+                        onPressed: isDisabled || isLoading ? null : onApply,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: context.appPrimary,
+                          minimumSize: const Size(88, 48),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: isLoading
+                            ? const CoffeeLoadingIndicator(size: 18)
+                            : const Text(
+                                'APPLY',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                      ),
+              ),
+            ],
+          ),
+          if (couponMessage != null || hasAppliedCoupon) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  hasAppliedCoupon
+                      ? Icons.check_circle_outline
+                      : Icons.info_outline,
+                  color: hasAppliedCoupon ? Colors.green : context.appTextMuted,
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    couponMessage ??
+                        "Coupon $couponCode applied. Saved RM ${discount.toStringAsFixed(2)}",
+                    style: TextStyle(
+                      color: hasAppliedCoupon
+                          ? Colors.green
+                          : context.appTextMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
