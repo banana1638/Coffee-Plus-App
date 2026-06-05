@@ -4,13 +4,10 @@ import 'package:coffee_plus_app/services/notification_utils.dart';
 void main() {
   group('NotificationUtils.filterRecentAndPrioritized', () {
     test('removes notifications older than the retention window', () {
-      final result = NotificationUtils.filterRecentAndPrioritized(
-        [
-          {'id': 'old', 'created_at': '2025-12-01T00:00:00Z'},
-          {'id': 'fresh', 'created_at': '2026-01-20T00:00:00Z'},
-        ],
-        now: DateTime.utc(2026, 1, 31),
-      );
+      final result = NotificationUtils.filterRecentAndPrioritized([
+        {'id': 'old', 'created_at': '2025-12-01T00:00:00Z'},
+        {'id': 'fresh', 'created_at': '2026-01-20T00:00:00Z'},
+      ], now: DateTime.utc(2026, 1, 31));
 
       expect(result.map((n) => n['id']), ['fresh']);
     });
@@ -33,7 +30,7 @@ void main() {
 
       final result = NotificationUtils.filterRecentAndPrioritized(
         notifications,
-        now: DateTime.utc(2026, 1, 31),
+        now: DateTime.utc(2026, 1, 30),
       );
 
       expect(result, hasLength(30));

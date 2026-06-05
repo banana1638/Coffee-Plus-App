@@ -33,12 +33,13 @@ class NotificationUtils {
       });
 
       filtered = filtered.take(maxItems).toList();
-      filtered.sort((a, b) {
-        final aDate = DateTime.tryParse(a['created_at'] ?? "") ?? DateTime(0);
-        final bDate = DateTime.tryParse(b['created_at'] ?? "") ?? DateTime(0);
-        return bDate.compareTo(aDate);
-      });
     }
+
+    filtered.sort((a, b) {
+      final aDate = DateTime.tryParse(a['created_at'] ?? "") ?? DateTime(0);
+      final bDate = DateTime.tryParse(b['created_at'] ?? "") ?? DateTime(0);
+      return bDate.compareTo(aDate);
+    });
 
     return filtered;
   }

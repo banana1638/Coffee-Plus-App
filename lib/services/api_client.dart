@@ -27,21 +27,30 @@ class ApiClient implements ApiClientContract {
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
 
+  @override
   final String baseUrl = "http://192.168.1.103/coffee_plus/public/api";
+  @override
   final String baseImageUrl =
       "http://192.168.1.103/coffee_plus/public/images/products/";
 
+  @override
   final Dio dio = Dio();
   final FlutterSecureStorage storage = const FlutterSecureStorage();
 
+  @override
   final ValueNotifier<int> cartCountNotifier = ValueNotifier<int>(0);
+  @override
   final ValueNotifier<int> notificationCountNotifier = ValueNotifier<int>(0);
+  @override
   final ValueNotifier<bool> authStateNotifier = ValueNotifier<bool>(false);
+  @override
   final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(
     ThemeMode.system,
   );
 
+  @override
   final Map<String, dynamic> cache = {};
+  @override
   String? sessionToken;
 
   ApiClient._internal() {
@@ -75,16 +84,19 @@ class ApiClient implements ApiClientContract {
     loadThemeMode();
   }
 
+  @override
   Future<String?> getToken() async {
     if (sessionToken != null) return sessionToken;
     return storage.read(key: 'auth_token');
   }
 
+  @override
   Future<void> persistAuthToken(String token) async {
     await storage.write(key: 'auth_token', value: token);
     sessionToken = null;
   }
 
+  @override
   Future<void> loadThemeMode() async {
     final String? mode = await storage.read(key: 'theme_mode');
     if (mode == 'light') {
@@ -96,11 +108,13 @@ class ApiClient implements ApiClientContract {
     }
   }
 
+  @override
   Future<void> setThemeMode(ThemeMode mode) async {
     themeModeNotifier.value = mode;
     await storage.write(key: 'theme_mode', value: mode.name);
   }
 
+  @override
   void clearCache({String? pattern}) {
     if (pattern == null) {
       cache.clear();
@@ -109,6 +123,7 @@ class ApiClient implements ApiClientContract {
     }
   }
 
+  @override
   Future<void> clearAuthState() async {
     sessionToken = null;
     await storage.delete(key: 'auth_token');
@@ -118,6 +133,7 @@ class ApiClient implements ApiClientContract {
     authStateNotifier.value = false;
   }
 
+  @override
   String getFullImageUrl(dynamic relativePath) {
     if (relativePath == null || relativePath.toString().isEmpty) return "";
     String path = relativePath.toString().trim().replaceAll('\\', '/');
