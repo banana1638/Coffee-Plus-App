@@ -71,7 +71,10 @@ class _PointsMallScreenState extends State<PointsMallScreen> {
     if (_user == null) return;
     if (_user!.oz < item['oz_cost']) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Insufficient OZ Balance"), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text("Insufficient OZ Balance"),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
@@ -80,15 +83,23 @@ class _PointsMallScreenState extends State<PointsMallScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Confirm Redemption"),
-        content: Text("Do you want to redeem ${item['name']} for ${item['oz_cost']} OZ?"),
+        content: Text(
+          "Do you want to redeem ${item['name']} for ${item['oz_cost']} OZ?",
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("CANCEL"),
+          ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               // 实际开发中这里应该调用 API
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Redemption Successful!"), backgroundColor: Colors.green),
+                const SnackBar(
+                  content: Text("Redemption Successful!"),
+                  backgroundColor: Colors.green,
+                ),
               );
             },
             child: const Text("CONFIRM"),
@@ -103,27 +114,27 @@ class _PointsMallScreenState extends State<PointsMallScreen> {
     return Scaffold(
       backgroundColor: context.appBackground,
       appBar: AppBar(
-        title: const Text('POINTS MALL',
-            style: TextStyle(fontWeight: FontWeight.w900)),
+        title: const Text(
+          'POINTS MALL',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
         centerTitle: true,
       ),
       body: _isLoading
           ? const Center(child: CoffeeLoadingIndicator())
           : Column(
               children: [
-                RepaintBoundary(
-                  child: OzPointsHeader(balance: _user?.oz ?? 0),
-                ),
+                RepaintBoundary(child: OzPointsHeader(balance: _user?.oz ?? 0)),
                 Expanded(
                   child: GridView.builder(
                     padding: const EdgeInsets.all(16),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.8,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                    ),
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.8,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                        ),
                     itemCount: _mallItems.length,
                     itemBuilder: (context, index) {
                       final item = _mallItems[index];
@@ -161,7 +172,7 @@ class OzPointsHeader extends StatelessWidget {
             color: AppColors.primary.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
-          )
+          ),
         ],
       ),
       child: Row(
@@ -173,25 +184,30 @@ class OzPointsHeader extends StatelessWidget {
               Text(
                 'YOUR BALANCE',
                 style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.5),
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.5,
+                ),
               ),
               SizedBox(height: 4),
               Text(
                 'OZ POINTS',
                 style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900),
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ],
           ),
           Text(
             "$balance",
             style: const TextStyle(
-                color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.w900,
+            ),
           ),
         ],
       ),
@@ -229,11 +245,15 @@ class MallItemTile extends StatelessWidget {
               width: double.infinity,
               decoration: BoxDecoration(
                 color: (item['color'] as Color).withValues(alpha: 0.1),
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
               ),
-              child: Icon(item['image'] as IconData,
-                  size: 48, color: item['color'] as Color),
+              child: Icon(
+                item['image'] as IconData,
+                size: 48,
+                color: item['color'] as Color,
+              ),
             ),
           ),
           Padding(
@@ -243,15 +263,19 @@ class MallItemTile extends StatelessWidget {
               children: [
                 Text(
                   item['name'],
-                  style:
-                      const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                  ),
                 ),
                 Text(
                   item['description'],
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 10,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -274,12 +298,17 @@ class MallItemTile extends StatelessWidget {
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           elevation: 0,
                         ),
-                        child: const Text('REDEEM',
-                            style: TextStyle(
-                                fontSize: 10, fontWeight: FontWeight.w900)),
+                        child: const Text(
+                          'REDEEM',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                       ),
                     ),
                   ],

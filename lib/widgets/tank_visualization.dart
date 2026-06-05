@@ -160,10 +160,7 @@ class _WavePainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [
-          context.appPrimary,
-          context.appPrimary.withValues(alpha: 0.8),
-        ],
+        colors: [context.appPrimary, context.appPrimary.withValues(alpha: 0.8)],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     final path1 = Path();
@@ -172,7 +169,9 @@ class _WavePainter extends CustomPainter {
       path1.lineTo(
         i,
         yOffset +
-            math.sin((i / size.width * 2 * math.pi) + (waveValue * 2 * math.pi)) *
+            math.sin(
+                  (i / size.width * 2 * math.pi) + (waveValue * 2 * math.pi),
+                ) *
                 waveAmplitude,
       );
     }
@@ -190,7 +189,9 @@ class _WavePainter extends CustomPainter {
       path2.lineTo(
         i,
         yOffset +
-            math.cos((i / size.width * 2 * math.pi) + (waveValue * 2 * math.pi)) *
+            math.cos(
+                  (i / size.width * 2 * math.pi) + (waveValue * 2 * math.pi),
+                ) *
                 waveAmplitude,
       );
     }

@@ -18,10 +18,14 @@ class OrderDetailScreen extends StatelessWidget {
         ? Map<String, dynamic>.from(order['order_details'])
         : order;
 
-    final double subtotal = double.tryParse(orderData['subtotal']?.toString() ?? '0') ?? 0.0;
-    final double couponDiscount = double.tryParse(orderData['coupon_discount']?.toString() ?? '0') ?? 0.0;
-    final double pointsDiscount = double.tryParse(orderData['points_discount']?.toString() ?? '0') ?? 0.0;
-    final double finalAmount = double.tryParse(orderData['final_amount']?.toString() ?? '0') ?? 0.0;
+    final double subtotal =
+        double.tryParse(orderData['subtotal']?.toString() ?? '0') ?? 0.0;
+    final double couponDiscount =
+        double.tryParse(orderData['coupon_discount']?.toString() ?? '0') ?? 0.0;
+    final double pointsDiscount =
+        double.tryParse(orderData['points_discount']?.toString() ?? '0') ?? 0.0;
+    final double finalAmount =
+        double.tryParse(orderData['final_amount']?.toString() ?? '0') ?? 0.0;
     final List items = orderData['items'] as List? ?? [];
 
     return Scaffold(
@@ -135,7 +139,9 @@ class OrderDetailScreen extends StatelessWidget {
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: items.length,
                           itemBuilder: (context, index) {
-                            final item = Map<String, dynamic>.from(items[index]);
+                            final item = Map<String, dynamic>.from(
+                              items[index],
+                            );
                             return RepaintBoundary(
                               child: OrderItemTile(item: item),
                             );

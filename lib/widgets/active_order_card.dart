@@ -6,18 +6,14 @@ class ActiveOrderCard extends StatelessWidget {
   final Transaction order;
   final VoidCallback? onTap;
 
-  const ActiveOrderCard({
-    super.key,
-    required this.order,
-    this.onTap,
-  });
+  const ActiveOrderCard({super.key, required this.order, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     // 模拟状态：如果订单在 2 分钟内，显示 Preparing，否则显示 Ready
     // 这里简单处理，实际上应该由 API 提供 status
-    bool isPreparing = order.id % 2 == 0; 
-    
+    bool isPreparing = order.id % 2 == 0;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -48,47 +44,49 @@ class ActiveOrderCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Container(
-              width: 50,
-              height: 50,
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
+                width: 50,
+                height: 50,
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.coffee, color: Colors.white, size: 24),
               ),
-              child: const Icon(Icons.coffee, color: Colors.white, size: 24),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    order.description,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      _buildStatusDot(isPreparing ? Colors.orange : Colors.green),
-                      const SizedBox(width: 6),
-                      Text(
-                        isPreparing ? "BEING PREPARED" : "READY FOR PICKUP",
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          color: isPreparing ? Colors.orange : Colors.green,
-                          letterSpacing: 0.5,
-                        ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      order.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        _buildStatusDot(
+                          isPreparing ? Colors.orange : Colors.green,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isPreparing ? "BEING PREPARED" : "READY FOR PICKUP",
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: isPreparing ? Colors.orange : Colors.green,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
               const Icon(Icons.chevron_right, color: AppColors.textMuted),
             ],
           ),
@@ -109,7 +107,7 @@ class ActiveOrderCard extends StatelessWidget {
             color: color.withValues(alpha: 0.4),
             blurRadius: 4,
             spreadRadius: 1,
-          )
+          ),
         ],
       ),
     );

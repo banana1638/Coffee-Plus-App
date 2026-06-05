@@ -139,10 +139,7 @@ class ApiService {
     );
   }
 
-  Future<Map<String, dynamic>> updateCartItem(
-    int cartItemId,
-    int quantity,
-  ) {
+  Future<Map<String, dynamic>> updateCartItem(int cartItemId, int quantity) {
     return _cartService.updateCartItem(cartItemId, quantity);
   }
 
@@ -165,10 +162,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> fetchProfile() => _profileService.fetchProfile();
 
-  Future<Map<String, dynamic>> updateProfile({
-    String? name,
-    String? email,
-  }) {
+  Future<Map<String, dynamic>> updateProfile({String? name, String? email}) {
     return _profileService.updateProfile(name: name, email: email);
   }
 

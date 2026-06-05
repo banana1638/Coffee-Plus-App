@@ -258,7 +258,6 @@ class _AuthModalState extends State<AuthModal> {
       ),
     );
   }
-
 }
 
 class AuthTextField extends StatelessWidget {

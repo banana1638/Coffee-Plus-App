@@ -48,11 +48,13 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
     final baseColor = context.appBorder;
     final highlightColor = context.appSurfaceSubtle;
 
-    return RepaintBoundary( // 核心优化：隔离 Shimmer 动画的重绘区域
+    return RepaintBoundary(
+      // 核心优化：隔离 Shimmer 动画的重绘区域
       child: AnimatedBuilder(
         animation: _animation,
         builder: (context, child) {
-          return DecoratedBox( // 使用更轻量的 DecoratedBox 替代 Container
+          return DecoratedBox(
+            // 使用更轻量的 DecoratedBox 替代 Container
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(widget.borderRadius),
               gradient: LinearGradient(
@@ -63,10 +65,7 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
                 transform: _SlidingGradientTransform(_animation.value),
               ),
             ),
-            child: SizedBox(
-              width: widget.width,
-              height: widget.height,
-            ),
+            child: SizedBox(width: widget.width, height: widget.height),
           );
         },
       ),

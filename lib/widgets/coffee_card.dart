@@ -22,11 +22,13 @@ class CoffeeCard extends StatelessWidget {
     final primaryColor = context.appPrimary;
     final textMainColor = context.appTextMain;
 
-    return RepaintBoundary( // 核心优化：隔离单个卡片的重绘（如点赞、点击动画）
+    return RepaintBoundary(
+      // 核心优化：隔离单个卡片的重绘（如点赞、点击动画）
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(24),
-        child: DecoratedBox( // 替代 Container
+        child: DecoratedBox(
+          // 替代 Container
           decoration: BoxDecoration(
             color: surfaceColor,
             borderRadius: BorderRadius.circular(24),
@@ -39,7 +41,8 @@ class CoffeeCard extends StatelessWidget {
               ),
             ],
           ),
-          child: ClipRRect( // 替代 clipBehavior: Clip.antiAlias
+          child: ClipRRect(
+            // 替代 clipBehavior: Clip.antiAlias
             borderRadius: BorderRadius.circular(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -52,7 +55,9 @@ class CoffeeCard extends StatelessWidget {
                       Hero(
                         tag: 'product-image-${product.id}',
                         child: CachedNetworkImage(
-                          imageUrl: ApiService().getFullImageUrl(product.imageUrl),
+                          imageUrl: ApiService().getFullImageUrl(
+                            product.imageUrl,
+                          ),
                           fit: BoxFit.cover,
                           memCacheWidth: 350, // 性能优化：进一步适配卡片尺寸，减少内存占用
                           maxWidthDiskCache: 600, // 性能优化：限制磁盘缓存尺寸
@@ -107,11 +112,18 @@ class CoffeeCard extends StatelessWidget {
                             ),
                           ),
                           ValueListenableBuilder<List<FavoriteItem>>(
-                            valueListenable: FavoriteService().favoritesNotifier,
+                            valueListenable:
+                                FavoriteService().favoritesNotifier,
                             builder: (context, favorites, child) {
-                              final bool isFavorited = favorites.any((f) => f.product.id == product.id);
+                              final bool isFavorited = favorites.any(
+                                (f) => f.product.id == product.id,
+                              );
                               if (!isFavorited) return const SizedBox.shrink();
-                              return const Icon(Icons.favorite, color: Colors.redAccent, size: 14);
+                              return const Icon(
+                                Icons.favorite,
+                                color: Colors.redAccent,
+                                size: 14,
+                              );
                             },
                           ),
                         ],
@@ -128,11 +140,7 @@ class CoffeeCard extends StatelessWidget {
                               fontSize: 13,
                             ),
                           ),
-                          Icon(
-                            Icons.add_circle,
-                            color: primaryColor,
-                            size: 24,
-                          ),
+                          Icon(Icons.add_circle, color: primaryColor, size: 24),
                         ],
                       ),
                     ],

@@ -10,7 +10,8 @@ class BiometricService {
   static Future<bool> canCheckBiometrics() async {
     try {
       final bool canAuthenticateWithBiometrics = await _auth.canCheckBiometrics;
-      final bool canAuthenticate = canAuthenticateWithBiometrics || await _auth.isDeviceSupported();
+      final bool canAuthenticate =
+          canAuthenticateWithBiometrics || await _auth.isDeviceSupported();
       return canAuthenticate;
     } on PlatformException catch (_) {
       return false;
@@ -28,7 +29,8 @@ class BiometricService {
             biometricHint: 'Verify your identity to proceed',
             cancelButton: 'Cancel',
             deviceCredentialsRequiredTitle: 'Authentication Required',
-            deviceCredentialsSetupDescription: 'Please set up a PIN/Password on your device.',
+            deviceCredentialsSetupDescription:
+                'Please set up a PIN/Password on your device.',
           ),
           IOSAuthMessages(
             cancelButton: 'Cancel',
@@ -37,14 +39,15 @@ class BiometricService {
         ],
         options: const AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: false, // Allows PIN/Passcode fallback if biometrics fail/unavailable
+          biometricOnly:
+              false, // Allows PIN/Passcode fallback if biometrics fail/unavailable
           useErrorDialogs: true,
         ),
       );
       return authenticated;
     } on PlatformException catch (e) {
       if (e.code == 'NotAvailable') {
-         // Handle gracefully (e.g., skip or show message)
+        // Handle gracefully (e.g., skip or show message)
       }
       return false;
     }

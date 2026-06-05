@@ -26,10 +26,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
   void _refreshNotifications() {
     setState(() {
-      _notificationsFuture =
-          _apiService.fetchNotifications(forceRefresh: true).then((data) {
-        return data['notifications'] as List? ?? [];
-      });
+      _notificationsFuture = _apiService
+          .fetchNotifications(forceRefresh: true)
+          .then((data) {
+            return data['notifications'] as List? ?? [];
+          });
     });
   }
 
@@ -173,7 +174,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: Text("CANCEL", style: TextStyle(color: context.appTextMuted)),
+            child: Text(
+              "CANCEL",
+              style: TextStyle(color: context.appTextMuted),
+            ),
           ),
           TextButton(
             onPressed: () async {
@@ -221,7 +225,8 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => NotificationDetailDialog(notification: notification),
+      builder: (context) =>
+          NotificationDetailDialog(notification: notification),
     );
 
     // Mark as read if it's currently unread
@@ -234,7 +239,6 @@ class _NotificationScreenState extends State<NotificationScreen> {
       }
     }
   }
-
 }
 
 // ==========================================
@@ -288,10 +292,7 @@ class NotificationErrorState extends StatelessWidget {
           const Icon(Icons.error_outline, size: 48, color: Colors.red),
           const SizedBox(height: 16),
           Text('Error: $error'),
-          TextButton(
-            onPressed: onRetry,
-            child: const Text("Retry"),
-          ),
+          TextButton(onPressed: onRetry, child: const Text("Retry")),
         ],
       ),
     );
@@ -317,7 +318,6 @@ class NotificationShimmerList extends StatelessWidget {
     );
   }
 }
-
 
 class NotificationCard extends StatelessWidget {
   final String message;
@@ -350,8 +350,9 @@ class NotificationCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color:
-                Colors.black.withValues(alpha: context.isDarkMode ? 0.3 : 0.02),
+            color: Colors.black.withValues(
+              alpha: context.isDarkMode ? 0.3 : 0.02,
+            ),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -406,10 +407,7 @@ class NotificationCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     DateFormat('MMM d, h:mm a').format(time!),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: context.appTextMuted,
-                    ),
+                    style: TextStyle(fontSize: 11, color: context.appTextMuted),
                   ),
                 ],
               ],

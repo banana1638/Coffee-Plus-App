@@ -209,15 +209,14 @@ class ProfileScreenState extends State<ProfileScreen> {
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  _buildAnimatedItem(
+                child: Column(
+                  children: [
+                    _buildAnimatedItem(
                       0,
-                      RepaintBoundary(
-                        child: UserSummaryCard(user: _user),
-                      )),
-                  const SizedBox(height: 24),
-                  _buildAnimatedItem(
+                      RepaintBoundary(child: UserSummaryCard(user: _user)),
+                    ),
+                    const SizedBox(height: 24),
+                    _buildAnimatedItem(
                       1,
                       RepaintBoundary(
                         child: QuickLinks(
@@ -226,65 +225,68 @@ class ProfileScreenState extends State<ProfileScreen> {
                             setState(() => _activeMenu = menu);
                           },
                         ),
-                      )),
-                  const SizedBox(height: 24),
-                  if (_activeMenu == "App Appearance")
-                    _buildAnimatedItem(
-                      3,
-                      const ProfileSection(
-                        title: "App Appearance",
-                        subtitle:
-                            "Customize how Coffee Plus+ looks on your device.",
-                        child: AppearanceSection(),
                       ),
                     ),
-                  if (_activeMenu == "Profile Information")
-                    _buildAnimatedItem(
-                      2,
-                      ProfileSection(
-                        title: "Profile Information",
-                        subtitle: "Update your account details.",
-                        child: ProfileInfoForm(
-                          nameController: _nameController,
-                          emailController: _emailController,
-                          isLoading: _isLoading,
-                          onUpdate: _handleUpdateProfile,
+                    const SizedBox(height: 24),
+                    if (_activeMenu == "App Appearance")
+                      _buildAnimatedItem(
+                        3,
+                        const ProfileSection(
+                          title: "App Appearance",
+                          subtitle:
+                              "Customize how Coffee Plus+ looks on your device.",
+                          child: AppearanceSection(),
                         ),
                       ),
-                    ),
-                  if (_activeMenu == "Update Password")
-                    _buildAnimatedItem(
-                      3,
-                      ProfileSection(
-                        title: "Update Password",
-                        subtitle:
-                            "Ensure your account is using a strong password.",
-                        child: UpdatePasswordForm(
-                          currentPasswordController: _currentPasswordController,
-                          newPasswordController: _newPasswordController,
-                          confirmPasswordController: _confirmPasswordController,
-                          isLoading: _isLoading,
-                          onUpdate: _handleUpdatePassword,
+                    if (_activeMenu == "Profile Information")
+                      _buildAnimatedItem(
+                        2,
+                        ProfileSection(
+                          title: "Profile Information",
+                          subtitle: "Update your account details.",
+                          child: ProfileInfoForm(
+                            nameController: _nameController,
+                            emailController: _emailController,
+                            isLoading: _isLoading,
+                            onUpdate: _handleUpdateProfile,
+                          ),
                         ),
                       ),
-                    ),
-                  if (_activeMenu == "Delete Account")
-                    _buildAnimatedItem(
-                      4,
-                      ProfileSection(
-                        title: "Delete Account",
-                        subtitle: "This action is permanent.",
-                        isDanger: true,
-                        child: DeleteAccountSection(
-                          onDelete: _showDeleteConfirmation,
+                    if (_activeMenu == "Update Password")
+                      _buildAnimatedItem(
+                        3,
+                        ProfileSection(
+                          title: "Update Password",
+                          subtitle:
+                              "Ensure your account is using a strong password.",
+                          child: UpdatePasswordForm(
+                            currentPasswordController:
+                                _currentPasswordController,
+                            newPasswordController: _newPasswordController,
+                            confirmPasswordController:
+                                _confirmPasswordController,
+                            isLoading: _isLoading,
+                            onUpdate: _handleUpdatePassword,
+                          ),
                         ),
                       ),
-                    ),
-                  const SizedBox(height: 40),
-                ],
+                    if (_activeMenu == "Delete Account")
+                      _buildAnimatedItem(
+                        4,
+                        ProfileSection(
+                          title: "Delete Account",
+                          subtitle: "This action is permanent.",
+                          isDanger: true,
+                          child: DeleteAccountSection(
+                            onDelete: _showDeleteConfirmation,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
             ),
-          ),
     );
   }
 
@@ -310,7 +312,11 @@ class ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         padding: EdgeInsets.fromLTRB(
-            32, 32, 32, 32 + MediaQuery.of(context).viewInsets.bottom),
+          32,
+          32,
+          32,
+          32 + MediaQuery.of(context).viewInsets.bottom,
+        ),
         decoration: BoxDecoration(
           color: context.appSurface,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
@@ -349,8 +355,8 @@ class ProfileScreenState extends State<ProfileScreen> {
                     onPressed: _isLoading
                         ? null
                         : () => _handleDeleteAccount(
-                              _deletePasswordController.text,
-                            ),
+                            _deletePasswordController.text,
+                          ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                     ),
@@ -733,15 +739,14 @@ class ThemeOption extends StatelessWidget {
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: isSelected ? context.appPrimary : context.appTextMain,
+                      color: isSelected
+                          ? context.appPrimary
+                          : context.appTextMain,
                     ),
                   ),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: context.appTextMuted,
-                    ),
+                    style: TextStyle(fontSize: 12, color: context.appTextMuted),
                   ),
                 ],
               ),

@@ -125,9 +125,7 @@ class _MainWrapperState extends State<MainWrapper> {
       body: RepaintBoundary(
         child: IndexedStack(index: _selectedIndex, children: _screens),
       ),
-      bottomNavigationBar: RepaintBoundary(
-        child: _buildBottomNavigation(),
-      ),
+      bottomNavigationBar: RepaintBoundary(child: _buildBottomNavigation()),
     );
   }
 

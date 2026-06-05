@@ -26,10 +26,12 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
 
   void _loadTransactions() {
     setState(() {
-      _transactionsFuture = _apiService.fetchTransactions(type: _activeFilter).then((data) {
-        final list = data['transactions'] as List? ?? [];
-        return list.map((json) => Transaction.fromJson(json)).toList();
-      });
+      _transactionsFuture = _apiService
+          .fetchTransactions(type: _activeFilter)
+          .then((data) {
+            final list = data['transactions'] as List? ?? [];
+            return list.map((json) => Transaction.fromJson(json)).toList();
+          });
     });
   }
 
@@ -89,21 +91,21 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   },
                   child: ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: transactions.length,
-                  itemBuilder: (context, index) {
-                    return RepaintBoundary(
-                      child: TransactionCard(trx: transactions[index]),
-                    );
-                  },
-                ),
-              );
-            },
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: transactions.length,
+                    itemBuilder: (context, index) {
+                      return RepaintBoundary(
+                        child: TransactionCard(trx: transactions[index]),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
   }
 }
 
@@ -185,7 +187,8 @@ class TransactionFilterButton extends StatelessWidget {
                 ? [
                     BoxShadow(
                       color: Colors.black.withValues(
-                          alpha: context.isDarkMode ? 0.3 : 0.05),
+                        alpha: context.isDarkMode ? 0.3 : 0.05,
+                      ),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -227,8 +230,9 @@ class TransactionCard extends StatelessWidget {
         border: Border.all(color: context.appBorder),
         boxShadow: [
           BoxShadow(
-            color:
-                Colors.black.withValues(alpha: context.isDarkMode ? 0.4 : 0.02),
+            color: Colors.black.withValues(
+              alpha: context.isDarkMode ? 0.4 : 0.02,
+            ),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -366,8 +370,10 @@ class EmptyTransactionsState extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             "No transactions found",
-            style:
-                TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Colors.grey[400],
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),

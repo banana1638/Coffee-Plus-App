@@ -501,9 +501,11 @@ class RecentTransactionsList extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          ...transactions.take(5).map((trx) => RepaintBoundary(
-                child: TransactionItemTile(trx: trx),
-              )),
+          ...transactions
+              .take(5)
+              .map(
+                (trx) => RepaintBoundary(child: TransactionItemTile(trx: trx)),
+              ),
           const SizedBox(height: 16),
           OutlinedButton(
             onPressed: () {

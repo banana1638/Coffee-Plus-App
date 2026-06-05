@@ -45,14 +45,21 @@ class AppColorsDark {
 extension AppThemeColors on BuildContext {
   bool get isDarkMode => Theme.of(this).brightness == Brightness.dark;
 
-  Color get appBackground => isDarkMode ? AppColorsDark.background : AppColors.background;
-  Color get appSurface => isDarkMode ? AppColorsDark.surface : AppColors.surface;
-  Color get appSurfaceSubtle => isDarkMode ? AppColorsDark.surfaceSubtle : AppColors.background;
-  Color get appPrimary => isDarkMode ? AppColorsDark.primary : AppColors.primary;
+  Color get appBackground =>
+      isDarkMode ? AppColorsDark.background : AppColors.background;
+  Color get appSurface =>
+      isDarkMode ? AppColorsDark.surface : AppColors.surface;
+  Color get appSurfaceSubtle =>
+      isDarkMode ? AppColorsDark.surfaceSubtle : AppColors.background;
+  Color get appPrimary =>
+      isDarkMode ? AppColorsDark.primary : AppColors.primary;
   Color get appAccent => isDarkMode ? AppColorsDark.accent : AppColors.accent;
-  Color get appTextMain => isDarkMode ? AppColorsDark.textMain : AppColors.textMain;
-  Color get appTextMuted => isDarkMode ? AppColorsDark.textMuted : AppColors.textMuted;
+  Color get appTextMain =>
+      isDarkMode ? AppColorsDark.textMain : AppColors.textMain;
+  Color get appTextMuted =>
+      isDarkMode ? AppColorsDark.textMuted : AppColors.textMuted;
   Color get appCoffee => isDarkMode ? AppColorsDark.coffee : AppColors.coffee;
-  Color get appCoffeeDark => isDarkMode ? AppColorsDark.coffeeDark : AppColors.coffeeDark;
+  Color get appCoffeeDark =>
+      isDarkMode ? AppColorsDark.coffeeDark : AppColors.coffeeDark;
   Color get appBorder => isDarkMode ? AppColorsDark.border : AppColors.border;
 }

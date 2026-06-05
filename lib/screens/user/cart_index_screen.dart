@@ -135,8 +135,8 @@ class CartIndexScreenState extends State<CartIndexScreen> {
           .toList();
 
       final result = await CoffeeLoadingOverlay.show(
-        context, 
-        _apiService.checkoutWithOz(useOzIds)
+        context,
+        _apiService.checkoutWithOz(useOzIds),
       );
 
       if (mounted) {
@@ -161,7 +161,11 @@ class CartIndexScreenState extends State<CartIndexScreen> {
       appBar: AppBar(
         title: Text(
           'My Cart',
-          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: context.appTextMain),
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 24,
+            color: context.appTextMain,
+          ),
         ),
         centerTitle: true,
         automaticallyImplyLeading: false,
@@ -185,15 +189,14 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                     child: _cartItems.isEmpty
                         ? const EmptyState()
                         : ListView.builder(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 20),
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
                             itemCount: _cartItems.length,
                             itemBuilder: (context, index) {
                               final item = _cartItems[index];
                               final needed = item.ozNeeded;
-                              final canToggle = item.isOz ||
-                                  (totalOzUsed + needed <=
-                                      (_user?.oz ?? 0));
+                              final canToggle =
+                                  item.isOz ||
+                                  (totalOzUsed + needed <= (_user?.oz ?? 0));
                               return RepaintBoundary(
                                 child: CartItemTile(
                                   item: item,
@@ -342,9 +345,7 @@ class OzBalanceHeader extends StatelessWidget {
               value: progress.clamp(0, 1),
               minHeight: 6,
               backgroundColor: context.appBorder,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                context.appPrimary,
-              ),
+              valueColor: AlwaysStoppedAnimation<Color>(context.appPrimary),
             ),
           ),
         ],
@@ -504,10 +505,7 @@ class ItemPriceLabel extends StatelessWidget {
     }
     return Text(
       "RM ${item.unitPrice.toStringAsFixed(2)}",
-      style: TextStyle(
-        fontWeight: FontWeight.bold,
-        color: context.appTextMain,
-      ),
+      style: TextStyle(fontWeight: FontWeight.bold, color: context.appTextMain),
     );
   }
 }
@@ -603,7 +601,6 @@ class BottomCheckout extends StatelessWidget {
     );
   }
 }
-
 
 class EmptyState extends StatelessWidget {
   const EmptyState({super.key});

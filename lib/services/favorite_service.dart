@@ -38,7 +38,7 @@ class FavoriteService {
         final backendFavorites = backendData
             .map((item) => FavoriteItem.fromJson(item))
             .toList();
-        
+
         favoritesNotifier.value = backendFavorites;
         await _persist();
       } catch (e) {
@@ -50,7 +50,7 @@ class FavoriteService {
 
   Future<void> saveFavorite(FavoriteItem item) async {
     final List<FavoriteItem> current = List.from(favoritesNotifier.value);
-    
+
     // 1. If logged in, sync to backend first
     if (_apiService.authStateNotifier.value) {
       try {
@@ -84,10 +84,10 @@ class FavoriteService {
   Future<void> removeFavorite(String uniqueId) async {
     final List<FavoriteItem> current = List.from(favoritesNotifier.value);
     final int index = current.indexWhere((f) => f.uniqueId == uniqueId);
-    
+
     if (index != -1) {
       final item = current[index];
-      
+
       // 1. If logged in and has backend ID, remove from backend
       if (_apiService.authStateNotifier.value && item.id != null) {
         try {

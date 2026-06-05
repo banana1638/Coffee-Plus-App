@@ -225,96 +225,95 @@ class _HomeScreenState extends State<HomeScreen> {
               await _dashboardData;
             },
             child: NestedScrollView(
-            headerSliverBuilder: (context, innerBoxIsScrolled) {
-              return [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: RepaintBoundary(
-                      child: DashboardHeader(
-                        isGuest: isGuest,
-                        user: user,
-                        onRefresh: () => _refreshData(forceRefresh: true),
-                      ),
-                    ),
-                  ),
-                ),
-                if (activeOrder != null)
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                return [
                   SliverToBoxAdapter(
-                    child: ActiveOrderCard(
-                      order: activeOrder,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              OrderDetailScreen(order: activeOrder.rawJson),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: RepaintBoundary(
+                        child: DashboardHeader(
+                          isGuest: isGuest,
+                          user: user,
+                          onRefresh: () => _refreshData(forceRefresh: true),
                         ),
                       ),
                     ),
                   ),
-                SliverPersistentHeader(
-                  pinned: true,
-                  delegate: _SliverAppBarDelegate(
-                    child: Container(
-                      color: Theme.of(context).scaffoldBackgroundColor,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16.0,
-                              vertical: 8.0,
-                            ),
-                            child: HomeSearchBar(
-                              onChanged: (value) {
-                                _debounceTimer?.cancel();
-                                _debounceTimer = Timer(
-                                  const Duration(milliseconds: 300),
-                                  () {
-                                    _refreshData(search: value);
-                                  },
-                                );
-                              },
-                            ),
+                  if (activeOrder != null)
+                    SliverToBoxAdapter(
+                      child: ActiveOrderCard(
+                        order: activeOrder,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                OrderDetailScreen(order: activeOrder.rawJson),
                           ),
-                          CategorySelectionBar(
-                            allCategoryNames: allCategoryNames,
-                            selectedCategory: _selectedCategory,
-                            onCategorySelected: (id) {
-                              setState(() => _selectedCategory = id);
-                            },
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                    minHeight: 140,
-                    maxHeight: 140,
-                  ),
-                ),
-              ];
-            },
-            body: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 400),
-              child: _selectedCategory == 'collections'
-                  ? CollectionsList(options: data['options'])
-                  : categories.isEmpty
-                  ? const Center(
-                      key: ValueKey('no-products'),
-                      child: Text("No products found"),
-                    )
-                  : ProductCategorySection(
-                      categories: categories,
-                      options: data['options'],
-                      key: ValueKey(_selectedCategory),
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _SliverAppBarDelegate(
+                      child: Container(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0,
+                                vertical: 8.0,
+                              ),
+                              child: HomeSearchBar(
+                                onChanged: (value) {
+                                  _debounceTimer?.cancel();
+                                  _debounceTimer = Timer(
+                                    const Duration(milliseconds: 300),
+                                    () {
+                                      _refreshData(search: value);
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                            CategorySelectionBar(
+                              allCategoryNames: allCategoryNames,
+                              selectedCategory: _selectedCategory,
+                              onCategorySelected: (id) {
+                                setState(() => _selectedCategory = id);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      minHeight: 140,
+                      maxHeight: 140,
                     ),
-            ),
+                  ),
+                ];
+              },
+              body: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                child: _selectedCategory == 'collections'
+                    ? CollectionsList(options: data['options'])
+                    : categories.isEmpty
+                    ? const Center(
+                        key: ValueKey('no-products'),
+                        child: Text("No products found"),
+                      )
+                    : ProductCategorySection(
+                        categories: categories,
+                        options: data['options'],
+                        key: ValueKey(_selectedCategory),
+                      ),
+              ),
             ),
           );
         },
       ),
     );
   }
-
 }
 
 // ==========================================
@@ -325,11 +324,7 @@ class HomeErrorState extends StatelessWidget {
   final String error;
   final VoidCallback onRetry;
 
-  const HomeErrorState({
-    super.key,
-    required this.error,
-    required this.onRetry,
-  });
+  const HomeErrorState({super.key, required this.error, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -340,10 +335,7 @@ class HomeErrorState extends StatelessWidget {
           const Icon(Icons.error_outline, size: 48, color: Colors.red),
           const SizedBox(height: 11),
           Text('Data Loading Error: $error'),
-          TextButton(
-            onPressed: onRetry,
-            child: const Text("Retry"),
-          ),
+          TextButton(onPressed: onRetry, child: const Text("Retry")),
         ],
       ),
     );
