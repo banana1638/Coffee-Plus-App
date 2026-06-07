@@ -6,6 +6,7 @@ import 'auth_service.dart';
 import 'cart_service.dart';
 import 'coupon_service.dart';
 import 'notification_utils.dart';
+import 'order_service.dart';
 import 'profile_service.dart';
 
 class ApiService {
@@ -16,6 +17,7 @@ class ApiService {
   final AuthService _authService = AuthService();
   final CartService _cartService = CartService();
   final CouponService _couponService = CouponService();
+  final OrderService _orderService = OrderService();
   final ProfileService _profileService = ProfileService();
 
   ApiService._internal();
@@ -161,6 +163,18 @@ class ApiService {
     required double subtotal,
   }) {
     return _couponService.validateCoupon(code: code, subtotal: subtotal);
+  }
+
+  Future<Map<String, dynamic>> fetchOrders({int page = 1}) {
+    return _orderService.fetchOrders(page: page);
+  }
+
+  Future<Map<String, dynamic>> fetchOrder(int orderId) {
+    return _orderService.fetchOrder(orderId);
+  }
+
+  Future<Map<String, dynamic>> cancelOrder(int orderId) {
+    return _orderService.cancelOrder(orderId);
   }
 
   Future<Map<String, dynamic>> fetchTangki() => _profileService.fetchTangki();

@@ -3,8 +3,9 @@ import '../../core/app_colors.dart';
 
 class OrderDetailScreen extends StatelessWidget {
   final Map<String, dynamic> order;
+  final VoidCallback? onCancel;
 
-  const OrderDetailScreen({super.key, required this.order});
+  const OrderDetailScreen({super.key, required this.order, this.onCancel});
 
   // ==========================================
   // 1. 主界面构建 (Main Build)
@@ -27,6 +28,10 @@ class OrderDetailScreen extends StatelessWidget {
     final double finalAmount =
         double.tryParse(orderData['final_amount']?.toString() ?? '0') ?? 0.0;
     final List items = orderData['items'] as List? ?? [];
+    final status = orderData['status']?.toString() ?? 'completed';
+    final statusStep =
+        int.tryParse(orderData['status_step']?.toString() ?? '0') ?? 0;
+    final canCancel = orderData['can_cancel'] == true && onCancel != null;
 
     return Scaffold(
       backgroundColor: context.appBackground,
@@ -86,40 +91,19 @@ class OrderDetailScreen extends StatelessWidget {
                           isBold: true,
                         ),
                         const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'STATUS',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                color: context.appTextMuted,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFDCFCE7),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                (orderData['status'] ?? 'COMPLETED')
-                                    .toUpperCase(),
-                                style: const TextStyle(
-                                  color: Color(0xFF166534),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                          ],
+                        OrderStatusSummary(
+                          status: status,
+                          statusStep: statusStep,
                         ),
+                        if (orderData['pickup_code'] != null ||
+                            orderData['pickup_qr_payload'] != null) ...[
+                          const SizedBox(height: 16),
+                          PickupInfoCard(
+                            pickupCode: orderData['pickup_code']?.toString(),
+                            qrPayload: orderData['pickup_qr_payload']
+                                ?.toString(),
+                          ),
+                        ],
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 20),
                           child: Text(
@@ -226,6 +210,26 @@ class OrderDetailScreen extends StatelessWidget {
 
                         const SizedBox(height: 20),
                         PaymentMethodBadge(method: orderData['payment_method']),
+                        if (canCancel) ...[
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: onCancel,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red,
+                                side: const BorderSide(color: Colors.redAccent),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                              ),
+                              child: const Text(
+                                'CANCEL ORDER',
+                                style: TextStyle(fontWeight: FontWeight.w900),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -277,6 +281,138 @@ class OrderDetailScreen extends StatelessWidget {
 // ==========================================
 // 3. 独立优化组件 (Standalone Optimized Widgets)
 // ==========================================
+
+class OrderStatusSummary extends StatelessWidget {
+  final String status;
+  final int statusStep;
+
+  const OrderStatusSummary({
+    super.key,
+    required this.status,
+    required this.statusStep,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (status) {
+      'pending' => Colors.orange,
+      'preparing' => Colors.blue,
+      'ready_for_pickup' => Colors.green,
+      'completed' => Colors.teal,
+      'cancelled' => Colors.red,
+      _ => context.appTextMuted,
+    };
+    final safeStep = status == 'cancelled' ? 0 : statusStep.clamp(0, 4);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'STATUS',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                color: context.appTextMuted,
+                letterSpacing: 1.5,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                status.replaceAll('_', ' ').toUpperCase(),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: List.generate(4, (index) {
+            final isActive = index < safeStep;
+            return Expanded(
+              child: Container(
+                height: 5,
+                margin: EdgeInsets.only(right: index == 3 ? 0 : 5),
+                decoration: BoxDecoration(
+                  color: isActive ? color : context.appBorder,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+class PickupInfoCard extends StatelessWidget {
+  final String? pickupCode;
+  final String? qrPayload;
+
+  const PickupInfoCard({super.key, this.pickupCode, this.qrPayload});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: context.appPrimary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.appPrimary.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'PICKUP',
+            style: TextStyle(
+              color: context.appPrimary,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
+          ),
+          if (pickupCode != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              pickupCode!,
+              style: TextStyle(
+                color: context.appTextMain,
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+              ),
+            ),
+          ],
+          if (qrPayload != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              qrPayload!,
+              style: TextStyle(
+                color: context.appTextMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
 class OrderHeader extends StatelessWidget {
   const OrderHeader({super.key});

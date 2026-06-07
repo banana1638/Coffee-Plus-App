@@ -5,7 +5,7 @@ import '../../services/api_service.dart';
 import '../../models/user_model.dart';
 import '../../widgets/auth_modal.dart';
 import '../../widgets/coffee_loading_overlay.dart';
-import 'transaction_history_screen.dart';
+import 'order_history_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -517,7 +517,7 @@ class QuickLinks extends StatelessWidget {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const TransactionHistoryScreen(),
+                builder: (context) => const OrderHistoryScreen(),
               ),
             ),
           ),
