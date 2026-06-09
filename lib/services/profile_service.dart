@@ -86,7 +86,15 @@ class ProfileService {
       '/profile/delete',
       data: {'password': password},
     );
-    await _client.clearAuthState();
-    return response.data;
+    if(response.statusCode == 200 || response.statusCode == 204){
+      await _client.clearAuthState();
+    }
+
+    return response.data ?? {};
+  } on DioException catch (e) {
+    final message = e.response?.data['message']
+        ?? e.response?.data['error']
+        ?? "Account deletion failed";
+    throw Exception(message);
   }
 }

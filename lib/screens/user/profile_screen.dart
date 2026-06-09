@@ -87,7 +87,7 @@ class ProfileScreenState extends State<ProfileScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      _showSnackBar("Failed to load profile: $e");
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -107,15 +107,31 @@ class ProfileScreenState extends State<ProfileScreen> {
       _showSnackBar(result['message'] ?? 'Profile updated!');
       refreshData();
     } catch (e) {
-      _showSnackBar("Update failed: $e", isError: true);
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _handleUpdatePassword() async {
-    if (_newPasswordController.text != _confirmPasswordController.text) {
-      _showSnackBar("New passwords do not match", isError: true);
+    final currentPwd = _currentPasswordController.text;
+    final newPwd = _newPasswordController.text;
+    final confirmPwd = _confirmPasswordController.text;
+
+    if (currentPwd.isEmpty || newPwd.isEmpty || confirmPwd.isEmpty) {
+      _showSnackBar("Please fill in all password fields", isError: true);
+      return;
+    }
+
+    final pwdError = Validators.password(newPwd, isNewPassword: true);
+    if (pwdError != null) {
+      _showSnackBar(pwdError, isError: true);
+      return;
+    }
+
+    final confirmError = Validators.confirmPassword(confirmPwd, newPwd);
+    if (confirmError != null) {
+      _showSnackBar(confirmError, isError: true);
       return;
     }
 
@@ -132,7 +148,7 @@ class ProfileScreenState extends State<ProfileScreen> {
       _newPasswordController.clear();
       _confirmPasswordController.clear();
     } catch (e) {
-      _showSnackBar(e.toString(), isError: true);
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -149,7 +165,7 @@ class ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       if (!mounted) return;
       navigator.pop();
-      _showSnackBar("Deletion failed: $e");
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -162,7 +178,7 @@ class ProfileScreenState extends State<ProfileScreen> {
       await _apiService.logout();
     } catch (e) {
       if (!mounted) return;
-      _showSnackBar("Logout failed: $e");
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -306,6 +322,7 @@ class ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showDeleteConfirmation() {
+    _deletePasswordController.clear();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -345,7 +362,10 @@ class ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      _deletePasswordController.clear();
+                      Navigator.pop(context);
+                    },
                     child: const Text("CANCEL"),
                   ),
                 ),
@@ -354,9 +374,11 @@ class ProfileScreenState extends State<ProfileScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading
                         ? null
-                        : () => _handleDeleteAccount(
-                            _deletePasswordController.text,
-                          ),
+                        : () {
+                          final password = _deletePasswordController.text.trim();
+                          if (password.isEmpty) return;
+                          _handleDeleteAccount(password);
+                        },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                     ),
@@ -368,7 +390,9 @@ class ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-    );
+    ).whenComplete(() {
+      _deletePasswordController.clear();
+    });
   }
 
   void _showSnackBar(String message, {bool isError = false}) {

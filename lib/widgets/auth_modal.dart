@@ -29,6 +29,20 @@ class _AuthModalState extends State<AuthModal> {
   bool _isLoading = false;
   bool _rememberMe = true;
 
+  int _failedAttempts = 0;
+  DateTime? _lockedUntil;
+
+  bool get _isLockedOut {
+    if (_lockedUntil = null) return false;
+    return DateTime.now().isBefore(_lockedUntil!);
+  }
+
+  String get _lockMessage {
+    if (!_isLockedOut) return '';
+    final remaining = _lockedUntil!.difference(DateTime.now()).inSeconds;
+    return 'Too many failed attempts. Try again in ${remaining} seconds.';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -36,22 +50,36 @@ class _AuthModalState extends State<AuthModal> {
   }
 
   void _handleSubmit() async {
+    if (_isLockedOut) {
+      _showError(_lockMessage);
+      return;
+    }
+
     final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
+    final password = _passwordController.text;
     final name = _nameController.text.trim();
-    final confirmPassword = _confirmPasswordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text;
 
-    if (email.isEmpty ||
-        password.isEmpty ||
-        (!isLogin && (name.isEmpty || confirmPassword.isEmpty))) {
-      _showError("Please fill in all fields");
+    final emailError = Validators.email(email);
+    if (emailError != null) {
+      _showError(emailError);
       return;
     }
 
-    if (!isLogin && password != confirmPassword) {
-      _showError("Passwords do not match");
-      return;
-    }
+    if (isLogin){
+      if (password.isEmpty) {
+        _showError('Password is required');
+        return;
+      } else {
+        final nameError = Validators.name(name);
+        if (nameError != null) { _showError(nameError); return; }
+
+        final passwordError = Validators.password(password);
+        if (passwordError != null) {_showError(passwordError); return; }
+
+        final confirmPasswordError = Validators.confirmPassword(confirmPassword, password);
+        if (confirmPasswordError != null) {_showError(confirmPasswordError); return; }
+      }
 
     setState(() => _isLoading = true);
 
@@ -74,6 +102,7 @@ class _AuthModalState extends State<AuthModal> {
     if (mounted) setState(() => _isLoading = false);
 
     if (result['success'] == true) {
+      _failedAttempts = 0;
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -88,6 +117,14 @@ class _AuthModalState extends State<AuthModal> {
         ApiService().updateCartCount();
       }
     } else {
+      if (isLogin){
+        _failedAttempts++;
+        if (_failedAttempts >= 5) {
+          _lockedUntil = DateTime.now().add(Duration(minutes: 5));
+          _showError('Too many failed attempts. Please try again in 5 minutes.');
+          return;
+        }
+      }
       _showError(
         result['message'] ?? (isLogin ? "Login failed" : "Registration failed"),
       );

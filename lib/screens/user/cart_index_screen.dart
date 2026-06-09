@@ -71,7 +71,8 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         });
       }
     } catch (e) {
-      _showSnackBar("Failed to load data: $e", isError: true);
+      // ✅ 替换所有 "$e" 的错误显示
+_showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -119,7 +120,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         setState(() {
           _cartItems.insert(index, removedItem);
         });
-        _showSnackBar("Delete failed: $e", isError: true);
+        _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
       }
     }
   }
@@ -173,7 +174,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         _couponDiscount = 0.0;
         _couponMessage = null;
       });
-      _showSnackBar("Coupon validation failed: $e", isError: true);
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _isValidatingCoupon = false);
     }
@@ -231,7 +232,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         Navigator.pushReplacementNamed(context, '/main');
       }
     } catch (e) {
-      _showSnackBar("Checkout failed: $e", isError: true);
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

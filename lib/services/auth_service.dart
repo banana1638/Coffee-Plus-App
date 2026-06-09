@@ -35,7 +35,11 @@ class AuthService {
         data: {'email': email, 'password': password},
       );
       if (response.statusCode == 200 && response.data['status'] == 'success') {
-        final String token = response.data['access_token'];
+        final dynamic rawToken = response.data['access_token'];
+        if (rawToken == null || rawToken.toString().isEmpty) {
+          return {'success': false, 'message': 'Token not provided'};
+        }
+        final String token = rawToken.toString();
         if (rememberMe) {
           await _client.persistAuthToken(token);
         } else {
@@ -49,7 +53,14 @@ class AuthService {
         'success': false,
         'message': response.data['message'] ?? 'Invalid credentials',
       };
-    } catch (e) {
+    } on DioException catch (e){ 
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        return {'success': false, 'message': 'Connection timed out'};
+      }
+      final serverMsg = e.response?.data['message'];
+      return {'success': false, 'message': serverMsg ?? 'Login failed'};
+    }catch (e) {
       return {'success': false, 'message': 'Network error'};
     }
   }
@@ -71,16 +82,27 @@ class AuthService {
         },
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
-        await _client.persistAuthToken(response.data['access_token']);
+        final dynamic rawToken = response.data['access_token'];
+        if (rawToken == null || rawToken.toString().isEmpty){
+          return {'success': false, 'message': 'Registration error: no token'};
+        }
+        await _client.persistAuthToken(rawToken.toString());
         _client.clearCache();
         _client.authStateNotifier.value = true;
         return {'success': true};
       }
       return {'success': false, 'message': 'Registration failed'};
-    } catch (e) {
-      return {'success': false, 'message': 'Network error'};
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 422) {
+          final errors = e.response?.data?['errors'];
+          if (errors is Map) {
+            final firstError = errors.values.first;
+            return {'success': false, 'message': firstError is List ? firstError.first : firstError.toString(),};
+          }
+        }
+        return {'success': false, 'message': 'Network error'};
+      }
     }
-  }
 
   Future<Map<String, dynamic>> logout() async {
     try {

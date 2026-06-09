@@ -149,11 +149,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
       if (mounted) {
         HapticFeedback.heavyImpact();
-        _showSnackBar("Successfully added to cart!", isError: false);
+        _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
         Navigator.pop(context);
       }
     } catch (e) {
-      if (mounted) _showSnackBar("Failed to add to cart: $e", isError: true);
+      if (mounted) _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _isAdding = false);
     }
@@ -177,7 +177,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         await _favoriteService.removeFavorite(uniqueId);
         if (mounted) _showSnackBar("Removed from Collections", isError: false);
       } catch (e) {
-        if (mounted) _showSnackBar("Error: $e", isError: true);
+        if (mounted) _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
       } finally {
         if (mounted) setState(() => _isFavoriting = false);
       }
@@ -250,7 +250,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     HapticFeedback.mediumImpact();
                   }
                 } catch (e) {
-                  if (mounted) _showSnackBar("Error: $e", isError: true);
+                  if (mounted) _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
                 } finally {
                   if (mounted) setState(() => _isFavoriting = false);
                 }

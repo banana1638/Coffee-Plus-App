@@ -84,7 +84,7 @@ class TangkiScreenState extends State<TangkiScreen> {
     if (amount <= 0) return;
 
     if (amount > balance) {
-      _showSnackBar("Insufficient balance", isError: true);
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
       return;
     }
 
@@ -103,7 +103,7 @@ class TangkiScreenState extends State<TangkiScreen> {
       refreshData();
     } catch (e) {
       if (!mounted) return;
-      _showSnackBar("Refill failed: $e", isError: true);
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
