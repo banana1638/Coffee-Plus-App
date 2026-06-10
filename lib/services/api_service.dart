@@ -2,12 +2,14 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
+import 'app_logger.dart';    // ✅ [新增] 替代 debugPrint
 import 'auth_service.dart';
 import 'cart_service.dart';
 import 'coupon_service.dart';
 import 'notification_utils.dart';
 import 'order_service.dart';
 import 'profile_service.dart';
+import 'timed_cache.dart';   // ✅ [新增] 用于 _cache 类型
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -25,7 +27,10 @@ class ApiService {
   String get baseUrl => _client.baseUrl;
   String get baseImageUrl => _client.baseImageUrl;
   Dio get _dio => _client.dio;
-  Map<String, dynamic> get _cache => _client.cache;
+
+  // ✅ [修改] Map<String, dynamic> → TimedCache
+  //    原因：与 ApiClient 保持类型一致，解锁 TTL 功能
+  TimedCache get _cache => _client.cache;
 
   ValueNotifier<int> get cartCountNotifier => _client.cartCountNotifier;
   ValueNotifier<int> get notificationCountNotifier =>
@@ -94,6 +99,16 @@ class ApiService {
     final cacheKey =
         'dashboard_${token == null ? "guest" : "user"}_${search ?? ""}_${category ?? ""}';
 
+    // ✅ [新增] 实际读取缓存（原代码只写不读，缓存完全失效）
+    //    forceRefresh=true 时跳过缓存，强制从服务器获取最新数据
+    if (!forceRefresh) {
+      final cached = _cache.get(cacheKey);
+      if (cached != null) {
+        AppLogger.debug('fetchDashboard: cache hit for $cacheKey');
+        return Map<String, dynamic>.from(cached as Map);
+      }
+    }
+
     try {
       final response = await _dio.get(
         '/dashboard',
@@ -103,16 +118,18 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        _cache[cacheKey] = response.data;
+        // ✅ [修改] _cache[key] = value  →  _cache.set(key, value, ttl: ...)
+        //    Dashboard 数据 2 分钟后过期（比默认 5 分钟短，因为菜单可能更新）
+        _cache.set(cacheKey, response.data, ttl: const Duration(minutes: 2));
         return response.data;
       }
       throw Exception("Status ${response.statusCode}");
+
     } catch (e) {
-      debugPrint("ApiService.fetchDashboard ERROR: $e");
-      if (e is DioException) {
-        debugPrint("Dio Error Type: ${e.type}");
-        debugPrint("Response Data: ${e.response?.data}");
-      }
+      // ✅ [修改] debugPrint → AppLogger.error
+      //    原因：debugPrint 没有 kDebugMode 检查，在 release 也会输出敏感信息
+      AppLogger.error('fetchDashboard failed', error: e);
+
       if (token == null) {
         return {
           'menus': [],
@@ -218,11 +235,12 @@ class ApiService {
       final data = await fetchNotifications();
       final notifications = data['notifications'] as List? ?? [];
       final unreadCount = notifications
-          .where((notification) => notification['read_at'] == null)
+          .where((n) => n['read_at'] == null)
           .length;
       notificationCountNotifier.value = unreadCount;
     } catch (e) {
-      // Background count refresh should not interrupt the UI.
+      // 后台刷新失败不影响 UI
+      AppLogger.warning('updateNotificationCount failed: $e');
     }
   }
 
@@ -231,13 +249,24 @@ class ApiService {
   }) async {
     const cacheKey = 'notifications';
 
+    // ✅ [新增] 实际读取缓存（原代码只写不读）
+    //    通知数据 1 分钟过期（比 dashboard 更短，因为通知时效性强）
+    if (!forceRefresh) {
+      final cached = _cache.get(cacheKey);
+      if (cached != null) {
+        AppLogger.debug('fetchNotifications: cache hit');
+        return Map<String, dynamic>.from(cached as Map);
+      }
+    }
+
     final response = await _dio.get('/profile/notifications');
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = response.data;
       List<dynamic> notifications = List.from(data['notifications'] ?? []);
 
       if (notifications.isEmpty) {
-        _cache[cacheKey] = data;
+        // ✅ [修改] _cache[key] = value  →  _cache.set(key, value, ttl: ...)
+        _cache.set(cacheKey, data, ttl: const Duration(minutes: 1));
         return data;
       }
 
@@ -246,7 +275,8 @@ class ApiService {
       );
 
       final filteredData = {...data, 'notifications': notifications};
-      _cache[cacheKey] = filteredData;
+      // ✅ [修改] _cache[key] = filteredData  →  _cache.set(key, filteredData, ttl: ...)
+      _cache.set(cacheKey, filteredData, ttl: const Duration(minutes: 1));
       return filteredData;
     }
     throw Exception('Fetch Notifications Error');
@@ -254,6 +284,7 @@ class ApiService {
 
   Future<void> markNotificationAsRead(String id) async {
     await _dio.post('/profile/notifications/$id/read');
+    // ✅ TimedCache.removeWhere() 签名与原 Map.removeWhere() 相同，无需修改
     _cache.removeWhere((key, value) => key.contains('notifications'));
     updateNotificationCount();
   }

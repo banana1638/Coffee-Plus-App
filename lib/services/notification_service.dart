@@ -1,9 +1,12 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'dart:math'; // ✅ [新增] 用于指数退避的随机抖动
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
+
 import 'api_service.dart';
+import 'app_logger.dart'; // ✅ [新增] 替代 kDebugMode + print
 
 class NotificationService with WidgetsBindingObserver {
   static final NotificationService _instance = NotificationService._internal();
@@ -18,6 +21,9 @@ class NotificationService with WidgetsBindingObserver {
   static const int _maxReconnectAttempts = 5;
   int? _currentSubscribedUserId;
 
+  // ✅ [新增] 用于指数退避抖动
+  final _random = Random();
+
   NotificationService._internal() {
     WidgetsBinding.instance.addObserver(this);
   }
@@ -25,7 +31,6 @@ class NotificationService with WidgetsBindingObserver {
   Future<void> init() async {
     if (_isInitialized) return;
 
-    // 1. Initialize Local Notifications
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const DarwinInitializationSettings iosSettings =
@@ -43,9 +48,8 @@ class NotificationService with WidgetsBindingObserver {
     await _localNotifications.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (details) {
-        if (kDebugMode) {
-          print("Notification clicked: ${details.payload}");
-        }
+        // ✅ [修改] kDebugMode print → AppLogger.debug
+        AppLogger.debug('Notification clicked: ${details.payload}');
       },
     );
     await _localNotifications
@@ -54,7 +58,6 @@ class NotificationService with WidgetsBindingObserver {
         >()
         ?.requestNotificationsPermission();
 
-    // 3. Initialize Reverb
     _connectReverb();
     _isInitialized = true;
   }
@@ -69,79 +72,108 @@ class NotificationService with WidgetsBindingObserver {
         authEndpoint: 'http://192.168.1.103/coffee_plus/broadcasting/auth',
         authorizer: (channelName, socketId) async {
           final token = await _apiService.getToken();
-          if (kDebugMode) print("Authorizing channel: $channelName");
+          // ✅ [修改] kDebugMode print → AppLogger.debug
+          //    注意：channel name 不含敏感数据，可以 debug 记录
+          AppLogger.debug('Authorizing channel: $channelName');
           return {
             'Authorization': 'Bearer $token',
             'Accept': 'application/json',
           };
         },
         onConnected: (socketId) {
-          _reconnectAttempts = 0; // 重置重连计数
-          if (kDebugMode) {
-            print("Reverb Connected successfully! Socket ID: $socketId");
-          }
+          _reconnectAttempts = 0;
+          // ✅ [修改] 只显示 Socket ID 前 4 位，防止完整 ID 泄露
+          AppLogger.info('Reverb connected. Socket: ${_maskId(socketId)}');
         },
+
+        // ✅ [修改] 线性退避 → 指数退避 + Jitter（随机抖动）
+        //
+        //    ❌ 原来：Duration(seconds: 5 * attempt)
+        //       第1次: 5s, 第2次: 10s, 第3次: 15s...
+        //       服务器宕机时，线性增长 → 短时间内仍有大量重连请求
+        //
+        //    ✅ 现在：2^attempt 秒 + ±30% 随机抖动
+        //       第1次: ~2s, 第2次: ~4s, 第3次: ~8s, 第4次: ~16s, 第5次: ~32s
+        //       随机抖动防止多个 App 实例同时重连（Thundering Herd 问题）
+        //       最大 60 秒封顶，防止等待过久
         onDisconnected: () async {
           if (_reconnectAttempts >= _maxReconnectAttempts) {
-            if (kDebugMode) {
-              print("Reverb: Max reconnect attempts reached. Giving up.");
-            }
+            AppLogger.warning(
+              'Reverb: Max reconnect attempts ($_maxReconnectAttempts) reached.',
+            );
             return;
           }
+
           _reconnectAttempts++;
-          final delay = Duration(seconds: 5 * _reconnectAttempts); // 指数退避
-          if (kDebugMode) {
-            print(
-              "Reverb Disconnected. Attempt $_reconnectAttempts/$_maxReconnectAttempts. Retrying in ${delay.inSeconds}s...",
-            );
-          }
+
+          // 指数退避：2^n 秒，最大 60 秒
+          final baseSeconds = (1 << _reconnectAttempts).clamp(1, 60);
+          // Jitter：在 ±30% 范围内随机偏移，防止多客户端同时重连
+          final jitterMs =
+              (baseSeconds * 1000 * 0.3 * (_random.nextDouble() - 0.5)).toInt();
+          final delay = Duration(
+            milliseconds: (baseSeconds * 1000 + jitterMs).clamp(500, 60000),
+          );
+
+          AppLogger.warning(
+            'Reverb disconnected. '
+            'Attempt $_reconnectAttempts/$_maxReconnectAttempts, '
+            'retry in ${delay.inSeconds}s...',
+          );
+
           await Future.delayed(delay);
           try {
             await _reverbClient?.connect();
           } catch (e) {
-            if (kDebugMode) print("Reverb Reconnection Error: $e");
+            AppLogger.error('Reverb reconnection failed', error: e);
           }
         },
+
         onError: (error) {
-          if (kDebugMode) print("Reverb Connection Error: $error");
+          // ✅ [修改] kDebugMode print → AppLogger.error
+          AppLogger.error('Reverb connection error', error: error);
         },
       );
 
       try {
         await _reverbClient?.connect();
       } catch (e) {
-        if (kDebugMode) print("Reverb Initial Connect Error: $e");
+        AppLogger.error('Reverb initial connect failed', error: e);
       }
 
       _apiService.authStateNotifier.removeListener(_handleAuthChange);
       _apiService.authStateNotifier.addListener(_handleAuthChange);
-      _handleAuthChange(); // Initial check
+      _handleAuthChange();
     } catch (e) {
-      if (kDebugMode) print("Reverb Init/Connect Error: $e");
+      AppLogger.error('Reverb init failed', error: e);
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (kDebugMode) print("App Lifecycle State Changed: $state");
+    // ✅ [修改] kDebugMode print → AppLogger.debug
+    AppLogger.debug('App lifecycle: $state');
 
     if (state == AppLifecycleState.resumed) {
-      // Re-verify connection when app comes to foreground
       if (_reverbClient != null) {
-        if (kDebugMode) print("App Resumed: Checking Reverb connection...");
-        _reverbClient!.connect(); // Re-trigger connect if dropped
+        AppLogger.debug('App resumed: reconnecting Reverb...');
+        _reverbClient!.connect();
       }
     }
   }
 
   void _handleAuthChange() async {
     if (_apiService.authStateNotifier.value) {
-      final profile = await _apiService.fetchProfile();
-      final userId = profile['user']?['id'];
-      if (userId != null && userId != _currentSubscribedUserId) {
-        _unsubscribeAll(); // 先取消旧订阅
-        _subscribeToUserChannel(userId);
-        _currentSubscribedUserId = userId;
+      try {
+        final profile = await _apiService.fetchProfile();
+        final userId = profile['user']?['id'];
+        if (userId != null && userId != _currentSubscribedUserId) {
+          _unsubscribeAll();
+          _subscribeToUserChannel(userId);
+          _currentSubscribedUserId = userId;
+        }
+      } catch (e) {
+        AppLogger.error('Failed to fetch profile for Reverb subscription', error: e);
       }
     } else {
       _unsubscribeAll();
@@ -154,32 +186,27 @@ class NotificationService with WidgetsBindingObserver {
 
     final channelName = "private-App.Models.User.$userId";
     try {
-      if (kDebugMode) print("Subscribing to channel: $channelName");
+      AppLogger.debug('Subscribing to: $channelName');
       final channel = _reverbClient!.subscribeToPrivateChannel(channelName);
 
-      // Listen for notification creation event
       channel
           .on('Illuminate\\Notifications\\Events\\BroadcastNotificationCreated')
           .listen((event) {
-            if (kDebugMode) {
-              print("RECEIVED EVENT IN SERVICE: ${event.eventName}");
-            }
-            if (kDebugMode) {
-              print("EVENT DATA: ${event.data}");
-            }
+            // ✅ [修改] 只在 debug 模式记录事件，不记录完整 data（可能含用户信息）
+            AppLogger.debug('Notification event received: ${event.eventName}');
             _onNotificationReceived(event);
           });
     } catch (e) {
-      if (kDebugMode) print("Reverb Subscribe Error: $e");
+      AppLogger.error('Reverb subscribe error', error: e);
     }
   }
 
   void _unsubscribeAll() {
     try {
-      if (kDebugMode) print("Unsubscribing and disconnecting from Reverb...");
+      AppLogger.debug('Disconnecting from Reverb...');
       _reverbClient?.disconnect();
     } catch (e) {
-      if (kDebugMode) print("Reverb Disconnect Error: $e");
+      AppLogger.error('Reverb disconnect error', error: e);
     }
   }
 
@@ -188,19 +215,19 @@ class NotificationService with WidgetsBindingObserver {
       final data = event.data;
       if (data is Map) {
         final message = data['message'] ?? "You have a new notification";
-        const title = "Order Notification";
-
-        if (kDebugMode) print("Triggering local notification: $message");
-        _showLocalNotification(title, message, payload: jsonEncode(data));
+        _showLocalNotification(
+          "Order Notification",
+          message,
+          payload: jsonEncode(data),
+        );
       } else if (data is String) {
-        // Sometimes data is sent as stringified JSON
         final decoded = jsonDecode(data);
         final message = decoded['message'] ?? "You have a new notification";
         _showLocalNotification("Order Notification", message, payload: data);
       }
       _apiService.updateNotificationCount();
     } catch (e) {
-      if (kDebugMode) print("Error processing notification event: $e");
+      AppLogger.error('Failed to process notification event', error: e);
     }
   }
 
@@ -238,10 +265,16 @@ class NotificationService with WidgetsBindingObserver {
         platformDetails,
         payload: payload,
       );
-      if (kDebugMode) print("Local notification displayed successfully");
+      AppLogger.debug('Local notification shown: $title');
     } catch (e) {
-      if (kDebugMode) print("Failed to show local notification: $e");
+      AppLogger.error('Failed to show local notification', error: e);
     }
+  }
+
+  /// 遮蔽 ID，只显示前 4 位，用于日志（防止完整 ID 泄露）
+  String _maskId(String id) {
+    if (id.length <= 4) return '****';
+    return '${id.substring(0, 4)}****';
   }
 
   void dispose() {

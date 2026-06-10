@@ -2,6 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'timed_cache.dart'; // ✅ [新增] 引入 TimedCache
+
+// ─────────────────────────────────────────────
+// 接口契约
+// ✅ [修改] cache 类型从 Map<String, dynamic> 改为 TimedCache
+//    原因：接口应该约束具体能力（TTL、大小限制），而不是暴露底层 Map 结构
+// ─────────────────────────────────────────────
 abstract class ApiClientContract {
   String get baseUrl;
   String get baseImageUrl;
@@ -10,7 +17,10 @@ abstract class ApiClientContract {
   ValueNotifier<int> get notificationCountNotifier;
   ValueNotifier<bool> get authStateNotifier;
   ValueNotifier<ThemeMode> get themeModeNotifier;
-  Map<String, dynamic> get cache;
+
+  // ✅ [修改] Map<String, dynamic> → TimedCache
+  TimedCache get cache;
+
   String? get sessionToken;
   set sessionToken(String? value);
 
@@ -23,6 +33,9 @@ abstract class ApiClientContract {
   String getFullImageUrl(dynamic relativePath);
 }
 
+// ─────────────────────────────────────────────
+// 实现类
+// ─────────────────────────────────────────────
 class ApiClient implements ApiClientContract {
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
@@ -48,8 +61,16 @@ class ApiClient implements ApiClientContract {
     ThemeMode.system,
   );
 
+  // ✅ [修改] Map<String, dynamic> cache = {} → TimedCache
+  //    原因：
+  //    旧的 Map 会无限增长、没有过期机制，长时间使用会导致内存泄漏
+  //    TimedCache 有：最大 50 条限制 + 5 分钟默认 TTL + 自动清理过期条目
   @override
-  final Map<String, dynamic> cache = {};
+  final TimedCache cache = TimedCache(
+    maxSize: 50,
+    defaultTtl: const Duration(minutes: 5),
+  );
+
   @override
   String? sessionToken;
 
@@ -65,11 +86,9 @@ class ApiClient implements ApiClientContract {
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
-
           options.headers['Accept-Language'] = 'en';
           options.headers['Accept'] = 'application/json';
           options.headers['Content-Type'] = 'application/json';
-
           return handler.next(options);
         },
         onError: (DioException e, handler) async {
@@ -117,9 +136,9 @@ class ApiClient implements ApiClientContract {
   @override
   void clearCache({String? pattern}) {
     if (pattern == null) {
-      cache.clear();
+      cache.clear(); // TimedCache.clear() ✅
     } else {
-      cache.removeWhere((key, value) => key.contains(pattern));
+      cache.removeWhere((key, value) => key.contains(pattern)); // TimedCache.removeWhere() ✅
     }
   }
 
