@@ -156,6 +156,10 @@ class ApiClient implements ApiClientContract {
   String getFullImageUrl(dynamic relativePath) {
     if (relativePath == null || relativePath.toString().isEmpty) return "";
     String path = relativePath.toString().trim().replaceAll('\\', '/');
+    final uri = Uri.tryParse(path);
+    if (uri != null && uri.hasScheme) return path;
+    if (path.startsWith('/storage/')) return 'http://192.168.1.107$path';
+    if (path.startsWith('storage/')) return 'http://192.168.1.107/$path';
     if (path.contains('/')) path = path.split('/').last;
     return "$baseImageUrl$path";
   }
