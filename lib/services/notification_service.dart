@@ -65,13 +65,16 @@ class NotificationService with WidgetsBindingObserver {
   Future<void> _connectReverb() async {
     try {
       _reverbClient = ReverbClient.instance(
-        host: '192.168.1.103',
+        host: '192.168.1.107',
         port: 8080,
         appKey: "coffepluskey123",
         useTLS: false,
-        authEndpoint: 'http://192.168.1.103/coffee_plus/broadcasting/auth',
+        authEndpoint: 'http://192.168.1.107/coffee_plus/broadcasting/auth',
         authorizer: (channelName, socketId) async {
           final token = await _apiService.getToken();
+          if (token == null || token.isEmpty) {
+            throw Exception('Authentication required for notifications.');
+          }
           // ✅ [修改] kDebugMode print → AppLogger.debug
           //    注意：channel name 不含敏感数据，可以 debug 记录
           AppLogger.debug('Authorizing channel: $channelName');

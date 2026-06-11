@@ -307,8 +307,7 @@ class ApiService {
   }
 
   Future<void> deleteNotification(String id) async {
-    await _dio.post('/profile/notifications/$id/delete');
-    updateNotificationCount();
+    await deleteNotifications([id]);
   }
 
   Future<List<Map<String, dynamic>>> fetchFavorites() async {
