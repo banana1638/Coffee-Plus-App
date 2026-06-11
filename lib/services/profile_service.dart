@@ -77,7 +77,7 @@ class ProfileService {
       );
       return response.data;
     } on DioException catch (e) {
-      throw e.response?.data['message'] ?? "Password update failed";
+      throw Exception(e.response?.data?['message'] ?? "Password update failed");
     }
   }
 
