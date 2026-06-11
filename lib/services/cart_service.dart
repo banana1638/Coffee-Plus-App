@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:dio/dio.dart';
 
 import 'api_client.dart';
@@ -44,7 +46,7 @@ class CartService {
         'addons': addons,
       },
     );
-    updateCartCount();
+    await updateCartCount();
   }
 
   Future<Map<String, dynamic>> updateCartItem(
@@ -78,6 +80,7 @@ class CartService {
     try {
       final response = await _client.dio.post(
         '/checkout',
+        options: Options(headers: {'Idempotency-Key': _idempotencyKey()}),
         data: {
           'use_oz': useOzIds,
           if (couponCode != null && couponCode.trim().isNotEmpty)
@@ -87,7 +90,14 @@ class CartService {
       _client.clearCache();
       return response.data;
     } on DioException catch (e) {
-      throw e.response?.data['message'] ?? "Checkout failed";
+      throw Exception(e.response?.data?['message'] ?? "Checkout failed");
     }
+  }
+
+  String _idempotencyKey() {
+    final random = Random.secure();
+    final values = List<int>.generate(16, (_) => random.nextInt(256));
+    final nonce = values.map((value) => value.toRadixString(16).padLeft(2, '0'));
+    return 'checkout-${DateTime.now().microsecondsSinceEpoch}-${nonce.join()}';
   }
 }
