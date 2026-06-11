@@ -41,7 +41,7 @@ class _AuthModalState extends State<AuthModal> {
   String get _lockMessage {
     if (!_isLockedOut) return '';
     final remaining = _lockedUntil!.difference(DateTime.now()).inSeconds;
-    return 'Too many failed attempts. Try again in ${remaining} seconds.';
+    return 'Too many failed attempts. Try again in $remaining seconds.';
   }
 
   @override
@@ -131,10 +131,10 @@ class _AuthModalState extends State<AuthModal> {
         ApiService().updateCartCount();
       }
     } else {
-      if (isLogin){
+      if (isLogin) {
         _failedAttempts++;
         if (_failedAttempts >= 5) {
-          _lockedUntil = DateTime.now().add(Duration(minutes: 5));
+          _lockedUntil = DateTime.now().add(const Duration(minutes: 5));
           _showError('Too many failed attempts. Please try again in 5 minutes.');
           return;
         }
