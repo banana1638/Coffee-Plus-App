@@ -237,23 +237,22 @@ flutter run
 
 ### Environment Configuration
 
-The app reads its API endpoint from compile-time environment variables. Set them at build time — **never hardcode production URLs in source code**.
+The app reads its API endpoint from compile-time environment variables. Use a local define file for development — **never hardcode production URLs in source code**.
 
 ```bash
-# Development
-flutter run \
-  --dart-define=API_BASE_URL=http://192.168.1.x/coffee_plus/public/api \
-  --dart-define=REVERB_HOST=192.168.1.x \
-  --dart-define=REVERB_KEY=your_app_key
+# 1. Create your local config from the template
+copy .env.example.json .env.local.json
+
+# 2. Edit .env.local.json for your Laravel host/IP
+
+# 3. Run on a connected Android device
+flutter run --dart-define-from-file=.env.local.json
 
 # Production build (use your real domain + HTTPS)
-flutter build apk \
-  --dart-define=API_BASE_URL=https://your-domain.com/api \
-  --dart-define=REVERB_HOST=your-domain.com \
-  --dart-define=REVERB_KEY=your_production_key
+flutter build apk --release --dart-define-from-file=.env.production.json
 ```
 
-> 💡 **Tip:** Store these values in a `.env.local` file and add it to `.gitignore` to keep credentials out of version control.
+VS Code users can run **Coffee Plus Local Android** from the Run and Debug panel. It reads `.env.local.json`, which is ignored by Git.
 
 ---
 
