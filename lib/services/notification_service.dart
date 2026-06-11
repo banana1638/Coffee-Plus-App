@@ -1,12 +1,13 @@
 import 'dart:convert';
-import 'dart:math'; // ✅ [新增] 用于指数退避的随机抖动
+import 'dart:math';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
 
 import 'api_service.dart';
-import 'app_logger.dart'; // ✅ [新增] 替代 kDebugMode + print
+import 'app_config.dart';
+import 'app_logger.dart';
 
 class NotificationService with WidgetsBindingObserver {
   static final NotificationService _instance = NotificationService._internal();
@@ -15,14 +16,13 @@ class NotificationService with WidgetsBindingObserver {
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
   final ApiService _apiService = ApiService();
+  final _random = Random();
+
   ReverbClient? _reverbClient;
   bool _isInitialized = false;
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 5;
   String? _currentSubscribedUserId;
-
-  // ✅ [新增] 用于指数退避抖动
-  final _random = Random();
 
   NotificationService._internal() {
     WidgetsBinding.instance.addObserver(this);
@@ -31,16 +31,16 @@ class NotificationService with WidgetsBindingObserver {
   Future<void> init() async {
     if (_isInitialized) return;
 
-    const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const DarwinInitializationSettings iosSettings =
-        DarwinInitializationSettings(
-          requestAlertPermission: true,
-          requestBadgePermission: true,
-          requestSoundPermission: true,
-        );
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
 
-    const InitializationSettings initSettings = InitializationSettings(
+    const initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
     );
@@ -48,7 +48,6 @@ class NotificationService with WidgetsBindingObserver {
     await _localNotifications.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (details) {
-        // ✅ [修改] kDebugMode print → AppLogger.debug
         AppLogger.debug('Notification clicked: ${details.payload}');
       },
     );
@@ -65,18 +64,16 @@ class NotificationService with WidgetsBindingObserver {
   Future<void> _connectReverb() async {
     try {
       _reverbClient = ReverbClient.instance(
-        host: '192.168.1.107',
-        port: 8080,
-        appKey: "coffepluskey123",
-        useTLS: false,
-        authEndpoint: 'http://192.168.1.107/coffee_plus/broadcasting/auth',
+        host: AppConfig.reverbHost,
+        port: AppConfig.reverbPort,
+        appKey: AppConfig.reverbAppKey,
+        useTLS: AppConfig.reverbUseTls,
+        authEndpoint: AppConfig.reverbAuthEndpoint,
         authorizer: (channelName, socketId) async {
           final token = await _apiService.getToken();
           if (token == null || token.isEmpty) {
             throw Exception('Authentication required for notifications.');
           }
-          // ✅ [修改] kDebugMode print → AppLogger.debug
-          //    注意：channel name 不含敏感数据，可以 debug 记录
           AppLogger.debug('Authorizing channel: $channelName');
           return {
             'Authorization': 'Bearer $token',
@@ -85,20 +82,8 @@ class NotificationService with WidgetsBindingObserver {
         },
         onConnected: (socketId) {
           _reconnectAttempts = 0;
-          // ✅ [修改] 只显示 Socket ID 前 4 位，防止完整 ID 泄露
           AppLogger.info('Reverb connected. Socket: ${_maskId(socketId)}');
         },
-
-        // ✅ [修改] 线性退避 → 指数退避 + Jitter（随机抖动）
-        //
-        //    ❌ 原来：Duration(seconds: 5 * attempt)
-        //       第1次: 5s, 第2次: 10s, 第3次: 15s...
-        //       服务器宕机时，线性增长 → 短时间内仍有大量重连请求
-        //
-        //    ✅ 现在：2^attempt 秒 + ±30% 随机抖动
-        //       第1次: ~2s, 第2次: ~4s, 第3次: ~8s, 第4次: ~16s, 第5次: ~32s
-        //       随机抖动防止多个 App 实例同时重连（Thundering Herd 问题）
-        //       最大 60 秒封顶，防止等待过久
         onDisconnected: () async {
           if (_reconnectAttempts >= _maxReconnectAttempts) {
             AppLogger.warning(
@@ -108,10 +93,7 @@ class NotificationService with WidgetsBindingObserver {
           }
 
           _reconnectAttempts++;
-
-          // 指数退避：2^n 秒，最大 60 秒
           final baseSeconds = (1 << _reconnectAttempts).clamp(1, 60);
-          // Jitter：在 ±30% 范围内随机偏移，防止多客户端同时重连
           final jitterMs =
               (baseSeconds * 1000 * 0.3 * (_random.nextDouble() - 0.5)).toInt();
           final delay = Duration(
@@ -131,9 +113,7 @@ class NotificationService with WidgetsBindingObserver {
             AppLogger.error('Reverb reconnection failed', error: e);
           }
         },
-
         onError: (error) {
-          // ✅ [修改] kDebugMode print → AppLogger.error
           AppLogger.error('Reverb connection error', error: error);
         },
       );
@@ -154,14 +134,11 @@ class NotificationService with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // ✅ [修改] kDebugMode print → AppLogger.debug
     AppLogger.debug('App lifecycle: $state');
 
-    if (state == AppLifecycleState.resumed) {
-      if (_reverbClient != null) {
-        AppLogger.debug('App resumed: reconnecting Reverb...');
-        _reverbClient!.connect();
-      }
+    if (state == AppLifecycleState.resumed && _reverbClient != null) {
+      AppLogger.debug('App resumed: reconnecting Reverb...');
+      _reverbClient!.connect();
     }
   }
 
@@ -178,7 +155,10 @@ class NotificationService with WidgetsBindingObserver {
           _currentSubscribedUserId = userId;
         }
       } catch (e) {
-        AppLogger.error('Failed to fetch profile for Reverb subscription', error: e);
+        AppLogger.error(
+          'Failed to fetch profile for Reverb subscription',
+          error: e,
+        );
       }
     } else {
       _unsubscribeAll();
@@ -197,7 +177,6 @@ class NotificationService with WidgetsBindingObserver {
       channel
           .on('Illuminate\\Notifications\\Events\\BroadcastNotificationCreated')
           .listen((event) {
-            // ✅ [修改] 只在 debug 模式记录事件，不记录完整 data（可能含用户信息）
             AppLogger.debug('Notification event received: ${event.eventName}');
             _onNotificationReceived(event);
           });
@@ -241,19 +220,18 @@ class NotificationService with WidgetsBindingObserver {
     String body, {
     String? payload,
   }) async {
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-          'order_notifications',
-          'Order Notifications',
-          channelDescription: 'Notifications for order status changes',
-          importance: Importance.max,
-          priority: Priority.high,
-          showWhen: true,
-          enableVibration: true,
-          playSound: true,
-        );
+    const androidDetails = AndroidNotificationDetails(
+      'order_notifications',
+      'Order Notifications',
+      channelDescription: 'Notifications for order status changes',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+      enableVibration: true,
+      playSound: true,
+    );
 
-    const NotificationDetails platformDetails = NotificationDetails(
+    const platformDetails = NotificationDetails(
       android: androidDetails,
       iOS: DarwinNotificationDetails(
         presentAlert: true,
@@ -276,7 +254,6 @@ class NotificationService with WidgetsBindingObserver {
     }
   }
 
-  /// 遮蔽 ID，只显示前 4 位，用于日志（防止完整 ID 泄露）
   String _maskId(String? id) {
     if (id == null) return 'null';
     if (id.length <= 4) return '****';
