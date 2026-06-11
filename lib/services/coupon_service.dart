@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'api_client.dart';
 
 class CouponService {
@@ -8,11 +9,11 @@ class CouponService {
   Future<Map<String, dynamic>> validateCoupon({
     required String code,
     required double subtotal,
-  })async {
+  }) async {
     try {
-      final response = await _client.dio.post(
-        '/coupon/validate',
-        data: {
+      final response = await _client.dio.get(
+        '/coupons/validate',
+        queryParameters: {
           'code': code.trim().toUpperCase(),
           'subtotal': subtotal.toStringAsFixed(2),
         },
@@ -21,12 +22,12 @@ class CouponService {
         final data = response.data['data'] ?? response.data;
         return Map<String, dynamic>.from(data);
       }
-      throw Exception('Coupon valudation failed');
+      throw Exception('Coupon validation failed');
     } on DioException catch (e) {
       if (e.response?.statusCode == 422) {
         throw Exception(e.response?.data?['message'] ?? 'Invalid coupon code');
       }
       rethrow;
     }
- }
+  }
 }
