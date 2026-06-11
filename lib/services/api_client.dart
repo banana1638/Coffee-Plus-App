@@ -41,10 +41,10 @@ class ApiClient implements ApiClientContract {
   factory ApiClient() => _instance;
 
   @override
-  final String baseUrl = "http://192.168.1.103/coffee_plus/public/api";
+  final String baseUrl = "http://192.168.1.107/coffee_plus/public/api";
   @override
   final String baseImageUrl =
-      "http://192.168.1.103/coffee_plus/public/images/products/";
+      "http://192.168.1.107/coffee_plus/public/images/products/";
 
   @override
   final Dio dio = Dio();
