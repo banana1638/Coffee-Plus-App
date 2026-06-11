@@ -1,7 +1,9 @@
 class _CacheEntry {
   final dynamic data;
   final DateTime expiresAt;
+
   _CacheEntry(this.data, Duration ttl) : expiresAt = DateTime.now().add(ttl);
+
   bool get isExpired => DateTime.now().isAfter(expiresAt);
 }
 
@@ -16,10 +18,9 @@ class TimedCache {
   });
 
   void set(String key, dynamic value, {Duration? ttl}) {
-    _evictExpired(); // 先清理过期的
-    
+    _evictExpired();
+
     if (_store.length >= maxSize) {
-      // 超出大小限制，移除最旧的一条
       _store.remove(_store.keys.first);
     }
     _store[key] = _CacheEntry(value, ttl ?? defaultTtl);
@@ -38,7 +39,7 @@ class TimedCache {
   void remove(String key) => _store.remove(key);
 
   void removeWhere(bool Function(String key, dynamic value) test) {
-    _store.removeWhere((k, v) => test(k, v.data));
+    _store.removeWhere((key, entry) => test(key, entry.data));
   }
 
   void clear() => _store.clear();
