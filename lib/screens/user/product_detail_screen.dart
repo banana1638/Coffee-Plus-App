@@ -178,7 +178,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         await _favoriteService.removeFavorite(uniqueId);
         if (mounted) _showSnackBar("Removed from Collections", isError: false);
       } catch (e) {
-        if (mounted) _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+        if (mounted) {
+          _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+        }
       } finally {
         if (mounted) setState(() => _isFavoriting = false);
       }
@@ -193,11 +195,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(25),
+            borderRadius: BorderRadius.circular(12),
           ),
           title: const Text(
             "Add to Collection",
-            style: TextStyle(fontWeight: FontWeight.w900),
+            style: TextStyle(fontWeight: FontWeight.w700),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -212,7 +214,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
                   color: context.appBackground,
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: TextField(
                   controller: _remarkController,
@@ -251,13 +253,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     HapticFeedback.mediumImpact();
                   }
                 } catch (e) {
-                  if (mounted) _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+                  if (mounted) {
+                    _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+                  }
                 } finally {
                   if (mounted) setState(() => _isFavoriting = false);
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: context.appPrimary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -286,7 +290,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       height: MediaQuery.of(context).size.height * 0.9,
       decoration: BoxDecoration(
         color: context.appBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Stack(
         children: [
@@ -373,7 +377,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
+        backgroundColor: isError ? context.appDanger : context.appSuccess,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -406,7 +410,7 @@ class ProductAppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final FavoriteService favoriteService = FavoriteService();
     return SliverAppBar(
-      expandedHeight: 350,
+      expandedHeight: 320,
       pinned: true,
       automaticallyImplyLeading: false,
       backgroundColor: context.appSurface,
@@ -441,7 +445,7 @@ class ProductAppBar extends StatelessWidget {
                   bool isSaved = favoriteService.isFavorite(currentId);
 
                   return CircleAvatar(
-                    backgroundColor: Colors.black26,
+                    backgroundColor: context.appSurface.withValues(alpha: 0.92),
                     child: IconButton(
                       icon: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 300),
@@ -450,7 +454,9 @@ class ProductAppBar extends StatelessWidget {
                         child: Icon(
                           isSaved ? Icons.favorite : Icons.favorite_border,
                           key: ValueKey(isSaved),
-                          color: isSaved ? Colors.redAccent : Colors.white,
+                          color: isSaved
+                              ? context.appDanger
+                              : context.appTextBody,
                           size: 20,
                         ),
                       ),
@@ -461,9 +467,9 @@ class ProductAppBar extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               CircleAvatar(
-                backgroundColor: Colors.black26,
+                backgroundColor: context.appSurface.withValues(alpha: 0.92),
                 child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                  icon: Icon(Icons.close, color: context.appTextBody, size: 20),
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
@@ -497,7 +503,11 @@ class ProductInfo extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           product.name,
-          style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900),
+          style: TextStyle(
+            fontSize: 30,
+            fontWeight: FontWeight.w700,
+            color: context.appTextMain,
+          ),
         ),
         const SizedBox(height: 12),
         Text(
@@ -534,11 +544,13 @@ class TempSelector extends StatelessWidget {
               margin: EdgeInsets.only(right: temp == 'Hot' ? 10 : 0),
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
-                color: context.appSurface,
-                borderRadius: BorderRadius.circular(15),
+                color: isSelected
+                    ? context.appPrimary.withValues(alpha: 0.08)
+                    : context.appSurface,
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: isSelected ? context.appPrimary : Colors.transparent,
-                  width: 2,
+                  color: isSelected ? context.appPrimary : context.appBorder,
+                  width: 1.5,
                 ),
                 boxShadow: [
                   if (isSelected)
@@ -590,11 +602,13 @@ class SizeSelector extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: context.appSurface,
-              borderRadius: BorderRadius.circular(15),
+              color: isSelected
+                  ? context.appPrimary.withValues(alpha: 0.08)
+                  : context.appSurface,
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: isSelected ? context.appPrimary : Colors.transparent,
-                width: 2,
+                color: isSelected ? context.appPrimary : context.appBorder,
+                width: 1.5,
               ),
             ),
             child: Row(
@@ -644,11 +658,13 @@ class AddonSelector extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: context.appSurface,
-              borderRadius: BorderRadius.circular(15),
+              color: isSelected
+                  ? context.appPrimary.withValues(alpha: 0.08)
+                  : context.appSurface,
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: isSelected ? context.appPrimary : Colors.transparent,
-                width: 2,
+                color: isSelected ? context.appPrimary : context.appBorder,
+                width: 1.5,
               ),
             ),
             child: Row(
@@ -711,7 +727,7 @@ class BottomAction extends StatelessWidget {
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: context.appBackground,
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
@@ -726,7 +742,7 @@ class BottomAction extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: context.appTextMain,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                       fontSize: 16,
                     ),
                   ),
@@ -743,13 +759,15 @@ class BottomAction extends StatelessWidget {
             child: ElevatedButton(
               onPressed: isAdding ? null : onAddToCart,
               style: ElevatedButton.styleFrom(
-                backgroundColor: context.appPrimary,
+                backgroundColor: context.isDarkMode
+                    ? context.appPrimary
+                    : AppColors.darkAction,
                 padding: const EdgeInsets.symmetric(
                   vertical: 18,
                   horizontal: 20,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 elevation: 0,
               ),
@@ -760,7 +778,7 @@ class BottomAction extends StatelessWidget {
                     "ADD TO CART",
                     style: TextStyle(
                       color: Colors.white,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   Container(
@@ -773,7 +791,7 @@ class BottomAction extends StatelessWidget {
                       style: TextStyle(
                         color: context.appBackground,
                         fontSize: 16,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -821,9 +839,9 @@ class SectionTitle extends StatelessWidget {
         title,
         style: TextStyle(
           fontSize: 11,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w700,
           color: context.appTextMuted,
-          letterSpacing: 1.5,
+          letterSpacing: 0,
         ),
       ),
     );

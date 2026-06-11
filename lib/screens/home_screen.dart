@@ -111,11 +111,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'COFFEE PLUS+',
-          style: TextStyle(fontWeight: FontWeight.w900),
+          'Coffee-Plus',
+          style: TextStyle(fontWeight: FontWeight.w700),
         ),
-        centerTitle: true,
-        backgroundColor: Colors.transparent,
+        centerTitle: false,
+        backgroundColor: context.appSurface.withValues(alpha: 0.95),
         foregroundColor: context.appTextMain,
         actions: [
           ValueListenableBuilder<ThemeMode>(
@@ -143,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
               return Badge(
                 label: Text(count.toString()),
                 isLabelVisible: count > 0,
-                backgroundColor: Colors.redAccent,
+                backgroundColor: context.appDanger,
                 offset: const Offset(-4, 4),
                 child: IconButton(
                   icon: const Icon(Icons.notifications_none_rounded),
@@ -229,7 +229,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 return [
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
                       child: RepaintBoundary(
                         child: DashboardHeader(
                           isGuest: isGuest,
@@ -287,8 +287,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                      minHeight: 140,
-                      maxHeight: 140,
+                      minHeight: 132,
+                      maxHeight: 132,
                     ),
                   ),
                 ];
@@ -332,7 +332,7 @@ class HomeErrorState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          Icon(Icons.error_outline, size: 48, color: context.appDanger),
           const SizedBox(height: 11),
           Text('Data Loading Error: $error'),
           TextButton(onPressed: onRetry, child: const Text("Retry")),
@@ -374,18 +374,18 @@ class DashboardHeader extends StatelessWidget {
           onRefresh();
         }
       },
-      borderRadius: BorderRadius.circular(32),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: context.appSurface,
-          borderRadius: BorderRadius.circular(32),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: context.appBorder),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -435,7 +435,7 @@ class MemberHeader extends StatelessWidget {
               user.name,
               style: TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
                 color: context.appPrimary,
               ),
             ),
@@ -473,7 +473,7 @@ class GuestHeader extends StatelessWidget {
                 "WELCOME GUEST",
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   color: context.appPrimary,
                 ),
               ),
@@ -501,7 +501,7 @@ class GuestHeader extends StatelessWidget {
             style: TextStyle(
               color: Colors.white,
               fontSize: 11,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
@@ -540,7 +540,7 @@ class StatItem extends StatelessWidget {
           value,
           style: TextStyle(
             fontSize: 16,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
             color: valueColor,
           ),
         ),
@@ -559,8 +559,8 @@ class HomeSearchBar extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: context.appSurface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: context.appBorder.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.appBorderStrong),
       ),
       child: TextField(
         decoration: InputDecoration(
@@ -657,13 +657,15 @@ class CategoryChip extends StatelessWidget {
             onSelected(id);
           }
         },
-        selectedColor: context.appPrimary,
+        selectedColor: context.appDarkAction,
         labelStyle: TextStyle(
-          color: isSelected ? Colors.white : context.appTextMain,
-          fontWeight: FontWeight.w900,
+          color: isSelected ? Colors.white : context.appTextBody,
+          fontWeight: FontWeight.w700,
           fontSize: 12,
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: context.appSurface,
+        side: BorderSide(color: context.appBorder),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         showCheckmark: false,
       ),
     );
@@ -696,9 +698,9 @@ class ProductCategorySection extends StatelessWidget {
                 category.name.toUpperCase(),
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
-                  color: context.appTextMain.withValues(alpha: 0.8),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                  color: context.appTextMain,
                 ),
               ),
             ),
@@ -833,8 +835,8 @@ class CollectionsList extends StatelessWidget {
                 "SAVED COLLECTIONS",
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
                   color: context.appPrimary,
                 ),
               ),

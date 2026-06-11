@@ -1,11 +1,12 @@
-import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../services/api_service.dart';
-import '../models/product_model.dart';
+import 'package:flutter/material.dart';
+
 import '../core/app_colors.dart';
-import '../widgets/shimmer_loading.dart';
-import '../services/favorite_service.dart';
 import '../models/favorite_model.dart';
+import '../models/product_model.dart';
+import '../services/api_service.dart';
+import '../services/favorite_service.dart';
+import 'shimmer_loading.dart';
 
 class CoffeeCard extends StatelessWidget {
   final Product product;
@@ -15,42 +16,33 @@ class CoffeeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 性能优化：提前获取颜色和状态，减少 build 树深度和重复计算
-    final isDarkMode = context.isDarkMode;
-    final surfaceColor = context.appSurface;
-    final borderColor = context.appBorder;
-    final primaryColor = context.appPrimary;
-    final textMainColor = context.appTextMain;
-
     return RepaintBoundary(
-      // 核心优化：隔离单个卡片的重绘（如点赞、点击动画）
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(12),
         child: DecoratedBox(
-          // 替代 Container
           decoration: BoxDecoration(
-            color: surfaceColor,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: borderColor, width: 1),
+            color: context.appSurface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: context.appBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: isDarkMode ? 0.2 : 0.03),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withValues(
+                  alpha: context.isDarkMode ? 0.18 : 0.05,
+                ),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: ClipRRect(
-            // 替代 clipBehavior: Clip.antiAlias
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 图片区域
                 Expanded(
                   child: Stack(
-                    fit: StackFit.expand, // 优化：占满容器，减少布局计算
+                    fit: StackFit.expand,
                     children: [
                       Hero(
                         tag: 'product-image-${product.id}',
@@ -59,15 +51,15 @@ class CoffeeCard extends StatelessWidget {
                             product.imageUrl,
                           ),
                           fit: BoxFit.cover,
-                          memCacheWidth: 350, // 性能优化：进一步适配卡片尺寸，减少内存占用
-                          maxWidthDiskCache: 600, // 性能优化：限制磁盘缓存尺寸
+                          memCacheWidth: 350,
+                          maxWidthDiskCache: 600,
                           placeholder: (context, url) => const ShimmerLoading(
                             width: double.infinity,
                             height: double.infinity,
                             borderRadius: 0,
                           ),
                           errorWidget: (context, url, error) => ColoredBox(
-                            color: context.appBackground,
+                            color: context.appSurfaceSubtle,
                             child: Icon(
                               Icons.coffee,
                               color: context.appTextMuted,
@@ -80,11 +72,11 @@ class CoffeeCard extends StatelessWidget {
                           color: Colors.black45,
                           child: Center(
                             child: Text(
-                              "SOLD OUT",
+                              'SOLD OUT',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
-                                fontWeight: FontWeight.w900,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
@@ -93,7 +85,7 @@ class CoffeeCard extends StatelessWidget {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -105,9 +97,9 @@ class CoffeeCard extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontWeight: FontWeight.w900,
+                                fontWeight: FontWeight.w700,
                                 fontSize: 14,
-                                color: textMainColor,
+                                color: context.appTextMain,
                               ),
                             ),
                           ),
@@ -115,32 +107,46 @@ class CoffeeCard extends StatelessWidget {
                             valueListenable:
                                 FavoriteService().favoritesNotifier,
                             builder: (context, favorites, child) {
-                              final bool isFavorited = favorites.any(
+                              final isFavorited = favorites.any(
                                 (f) => f.product.id == product.id,
                               );
                               if (!isFavorited) return const SizedBox.shrink();
-                              return const Icon(
+                              return Icon(
                                 Icons.favorite,
-                                color: Colors.redAccent,
-                                size: 14,
+                                color: context.appDanger,
+                                size: 16,
                               );
                             },
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            "RM ${product.price.toStringAsFixed(2)}",
+                            'RM ${product.price.toStringAsFixed(2)}',
                             style: TextStyle(
-                              color: primaryColor,
-                              fontWeight: FontWeight.w900,
+                              color: context.appPrimary,
+                              fontWeight: FontWeight.w700,
                               fontSize: 13,
                             ),
                           ),
-                          Icon(Icons.add_circle, color: primaryColor, size: 24),
+                          Container(
+                            height: 28,
+                            width: 28,
+                            decoration: BoxDecoration(
+                              color: context.appDarkAction,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.add,
+                              color: context.isDarkMode
+                                  ? AppColorsDark.background
+                                  : Colors.white,
+                              size: 18,
+                            ),
+                          ),
                         ],
                       ),
                     ],

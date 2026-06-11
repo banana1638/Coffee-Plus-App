@@ -157,7 +157,9 @@ class CartIndexScreenState extends State<CartIndexScreen> {
       if (!mounted) return;
       final isValid = result['valid'] == true;
       setState(() {
-        _appliedCouponCode = isValid ? result['code']?.toString() ?? code : null;
+        _appliedCouponCode = isValid
+            ? result['code']?.toString() ?? code
+            : null;
         _couponDiscount = isValid
             ? double.tryParse(result['discount']?.toString() ?? '0') ?? 0.0
             : 0.0;
@@ -222,10 +224,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
 
       final result = await CoffeeLoadingOverlay.show(
         context,
-        _apiService.checkoutWithOz(
-          useOzIds,
-          couponCode: _appliedCouponCode,
-        ),
+        _apiService.checkoutWithOz(useOzIds, couponCode: _appliedCouponCode),
       );
 
       if (mounted) {
@@ -251,12 +250,12 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         title: Text(
           'My Cart',
           style: TextStyle(
-            fontWeight: FontWeight.w900,
-            fontSize: 24,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
             color: context.appTextMain,
           ),
         ),
-        centerTitle: true,
+        centerTitle: false,
         automaticallyImplyLeading: false,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -278,7 +277,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                     child: _cartItems.isEmpty
                         ? const EmptyState()
                         : ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
                             itemCount: _cartItems.length,
                             itemBuilder: (context, index) {
                               final item = _cartItems[index];
@@ -335,7 +334,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red : context.appPrimary,
+        backgroundColor: isError ? context.appDanger : context.appPrimary,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -364,16 +363,17 @@ class OzBalanceHeader extends StatelessWidget {
     double progress = (totalOz > 0) ? remainingOz / totalOz : 0;
 
     return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: context.appSurface,
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.appBorder),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -390,7 +390,7 @@ class OzBalanceHeader extends StatelessWidget {
                       "TANK OZ",
                       style: TextStyle(
                         fontSize: 10,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w600,
                         color: context.appTextMuted,
                         letterSpacing: 1.2,
                       ),
@@ -400,7 +400,7 @@ class OzBalanceHeader extends StatelessWidget {
                       "${remainingOz.toInt()} / ${totalOz.toInt()} OZ",
                       style: TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w600,
                         color: context.appPrimary,
                       ),
                     ),
@@ -421,7 +421,7 @@ class OzBalanceHeader extends StatelessWidget {
                       "BALANCE",
                       style: TextStyle(
                         fontSize: 10,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w600,
                         color: context.appTextMuted,
                         letterSpacing: 1.2,
                       ),
@@ -431,7 +431,7 @@ class OzBalanceHeader extends StatelessWidget {
                       "RM ${cashBalance.toStringAsFixed(2)}",
                       style: TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w600,
                         color: context.appTextMain,
                       ),
                     ),
@@ -475,11 +475,11 @@ class CartItemTile extends StatelessWidget {
     return Opacity(
       opacity: canToggle ? 1.0 : 0.4,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(20),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: context.appSurface,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: context.appBorder),
         ),
         child: Row(
@@ -497,7 +497,7 @@ class CartItemTile extends StatelessWidget {
                   Text(
                     item.product.name,
                     style: TextStyle(
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                       fontSize: 16,
                       color: context.appTextMain,
                     ),
@@ -527,9 +527,9 @@ class CartItemTile extends StatelessWidget {
               ),
             ),
             IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.delete_outline,
-                color: Colors.red,
+                color: context.appDanger,
                 size: 20,
               ),
               onPressed: onRemove,
@@ -647,10 +647,10 @@ class BottomCheckout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(30, 20, 30, 40),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
       decoration: BoxDecoration(
-        color: context.appSurface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
+        color: context.isDarkMode ? context.appSurface : AppColors.darkAction,
+        border: Border(top: BorderSide(color: context.appBorder)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -662,7 +662,7 @@ class BottomCheckout extends StatelessWidget {
                 "${totalOzUsed.toInt()} OZ WILL BE DEDUCTED",
                 style: TextStyle(
                   color: context.appPrimary,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   fontSize: 12,
                   letterSpacing: 0.5,
                 ),
@@ -686,8 +686,10 @@ class BottomCheckout extends StatelessWidget {
                 'Total Pay',
                 style: TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: context.appTextMuted,
+                  fontWeight: FontWeight.w600,
+                  color: context.isDarkMode
+                      ? context.appTextMuted
+                      : Colors.white.withValues(alpha: 0.65),
                 ),
               ),
               TweenAnimationBuilder<double>(
@@ -698,8 +700,10 @@ class BottomCheckout extends StatelessWidget {
                     "RM ${value.toStringAsFixed(2)}",
                     style: TextStyle(
                       fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: context.appTextMain,
+                      fontWeight: FontWeight.w700,
+                      color: context.isDarkMode
+                          ? context.appTextMain
+                          : Colors.white,
                     ),
                   );
                 },
@@ -714,17 +718,19 @@ class BottomCheckout extends StatelessWidget {
                 Text(
                   "Subtotal RM ${totalCashPrice.toStringAsFixed(2)}",
                   style: TextStyle(
-                    color: context.appTextMuted,
+                    color: context.isDarkMode
+                        ? context.appTextMuted
+                        : Colors.white.withValues(alpha: 0.6),
                     fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
                   "- RM ${couponDiscount.toStringAsFixed(2)}",
-                  style: const TextStyle(
-                    color: Colors.green,
+                  style: TextStyle(
+                    color: context.appSuccess,
                     fontSize: 12,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -735,17 +741,17 @@ class BottomCheckout extends StatelessWidget {
             onPressed: (isLoading || isCartEmpty) ? null : onCheckout,
             style: ElevatedButton.styleFrom(
               backgroundColor: context.appPrimary,
-              minimumSize: const Size(double.infinity, 60),
+              minimumSize: const Size(double.infinity, 52),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
             child: const Text(
               'CHECKOUT NOW',
               style: TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0,
               ),
             ),
           ),
@@ -788,7 +794,7 @@ class CouponInputCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: hasAppliedCoupon
-              ? Colors.green.withValues(alpha: 0.35)
+              ? context.appSuccess.withValues(alpha: 0.35)
               : context.appBorder,
         ),
       ),
@@ -847,7 +853,7 @@ class CouponInputCard extends StatelessWidget {
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w900,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                       ),
@@ -862,7 +868,9 @@ class CouponInputCard extends StatelessWidget {
                   hasAppliedCoupon
                       ? Icons.check_circle_outline
                       : Icons.info_outline,
-                  color: hasAppliedCoupon ? Colors.green : context.appTextMuted,
+                  color: hasAppliedCoupon
+                      ? context.appSuccess
+                      : context.appTextMuted,
                   size: 16,
                 ),
                 const SizedBox(width: 6),
@@ -872,7 +880,7 @@ class CouponInputCard extends StatelessWidget {
                         "Coupon $couponCode applied. Saved RM ${discount.toStringAsFixed(2)}",
                     style: TextStyle(
                       color: hasAppliedCoupon
-                          ? Colors.green
+                          ? context.appSuccess
                           : context.appTextMuted,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
