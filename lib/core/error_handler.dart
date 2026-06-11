@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 class ErrorHandler {
   ErrorHandler._();
 
@@ -18,8 +20,12 @@ class ErrorHandler {
           if (statusCode == 401) return 'Session expired. Please login again.';
           if (statusCode == 403) return 'You do not have permission to do this.';
           if (statusCode == 404) return 'Resource not found.';
-          if (statusCode == 422) return 'Invalid input. Please check your details.';
-          if (statusCode != null && statusCode >= 500) return 'Server error. Please try again later.';
+          if (statusCode == 422) {
+            return 'Invalid input. Please check your details.';
+          }
+          if (statusCode != null && statusCode >= 500) {
+            return 'Server error. Please try again later.';
+          }
           return 'Request failed. Please try again.';
         default:
           return 'Network error. Please try again.';

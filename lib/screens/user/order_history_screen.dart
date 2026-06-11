@@ -67,7 +67,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         context,
         _apiService.cancelOrder(orderId),
       );
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result['message'] ?? 'Order cancelled.'),

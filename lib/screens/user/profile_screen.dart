@@ -6,6 +6,8 @@ import '../../models/user_model.dart';
 import '../../widgets/auth_modal.dart';
 import '../../widgets/coffee_loading_overlay.dart';
 import 'order_history_screen.dart';
+import '../../core/error_handler.dart';
+import '../../core/validators.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});

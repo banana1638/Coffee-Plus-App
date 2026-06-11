@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../models/favorite_model.dart';
 import '../../services/favorite_service.dart';
 import '../../widgets/auth_modal.dart';
+import '../../core/error_handler.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   static Future<void> show(
@@ -149,7 +150,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
       if (mounted) {
         HapticFeedback.heavyImpact();
-        _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+        _showSnackBar("Added to cart successfully!", isError: false);
         Navigator.pop(context);
       }
     } catch (e) {

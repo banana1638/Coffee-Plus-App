@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'coffee_loading_overlay.dart';
 import '../services/api_service.dart';
 import '../core/app_colors.dart';
+import '../core/validators.dart';
 
 class AuthModal extends StatefulWidget {
   final bool initialIsLogin;
@@ -33,7 +34,7 @@ class _AuthModalState extends State<AuthModal> {
   DateTime? _lockedUntil;
 
   bool get _isLockedOut {
-    if (_lockedUntil = null) return false;
+    if (_lockedUntil == null) return false;
     return DateTime.now().isBefore(_lockedUntil!);
   }
 
@@ -66,20 +67,33 @@ class _AuthModalState extends State<AuthModal> {
       return;
     }
 
-    if (isLogin){
+    if (isLogin) {
       if (password.isEmpty) {
         _showError('Password is required');
         return;
-      } else {
-        final nameError = Validators.name(name);
-        if (nameError != null) { _showError(nameError); return; }
-
-        final passwordError = Validators.password(password);
-        if (passwordError != null) {_showError(passwordError); return; }
-
-        final confirmPasswordError = Validators.confirmPassword(confirmPassword, password);
-        if (confirmPasswordError != null) {_showError(confirmPasswordError); return; }
       }
+    } else {
+      final nameError = Validators.name(name);
+      if (nameError != null) {
+        _showError(nameError);
+        return;
+      }
+
+      final passwordError = Validators.password(password);
+      if (passwordError != null) {
+        _showError(passwordError);
+        return;
+      }
+
+      final confirmPasswordError = Validators.confirmPassword(
+        confirmPassword,
+        password,
+      );
+      if (confirmPasswordError != null) {
+        _showError(confirmPasswordError);
+        return;
+      }
+    }
 
     setState(() => _isLoading = true);
 

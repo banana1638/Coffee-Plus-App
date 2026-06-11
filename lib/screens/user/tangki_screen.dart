@@ -10,6 +10,7 @@ import '../../models/transaction_model.dart';
 import '../../models/user_model.dart';
 import 'transaction_history_screen.dart';
 import 'order_detail_screen.dart';
+import '../../core/error_handler.dart';
 
 class TangkiScreen extends StatefulWidget {
   const TangkiScreen({super.key});
@@ -84,7 +85,10 @@ class TangkiScreenState extends State<TangkiScreen> {
     if (amount <= 0) return;
 
     if (amount > balance) {
-      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+      _showSnackBar(
+        "Insufficient balance to perform this refill.",
+        isError: true,
+      );
       return;
     }
 

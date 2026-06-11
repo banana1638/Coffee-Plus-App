@@ -7,6 +7,7 @@ import '../../models/user_model.dart';
 import '../../services/biometric_service.dart';
 import '../../widgets/auth_modal.dart';
 import '../../widgets/coffee_loading_overlay.dart';
+import '../../core/error_handler.dart';
 
 class CartIndexScreen extends StatefulWidget {
   const CartIndexScreen({super.key});
@@ -72,7 +73,7 @@ class CartIndexScreenState extends State<CartIndexScreen> {
       }
     } catch (e) {
       // ✅ 替换所有 "$e" 的错误显示
-_showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

@@ -82,19 +82,22 @@ class ProfileService {
   }
 
   Future<Map<String, dynamic>> deleteAccount(String password) async {
-    final response = await _client.dio.post(
-      '/profile/delete',
-      data: {'password': password},
-    );
-    if(response.statusCode == 200 || response.statusCode == 204){
-      await _client.clearAuthState();
-    }
+    try {
+      final response = await _client.dio.post(
+        '/profile/delete',
+        data: {'password': password},
+      );
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        await _client.clearAuthState();
+      }
 
-    return response.data ?? {};
-  } on DioException catch (e) {
-    final message = e.response?.data['message']
-        ?? e.response?.data['error']
-        ?? "Account deletion failed";
-    throw Exception(message);
+      return response.data ?? {};
+    } on DioException catch (e) {
+      final message =
+          e.response?.data['message'] ??
+          e.response?.data['error'] ??
+          "Account deletion failed";
+      throw Exception(message);
+    }
   }
 }
