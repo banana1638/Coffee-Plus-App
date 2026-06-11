@@ -19,7 +19,7 @@ class NotificationService with WidgetsBindingObserver {
   bool _isInitialized = false;
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 5;
-  int? _currentSubscribedUserId;
+  String? _currentSubscribedUserId;
 
   // ✅ [新增] 用于指数退避抖动
   final _random = Random();
@@ -166,8 +166,10 @@ class NotificationService with WidgetsBindingObserver {
     if (_apiService.authStateNotifier.value) {
       try {
         final profile = await _apiService.fetchProfile();
-        final userId = profile['user']?['id'];
-        if (userId != null && userId != _currentSubscribedUserId) {
+        final userId = profile['user']?['id']?.toString();
+        if (userId != null &&
+            userId.isNotEmpty &&
+            userId != _currentSubscribedUserId) {
           _unsubscribeAll();
           _subscribeToUserChannel(userId);
           _currentSubscribedUserId = userId;
@@ -181,7 +183,7 @@ class NotificationService with WidgetsBindingObserver {
     }
   }
 
-  void _subscribeToUserChannel(int userId) {
+  void _subscribeToUserChannel(String userId) {
     if (_reverbClient == null) return;
 
     final channelName = "private-App.Models.User.$userId";
@@ -272,7 +274,8 @@ class NotificationService with WidgetsBindingObserver {
   }
 
   /// 遮蔽 ID，只显示前 4 位，用于日志（防止完整 ID 泄露）
-  String _maskId(String id) {
+  String _maskId(String? id) {
+    if (id == null) return 'null';
     if (id.length <= 4) return '****';
     return '${id.substring(0, 4)}****';
   }
