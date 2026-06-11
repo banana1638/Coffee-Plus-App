@@ -21,14 +21,16 @@ class Product {
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
+    final rawPrice = json['base_price'] ?? json['price'];
+
     return Product(
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
       description: json['description'] ?? '',
       imageUrl: json['image_url'] ?? '',
-      price: json['base_price'] is num
-          ? (json['base_price'] as num).toDouble()
-          : double.tryParse(json['base_price']?.toString() ?? '0') ?? 0.0,
+      price: rawPrice is num
+          ? rawPrice.toDouble()
+          : double.tryParse(rawPrice?.toString() ?? '0') ?? 0.0,
 
       isAvailable: json['is_available'] == null
           ? true

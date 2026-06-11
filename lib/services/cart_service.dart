@@ -17,7 +17,8 @@ class CartService {
         return;
       }
       final cartData = await fetchCart();
-      _client.cartCountNotifier.value = (cartData['cartItems'] as List).length;
+      _client.cartCountNotifier.value =
+          (cartData['cartItems'] as List? ?? []).length;
     } catch (e) {
       // Background count refresh should not interrupt the UI.
     }
@@ -25,7 +26,7 @@ class CartService {
 
   Future<Map<String, dynamic>> fetchCart() async {
     final response = await _client.dio.get('/cart');
-    if (response.statusCode == 200) return response.data;
+    if (response.statusCode == 200) return _responseData(response.data);
     throw Exception('Fetch Cart Error');
   }
 
@@ -99,5 +100,10 @@ class CartService {
     final values = List<int>.generate(16, (_) => random.nextInt(256));
     final nonce = values.map((value) => value.toRadixString(16).padLeft(2, '0'));
     return 'checkout-${DateTime.now().microsecondsSinceEpoch}-${nonce.join()}';
+  }
+
+  Map<String, dynamic> _responseData(dynamic responseData) {
+    final data = Map<String, dynamic>.from(responseData as Map);
+    return Map<String, dynamic>.from((data['data'] as Map?) ?? data);
   }
 }

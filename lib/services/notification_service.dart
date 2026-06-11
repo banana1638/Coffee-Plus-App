@@ -57,11 +57,18 @@ class NotificationService with WidgetsBindingObserver {
         >()
         ?.requestNotificationsPermission();
 
-    _connectReverb();
+    _apiService.authStateNotifier.removeListener(_handleAuthChange);
+    _apiService.authStateNotifier.addListener(_handleAuthChange);
+    _handleAuthChange();
     _isInitialized = true;
   }
 
   Future<void> _connectReverb() async {
+    if (_reverbClient != null) {
+      await _reverbClient?.connect();
+      return;
+    }
+
     try {
       _reverbClient = ReverbClient.instance(
         host: AppConfig.reverbHost,
@@ -124,9 +131,6 @@ class NotificationService with WidgetsBindingObserver {
         AppLogger.error('Reverb initial connect failed', error: e);
       }
 
-      _apiService.authStateNotifier.removeListener(_handleAuthChange);
-      _apiService.authStateNotifier.addListener(_handleAuthChange);
-      _handleAuthChange();
     } catch (e) {
       AppLogger.error('Reverb init failed', error: e);
     }
@@ -136,7 +140,9 @@ class NotificationService with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     AppLogger.debug('App lifecycle: $state');
 
-    if (state == AppLifecycleState.resumed && _reverbClient != null) {
+    if (state == AppLifecycleState.resumed &&
+        _apiService.authStateNotifier.value &&
+        _reverbClient != null) {
       AppLogger.debug('App resumed: reconnecting Reverb...');
       _reverbClient!.connect();
     }
@@ -145,6 +151,7 @@ class NotificationService with WidgetsBindingObserver {
   void _handleAuthChange() async {
     if (_apiService.authStateNotifier.value) {
       try {
+        await _connectReverb();
         final profile = await _apiService.fetchProfile();
         final userId = profile['user']?['id']?.toString();
         if (userId != null &&

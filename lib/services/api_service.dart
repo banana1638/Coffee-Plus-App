@@ -313,7 +313,11 @@ class ApiService {
   Future<List<Map<String, dynamic>>> fetchFavorites() async {
     final response = await _dio.get('/favorites');
     if (response.statusCode == 200) {
-      return List<Map<String, dynamic>>.from(response.data);
+      final data = response.data;
+      final favorites = data is Map ? data['data'] : data;
+      return (favorites as List? ?? [])
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
     }
     throw Exception('Fetch Favorites Error');
   }
@@ -336,7 +340,8 @@ class ApiService {
       },
     );
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return response.data;
+      final data = Map<String, dynamic>.from(response.data as Map);
+      return Map<String, dynamic>.from((data['data'] as Map?) ?? data);
     }
     throw Exception('Add Favorite Error');
   }
