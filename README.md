@@ -254,6 +254,113 @@ flutter build apk --release --dart-define-from-file=.env.production.json
 
 VS Code users can run **Coffee Plus Local Android** from the Run and Debug panel. It reads `.env.local.json`, which is ignored by Git.
 
+
+### Complete Local Startup
+
+Use this flow when setting up the project on a new machine.
+
+#### 1. Start the Laravel backend
+
+If you use Laragon, keep the backend in:
+
+```powershell
+C:\laragon\www\Coffee-Plus
+```
+
+Start Laragon, then start Apache/Nginx and MySQL. The phone must be able to reach the backend through your PC LAN IP, not `localhost`.
+
+Typical local URLs:
+
+```text
+http://192.168.1.x/Coffee-Plus/public/api
+http://192.168.1.x/Coffee-Plus/public/images/products
+http://192.168.1.x/Coffee-Plus/public/broadcasting/auth
+```
+
+Verify the API before running Flutter:
+
+```powershell
+Invoke-WebRequest http://192.168.1.x/Coffee-Plus/public/api/dashboard -UseBasicParsing
+```
+
+If images do not load, open the `image_url` values returned by `/api/dashboard`. Each image URL should return HTTP `200`.
+
+#### 2. Install Flutter dependencies
+
+```powershell
+flutter pub get
+```
+
+#### 3. Create local runtime config
+
+```powershell
+copy .env.example.json .env.local.json
+```
+
+Edit `.env.local.json` and replace `192.168.1.x` with your PC LAN IP:
+
+```json
+{
+  "COFFEE_API_BASE_URL": "http://192.168.1.x/Coffee-Plus/public/api",
+  "COFFEE_PUBLIC_ORIGIN": "http://192.168.1.x/Coffee-Plus/public",
+  "COFFEE_STORAGE_ORIGIN": "http://192.168.1.x/Coffee-Plus/public",
+  "COFFEE_REVERB_HOST": "192.168.1.x",
+  "COFFEE_REVERB_PORT": 8080,
+  "COFFEE_REVERB_APP_KEY": "your_reverb_app_key",
+  "COFFEE_REVERB_TLS": false,
+  "COFFEE_REVERB_AUTH_ENDPOINT": "http://192.168.1.x/Coffee-Plus/public/broadcasting/auth"
+}
+```
+
+`.env.local.json` is ignored by Git, so every developer can keep their own local IP and Reverb key.
+
+#### 4. Run on Android
+
+Connect the phone, enable USB debugging, then check the device:
+
+```powershell
+adb devices -l
+flutter devices
+```
+
+Run:
+
+```powershell
+flutter run --dart-define-from-file=.env.local.json
+```
+
+If multiple devices are connected:
+
+```powershell
+flutter run -d <device-id> --dart-define-from-file=.env.local.json
+```
+
+VS Code users can run **Coffee Plus Local Android** from the Run and Debug panel.
+
+#### 5. Build APK
+
+Debug APK:
+
+```powershell
+flutter build apk --debug --dart-define-from-file=.env.local.json
+```
+
+Production APK:
+
+```powershell
+copy .env.production.example.json .env.production.json
+flutter build apk --release --dart-define-from-file=.env.production.json
+```
+
+Production values should use HTTPS/WSS and a real domain.
+
+#### Troubleshooting
+
+- `COFFEE_API_BASE_URL must be provided`: run with `--dart-define-from-file=.env.local.json`.
+- Phone cannot connect to API: use the PC LAN IP instead of `localhost`, and make sure Laragon/Apache/MySQL are running.
+- Images do not load: open the API `image_url` in a browser. It must return HTTP `200`.
+- Android device is `offline` or `unauthorized`: unplug/replug the phone, accept the USB debugging prompt, then run `adb devices -l` again.
+- Reverb private channel returns `403`: this is expected before login. After login, confirm the backend Reverb key, host, port, and auth endpoint match `.env.local.json`.
 ---
 
 ## 📁 Project Structure
