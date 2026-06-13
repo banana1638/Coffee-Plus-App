@@ -23,7 +23,7 @@ class AppLogger {
       developer.log(
         message,
         name: 'CoffeePlus.error',
-        error: error == null ? null : error.toString(),
+        error: error?.toString(),
       );
     }
   }

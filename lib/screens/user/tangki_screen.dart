@@ -1,6 +1,7 @@
 import 'package:coffee_plus_app/widgets/auth_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/app_colors.dart';
 import '../../widgets/tank_visualization.dart';
 import '../../widgets/coffee_loading_overlay.dart';
@@ -84,14 +85,6 @@ class TangkiScreenState extends State<TangkiScreen> {
   void _handleRefill(double amount, double balance) async {
     if (amount <= 0) return;
 
-    if (amount > balance) {
-      _showSnackBar(
-        "Insufficient balance to perform this refill.",
-        isError: true,
-      );
-      return;
-    }
-
     final bool authenticated = await BiometricService.authenticate();
     if (!mounted) return;
     if (!authenticated) {
@@ -103,8 +96,20 @@ class TangkiScreenState extends State<TangkiScreen> {
     try {
       final result = await _apiService.refillTangki(amount);
       if (!mounted) return;
-      _showSnackBar(result['message'] ?? "Refill successful!");
-      refreshData();
+      final redirectUrl = result['redirect_url']?.toString();
+      if (redirectUrl == null || redirectUrl.isEmpty) {
+        throw Exception('Payment link was not provided.');
+      }
+
+      final launched = await launchUrl(
+        Uri.parse(redirectUrl),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        throw Exception('Unable to open payment link.');
+      }
+
+      _showSnackBar("Opening secure payment checkout...");
     } catch (e) {
       if (!mounted) return;
       _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
@@ -375,7 +380,7 @@ class RefillSection extends StatelessWidget {
       child: Column(
         children: [
           const Text(
-            "SELECT THE IRRIGATION AMOUNT (1 RM = 10 OZ)",
+            "SELECT TOP-UP AMOUNT",
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 10,

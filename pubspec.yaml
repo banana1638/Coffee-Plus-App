@@ -37,6 +37,7 @@ dependencies:
   pusher_reverb_flutter: ^0.0.4
   flutter_local_notifications: ^17.2.3
   shared_preferences: ^2.5.4
+  url_launcher: ^6.3.1
   local_auth: ^2.3.0
   local_auth_android: any
   local_auth_darwin: any
