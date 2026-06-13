@@ -492,6 +492,9 @@ class GuestHeader extends StatelessWidget {
           onPressed: () => AuthModal.show(context),
           style: ElevatedButton.styleFrom(
             backgroundColor: context.appPrimary,
+            minimumSize: const Size(82, 40),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),

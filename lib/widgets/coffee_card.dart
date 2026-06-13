@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../core/app_colors.dart';
 import '../models/favorite_model.dart';
 import '../models/product_model.dart';
+import '../services/app_logger.dart';
 import '../services/api_service.dart';
 import '../services/favorite_service.dart';
 import 'shimmer_loading.dart';
@@ -16,6 +17,8 @@ class CoffeeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = ApiService().getFullImageUrl(product.imageUrl);
+
     return RepaintBoundary(
       child: InkWell(
         onTap: onTap,
@@ -47,9 +50,7 @@ class CoffeeCard extends StatelessWidget {
                       Hero(
                         tag: 'product-image-${product.id}',
                         child: CachedNetworkImage(
-                          imageUrl: ApiService().getFullImageUrl(
-                            product.imageUrl,
-                          ),
+                          imageUrl: imageUrl,
                           fit: BoxFit.cover,
                           memCacheWidth: 350,
                           maxWidthDiskCache: 600,
@@ -58,13 +59,20 @@ class CoffeeCard extends StatelessWidget {
                             height: double.infinity,
                             borderRadius: 0,
                           ),
-                          errorWidget: (context, url, error) => ColoredBox(
-                            color: context.appSurfaceSubtle,
-                            child: Icon(
-                              Icons.coffee,
-                              color: context.appTextMuted,
-                            ),
-                          ),
+                          errorWidget: (context, url, error) {
+                            AppLogger.error(
+                              'Product card image failed '
+                              'productId=${product.id} url=$url',
+                              error: error,
+                            );
+                            return ColoredBox(
+                              color: context.appSurfaceSubtle,
+                              child: Icon(
+                                Icons.coffee,
+                                color: context.appTextMuted,
+                              ),
+                            );
+                          },
                         ),
                       ),
                       if (!product.isAvailable)

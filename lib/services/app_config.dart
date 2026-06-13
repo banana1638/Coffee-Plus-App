@@ -10,6 +10,10 @@ class AppConfig {
   static const _reverbAuthEndpoint = String.fromEnvironment(
     'COFFEE_REVERB_AUTH_ENDPOINT',
   );
+  static const verboseApiLogs = bool.fromEnvironment(
+    'COFFEE_VERBOSE_API_LOGS',
+    defaultValue: true,
+  );
 
   static const reverbPort = int.fromEnvironment(
     'COFFEE_REVERB_PORT',

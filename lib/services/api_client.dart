@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'app_config.dart';
+import 'app_logger.dart';
 import 'timed_cache.dart';
 
 abstract class ApiClientContract {
@@ -66,6 +67,10 @@ class ApiClient implements ApiClientContract {
     dio.options.baseUrl = baseUrl;
     dio.options.connectTimeout = const Duration(seconds: 10);
     dio.options.receiveTimeout = const Duration(seconds: 10);
+    _logApiDebug(
+      'config baseUrl=$baseUrl publicOrigin=${AppConfig.publicOrigin} '
+      'storageOrigin=${AppConfig.storageOrigin} imageBase=$baseImageUrl',
+    );
 
     dio.interceptors.add(
       InterceptorsWrapper(
@@ -77,9 +82,29 @@ class ApiClient implements ApiClientContract {
           options.headers['Accept-Language'] = 'en';
           options.headers['Accept'] = 'application/json';
           options.headers['Content-Type'] = 'application/json';
+          _logApiDebug(
+            'request ${options.method} ${options.uri} '
+            'query=${_summarizeValue(options.queryParameters)} '
+            'data=${_summarizeValue(options.data)} '
+            'auth=${token == null ? "none" : "present"}',
+          );
           return handler.next(options);
         },
+        onResponse: (response, handler) {
+          _logApiDebug(
+            'response ${response.statusCode} '
+            '${response.requestOptions.method} ${response.requestOptions.uri} '
+            'data=${_summarizeValue(response.data)}',
+          );
+          return handler.next(response);
+        },
         onError: (DioException e, handler) async {
+          _logApiDebug(
+            'error ${e.response?.statusCode ?? "no-response"} '
+            '${e.requestOptions.method} ${e.requestOptions.uri} '
+            'type=${e.type.name} message=${e.message} '
+            'data=${_summarizeValue(e.response?.data)}',
+          );
           if (e.response?.statusCode == 401) {
             await clearAuthState();
           }
@@ -151,20 +176,28 @@ class ApiClient implements ApiClientContract {
 
   @override
   String getFullImageUrl(dynamic relativePath) {
-    if (relativePath == null || relativePath.toString().isEmpty) return "";
+    if (relativePath == null || relativePath.toString().isEmpty) {
+      _logApiDebug('image url empty from=$relativePath');
+      return "";
+    }
     String path = relativePath.toString().trim().replaceAll('\\', '/');
     final uri = Uri.tryParse(path);
     if (uri != null && uri.hasScheme) {
-      return _isAllowedImageUrl(path) ? Uri.encodeFull(path) : "";
+      final resolved = _isAllowedImageUrl(path) ? Uri.encodeFull(path) : "";
+      _logImageUrl(relativePath, resolved, allowed: resolved.isNotEmpty);
+      return resolved;
     }
+    late final String resolved;
     if (path.startsWith('/storage/')) {
-      return Uri.encodeFull('${AppConfig.storageOrigin}$path');
+      resolved = Uri.encodeFull('${AppConfig.storageOrigin}$path');
+    } else if (path.startsWith('storage/')) {
+      resolved = Uri.encodeFull('${AppConfig.storageOrigin}/$path');
+    } else {
+      if (path.contains('/')) path = path.split('/').last;
+      resolved = '$baseImageUrl${Uri.encodeComponent(path)}';
     }
-    if (path.startsWith('storage/')) {
-      return Uri.encodeFull('${AppConfig.storageOrigin}/$path');
-    }
-    if (path.contains('/')) path = path.split('/').last;
-    return '$baseImageUrl${Uri.encodeComponent(path)}';
+    _logImageUrl(relativePath, resolved);
+    return resolved;
   }
 
   bool _isAllowedImageUrl(String value) {
@@ -188,5 +221,33 @@ class ApiClient implements ApiClientContract {
       result = result.substring(0, result.length - 1);
     }
     return result;
+  }
+
+  void _logApiDebug(String message) {
+    if (AppConfig.verboseApiLogs) {
+      AppLogger.debug('[api] $message');
+    }
+  }
+
+  void _logImageUrl(
+    dynamic source,
+    String resolved, {
+    bool allowed = true,
+  }) {
+    _logApiDebug(
+      'image-url allowed=$allowed source=${_summarizeValue(source)} '
+      'resolved=$resolved',
+    );
+  }
+
+  String _summarizeValue(dynamic value) {
+    if (value == null) return 'null';
+    if (value is Map) {
+      final keys = value.keys.take(12).join(',');
+      return 'Map(len=${value.length}, keys=[$keys])';
+    }
+    if (value is Iterable) return 'List(len=${value.length})';
+    final text = value.toString().replaceAll(RegExp(r'\s+'), ' ');
+    return text.length > 180 ? '${text.substring(0, 180)}...' : text;
   }
 }

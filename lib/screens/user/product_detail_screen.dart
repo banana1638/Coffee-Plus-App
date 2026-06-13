@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/app_colors.dart';
 import '../../models/product_model.dart';
+import '../../services/app_logger.dart';
 import '../../services/api_service.dart';
 import 'package:flutter/services.dart';
 import '../../models/favorite_model.dart';
@@ -409,6 +410,7 @@ class ProductAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final FavoriteService favoriteService = FavoriteService();
+    final imageUrl = ApiService().getFullImageUrl(product.imageUrl);
     return SliverAppBar(
       expandedHeight: 320,
       pinned: true,
@@ -419,9 +421,20 @@ class ProductAppBar extends StatelessWidget {
           child: Hero(
             tag: 'product-image-${product.id}',
             child: CachedNetworkImage(
-              imageUrl: ApiService().getFullImageUrl(product.imageUrl),
+              imageUrl: imageUrl,
               fit: BoxFit.cover,
               memCacheWidth: 800,
+              errorWidget: (context, url, error) {
+                AppLogger.error(
+                  'Product detail image failed '
+                  'productId=${product.id} url=$url',
+                  error: error,
+                );
+                return ColoredBox(
+                  color: context.appSurfaceSubtle,
+                  child: Icon(Icons.coffee, color: context.appTextMuted),
+                );
+              },
             ),
           ),
         ),

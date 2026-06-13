@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
+import 'app_config.dart';
 import 'app_logger.dart';
 import 'auth_service.dart';
 import 'cart_service.dart';
@@ -142,6 +143,7 @@ class ApiService {
         );
 
         if (response.statusCode == 200) {
+          _logDashboardPayload(response.data);
           // ✅ [修改] _cache[key] = value  →  _cache.set(key, value, ttl: ...)
           //    Dashboard 数据 2 分钟后过期（比默认 5 分钟短，因为菜单可能更新）
           if (generation == _dashboardRefreshGeneration) {
@@ -471,6 +473,48 @@ class ApiService {
 
   String getFullImageUrl(dynamic relativePath) {
     return _client.getFullImageUrl(relativePath);
+  }
+
+  void _logDashboardPayload(dynamic data) {
+    if (!AppConfig.verboseApiLogs) return;
+    if (data is! Map) {
+      AppLogger.debug('dashboard payload type=${data.runtimeType}');
+      return;
+    }
+
+    final menus = data['menus'];
+    final categoryCount = menus is Iterable ? menus.length : 0;
+    var productCount = 0;
+    Map<dynamic, dynamic>? firstProduct;
+
+    if (menus is Iterable) {
+      for (final menu in menus) {
+        if (menu is! Map) continue;
+        final products = menu['products'];
+        if (products is Iterable) {
+          productCount += products.length;
+          if (firstProduct == null && products.isNotEmpty) {
+            final first = products.first;
+            if (first is Map) firstProduct = first;
+          }
+        }
+      }
+    }
+
+    AppLogger.debug(
+      'dashboard payload keys=${data.keys.take(12).join(',')} '
+      'categories=$categoryCount products=$productCount',
+    );
+
+    if (firstProduct != null) {
+      AppLogger.debug(
+        'dashboard firstProduct keys=${firstProduct.keys.take(16).join(',')} '
+        'id=${firstProduct['id']} name=${firstProduct['name']} '
+        'image_url=${firstProduct['image_url']} '
+        'thumbnail=${firstProduct['thumbnail_image_url']} '
+        'detail=${firstProduct['detail_image_url']}',
+      );
+    }
   }
 
   Future<bool> checkConnection() async {
