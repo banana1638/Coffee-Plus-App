@@ -155,12 +155,16 @@ class ApiClient implements ApiClientContract {
     String path = relativePath.toString().trim().replaceAll('\\', '/');
     final uri = Uri.tryParse(path);
     if (uri != null && uri.hasScheme) {
-      return _isAllowedImageUrl(path) ? path : "";
+      return _isAllowedImageUrl(path) ? Uri.encodeFull(path) : "";
     }
-    if (path.startsWith('/storage/')) return '${AppConfig.storageOrigin}$path';
-    if (path.startsWith('storage/')) return '${AppConfig.storageOrigin}/$path';
+    if (path.startsWith('/storage/')) {
+      return Uri.encodeFull('${AppConfig.storageOrigin}$path');
+    }
+    if (path.startsWith('storage/')) {
+      return Uri.encodeFull('${AppConfig.storageOrigin}/$path');
+    }
     if (path.contains('/')) path = path.split('/').last;
-    return "$baseImageUrl$path";
+    return '$baseImageUrl${Uri.encodeComponent(path)}';
   }
 
   bool _isAllowedImageUrl(String value) {
