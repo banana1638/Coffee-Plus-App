@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// Shared logger for debug, profile, and release builds.
+/// Shared logger for non-release diagnostics.
 class AppLogger {
   AppLogger._();
 
@@ -17,11 +17,9 @@ class AppLogger {
   }
 
   static void error(String message, {dynamic error}) {
-    if (kDebugMode) {
+    if (!kReleaseMode) {
       debugPrint('[ERROR] $message');
       if (error != null) debugPrint('       -> $error');
-    } else {
-      debugPrint('[ERROR] $message');
     }
   }
 }

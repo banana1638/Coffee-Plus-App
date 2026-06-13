@@ -60,6 +60,7 @@ class ApiClient implements ApiClientContract {
 
   @override
   String? sessionToken;
+  Future<String?>? _tokenLoadFuture;
 
   ApiClient._internal() {
     dio.options.baseUrl = baseUrl;
@@ -93,13 +94,21 @@ class ApiClient implements ApiClientContract {
   @override
   Future<String?> getToken() async {
     if (sessionToken != null) return sessionToken;
-    return storage.read(key: 'auth_token');
+    _tokenLoadFuture ??= storage.read(key: 'auth_token').then((token) {
+      sessionToken = token;
+      return token;
+    });
+    try {
+      return await _tokenLoadFuture;
+    } finally {
+      _tokenLoadFuture = null;
+    }
   }
 
   @override
   Future<void> persistAuthToken(String token) async {
     await storage.write(key: 'auth_token', value: token);
-    sessionToken = null;
+    sessionToken = token;
   }
 
   @override
@@ -132,6 +141,7 @@ class ApiClient implements ApiClientContract {
   @override
   Future<void> clearAuthState() async {
     sessionToken = null;
+    _tokenLoadFuture = null;
     await storage.delete(key: 'auth_token');
     clearCache();
     cartCountNotifier.value = 0;
@@ -144,10 +154,35 @@ class ApiClient implements ApiClientContract {
     if (relativePath == null || relativePath.toString().isEmpty) return "";
     String path = relativePath.toString().trim().replaceAll('\\', '/');
     final uri = Uri.tryParse(path);
-    if (uri != null && uri.hasScheme) return path;
+    if (uri != null && uri.hasScheme) {
+      return _isAllowedImageUrl(path) ? path : "";
+    }
     if (path.startsWith('/storage/')) return '${AppConfig.storageOrigin}$path';
     if (path.startsWith('storage/')) return '${AppConfig.storageOrigin}/$path';
     if (path.contains('/')) path = path.split('/').last;
     return "$baseImageUrl$path";
+  }
+
+  bool _isAllowedImageUrl(String value) {
+    final normalizedValue = _withoutTrailingSlash(value);
+    return _allowedImageOrigins.any((origin) {
+      final normalizedOrigin = _withoutTrailingSlash(origin);
+      return normalizedValue == normalizedOrigin ||
+          normalizedValue.startsWith('$normalizedOrigin/');
+    });
+  }
+
+  Iterable<String> get _allowedImageOrigins => <String>{
+    AppConfig.publicOrigin,
+    AppConfig.storageOrigin,
+    AppConfig.productImageBaseUrl,
+  };
+
+  String _withoutTrailingSlash(String value) {
+    var result = value.trim();
+    while (result.endsWith('/')) {
+      result = result.substring(0, result.length - 1);
+    }
+    return result;
   }
 }

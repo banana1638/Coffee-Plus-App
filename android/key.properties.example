@@ -1,0 +1,4 @@
+storePassword=change-me
+keyPassword=change-me
+keyAlias=coffee-plus-release
+storeFile=../app/coffee-plus-release.jks
