@@ -240,19 +240,20 @@ flutter run
 The app reads its API endpoint from compile-time environment variables. Use a local define file for development — **never hardcode production URLs in source code**.
 
 ```bash
-# 1. Create your local config from the template
-copy .env.example.json .env.local.json
+# 1. Create your local config from the local-only template
+copy .env.local.example.json .env.local.json
 
 # 2. Edit .env.local.json for your Laravel host/IP
 
 # 3. Run on a connected Android device
 flutter run --dart-define-from-file=.env.local.json
 
-# Production build (use your real domain + HTTPS)
+# Production build (use your real domain + HTTPS/TLS)
+copy .env.production.example.json .env.production.json
 flutter build apk --release --dart-define-from-file=.env.production.json
 ```
 
-VS Code users can run **Coffee Plus Local Android** from the Run and Debug panel. It reads `.env.local.json`, which is ignored by Git.
+`.env.example.json` and `.env.production.example.json` use the exact `COFFEE_*` names required by `AppConfig`. Production configs must use HTTPS endpoints and `COFFEE_REVERB_TLS=true`. VS Code users can run **Coffee Plus Local Android** from the Run and Debug panel. It reads `.env.local.json`, which is ignored by Git.
 
 
 ### Complete Local Startup
@@ -294,7 +295,7 @@ flutter pub get
 #### 3. Create local runtime config
 
 ```powershell
-copy .env.example.json .env.local.json
+copy .env.local.example.json .env.local.json
 ```
 
 Edit `.env.local.json` and replace `192.168.1.x` with your PC LAN IP:
@@ -353,6 +354,8 @@ flutter build apk --release --dart-define-from-file=.env.production.json
 ```
 
 Production values should use HTTPS/WSS and a real domain.
+
+Before building release artifacts, create `android/key.properties` from `android/key.properties.example` and point `storeFile` to a real release keystore outside the repository.
 
 #### Troubleshooting
 
