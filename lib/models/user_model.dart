@@ -1,5 +1,5 @@
 class User {
-  final int? id;
+  final String? id;
   final String name;
   final String email;
   final double balance;
@@ -18,10 +18,10 @@ class User {
       return User(id: null, name: 'GUEST', email: '', balance: 0.0, oz: 0);
     }
 
+    final rawId = json['id']?.toString();
+
     return User(
-      id: json['id'] is int
-          ? json['id']
-          : int.tryParse(json['id']?.toString() ?? ''),
+      id: rawId == null || rawId.isEmpty ? null : rawId,
       name: json['name'] ?? 'GUEST',
       email: json['email'] ?? '',
       balance: json['balance'] is num
@@ -32,4 +32,6 @@ class User {
           : int.tryParse(json['oz']?.toString() ?? '0') ?? 0,
     );
   }
+
+  bool get isGuest => id == null;
 }

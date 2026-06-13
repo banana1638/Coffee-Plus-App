@@ -186,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final user = User.fromJson(
             data['user'] as Map<String, dynamic>? ?? {},
           );
-          final bool isGuest = user.id == 0;
+          final bool isGuest = user.isGuest;
 
           final menusJson = data['menus'] as List? ?? [];
           List<Category> categories = menusJson
