@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
-import 'app_logger.dart'; // ✅ [新增] 替代 debugPrint
+import 'app_logger.dart';
 import 'auth_service.dart';
 import 'cart_service.dart';
 import 'coupon_service.dart';
@@ -155,8 +155,6 @@ class ApiService {
         }
         throw Exception("Status ${response.statusCode}");
       } catch (e) {
-        // ✅ [修改] debugPrint → AppLogger.error
-        //    原因：debugPrint 没有 kDebugMode 检查，在 release 也会输出敏感信息
         AppLogger.error('fetchDashboard failed', error: e);
 
         if (token == null) {

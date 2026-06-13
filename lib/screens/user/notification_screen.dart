@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
+import '../../services/app_logger.dart';
 import '../../widgets/shimmer_loading.dart';
 import 'package:intl/intl.dart';
 
@@ -126,14 +127,10 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         setState(() {
                           if (isSelected) {
                             _selectedIds.remove(notificationId);
-                            debugPrint(
-                              "NotificationScreen: Deselected $notificationId",
-                            );
+                            AppLogger.debug('Notification deselected');
                           } else {
                             _selectedIds.add(notificationId);
-                            debugPrint(
-                              "NotificationScreen: Selected $notificationId",
-                            );
+                            AppLogger.debug('Notification selected');
                           }
                         });
                       } else {
@@ -235,7 +232,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         await _apiService.markNotificationAsRead(notification['id'].toString());
         _refreshNotifications();
       } catch (e) {
-        debugPrint("Error marking notification as read: $e");
+        AppLogger.warning('Mark notification as read failed');
       }
     }
   }

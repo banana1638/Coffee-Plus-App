@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/favorite_model.dart';
 import 'api_service.dart';
+import 'app_logger.dart';
 
 class FavoriteService {
   static final FavoriteService _instance = FavoriteService._internal();
@@ -42,7 +43,7 @@ class FavoriteService {
         favoritesNotifier.value = backendFavorites;
         await _persist();
       } catch (e) {
-        debugPrint("Error syncing favorites from backend: $e");
+        AppLogger.warning('Favorite sync failed');
         // 后端失败时保留本地数据，不做额外更新
       }
     }
@@ -64,7 +65,7 @@ class FavoriteService {
         // Create new item with backend ID
         item = FavoriteItem.fromJson(result);
       } catch (e) {
-        debugPrint("Error saving favorite to backend: $e");
+        AppLogger.warning('Favorite save failed');
         // For now, continue to save locally even if backend fails
       }
     }
@@ -93,7 +94,7 @@ class FavoriteService {
         try {
           await _apiService.removeFavorite(item.id!);
         } catch (e) {
-          debugPrint("Error removing favorite from backend: $e");
+          AppLogger.warning('Favorite remove failed');
         }
       }
 
