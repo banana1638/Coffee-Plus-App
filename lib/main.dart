@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'screens/main_wrapper.dart';
 import 'screens/user/points_mall_screen.dart';
 import 'core/app_theme.dart';
+import 'services/app_logger.dart';
 import 'services/notification_service.dart';
 import 'services/api_service.dart';
 import 'screens/home_screen.dart';
@@ -10,14 +13,22 @@ import 'screens/user/tangki_screen.dart';
 import 'screens/user/profile_screen.dart';
 import 'screens/user/notification_screen.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize services
-  final notificationService = NotificationService();
-  await notificationService.init();
-
   runApp(const MyApp());
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(_initializeDeferredServices());
+  });
+}
+
+Future<void> _initializeDeferredServices() async {
+  try {
+    await NotificationService().init();
+  } catch (e) {
+    AppLogger.error('Deferred service initialization failed', error: e);
+  }
 }
 
 class MyApp extends StatelessWidget {

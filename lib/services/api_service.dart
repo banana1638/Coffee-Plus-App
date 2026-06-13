@@ -2,14 +2,14 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
-import 'app_logger.dart';    // ✅ [新增] 替代 debugPrint
+import 'app_logger.dart'; // ✅ [新增] 替代 debugPrint
 import 'auth_service.dart';
 import 'cart_service.dart';
 import 'coupon_service.dart';
 import 'notification_utils.dart';
 import 'order_service.dart';
 import 'profile_service.dart';
-import 'timed_cache.dart';   // ✅ [新增] 用于 _cache 类型
+import 'timed_cache.dart'; // ✅ [新增] 用于 _cache 类型
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -21,6 +21,11 @@ class ApiService {
   final CouponService _couponService = CouponService();
   final OrderService _orderService = OrderService();
   final ProfileService _profileService = ProfileService();
+  final _dashboardRequests = <String, Future<Map<String, dynamic>>>{};
+  int _dashboardRefreshGeneration = 0;
+  Future<Map<String, dynamic>>? _notificationsRequest;
+  Future<void>? _notificationCountUpdate;
+  int _notificationRefreshGeneration = 0;
 
   ApiService._internal();
 
@@ -62,6 +67,7 @@ class ApiService {
       rememberMe: rememberMe,
     );
     if (result['success'] == true) {
+      _clearInFlightRequests();
       updateCartCount();
       updateNotificationCount();
     }
@@ -81,13 +87,18 @@ class ApiService {
       passwordConfirmation: passwordConfirmation,
     );
     if (result['success'] == true) {
+      _clearInFlightRequests();
       updateCartCount();
       updateNotificationCount();
     }
     return result;
   }
 
-  Future<Map<String, dynamic>> logout() => _authService.logout();
+  Future<Map<String, dynamic>> logout() async {
+    final result = await _authService.logout();
+    _clearInFlightRequests();
+    return result;
+  }
 
   Future<Map<String, dynamic>> fetchDashboard({
     String? search,
@@ -99,6 +110,11 @@ class ApiService {
     final cacheKey =
         'dashboard_${token == null ? "guest" : "user"}_${search ?? ""}_${category ?? ""}';
 
+    if (forceRefresh) {
+      _dashboardRefreshGeneration++;
+      _dashboardRequests.remove(cacheKey);
+    }
+
     // ✅ [新增] 实际读取缓存（原代码只写不读，缓存完全失效）
     //    forceRefresh=true 时跳过缓存，强制从服务器获取最新数据
     if (!forceRefresh) {
@@ -107,38 +123,65 @@ class ApiService {
         AppLogger.debug('fetchDashboard: cache hit for $cacheKey');
         return Map<String, dynamic>.from(cached as Map);
       }
+
+      final pending = _dashboardRequests[cacheKey];
+      if (pending != null) {
+        AppLogger.debug('fetchDashboard: join in-flight request for $cacheKey');
+        return pending;
+      }
     }
 
-    try {
-      final response = await _dio.get(
-        '/dashboard',
-        queryParameters: {'search': search, 'category': category}
-          ..removeWhere((k, v) => v == null),
-        cancelToken: cancelToken,
-      );
+    final generation = _dashboardRefreshGeneration;
+    final Future<Map<String, dynamic>> request = (() async {
+      try {
+        final response = await _dio.get(
+          '/dashboard',
+          queryParameters: {'search': search, 'category': category}
+            ..removeWhere((k, v) => v == null),
+          cancelToken: cancelToken,
+        );
 
-      if (response.statusCode == 200) {
-        // ✅ [修改] _cache[key] = value  →  _cache.set(key, value, ttl: ...)
-        //    Dashboard 数据 2 分钟后过期（比默认 5 分钟短，因为菜单可能更新）
-        _cache.set(cacheKey, response.data, ttl: const Duration(minutes: 2));
-        return response.data;
+        if (response.statusCode == 200) {
+          // ✅ [修改] _cache[key] = value  →  _cache.set(key, value, ttl: ...)
+          //    Dashboard 数据 2 分钟后过期（比默认 5 分钟短，因为菜单可能更新）
+          if (generation == _dashboardRefreshGeneration) {
+            _cache.set(
+              cacheKey,
+              response.data,
+              ttl: const Duration(minutes: 2),
+            );
+          }
+          return Map<String, dynamic>.from(response.data as Map);
+        }
+        throw Exception("Status ${response.statusCode}");
+      } catch (e) {
+        // ✅ [修改] debugPrint → AppLogger.error
+        //    原因：debugPrint 没有 kDebugMode 检查，在 release 也会输出敏感信息
+        AppLogger.error('fetchDashboard failed', error: e);
+
+        if (token == null) {
+          return {
+            'menus': [],
+            'allCategoryNames': [],
+            'user': {'name': 'GUEST', 'oz': 0, 'balance': 0.0},
+          };
+        }
+        rethrow;
       }
-      throw Exception("Status ${response.statusCode}");
+    })();
 
-    } catch (e) {
-      // ✅ [修改] debugPrint → AppLogger.error
-      //    原因：debugPrint 没有 kDebugMode 检查，在 release 也会输出敏感信息
-      AppLogger.error('fetchDashboard failed', error: e);
-
-      if (token == null) {
-        return {
-          'menus': [],
-          'allCategoryNames': [],
-          'user': {'name': 'GUEST', 'oz': 0, 'balance': 0.0},
-        };
-      }
-      rethrow;
+    if (!forceRefresh) {
+      late Future<Map<String, dynamic>> trackedRequest;
+      trackedRequest = request.whenComplete(() {
+        if (identical(_dashboardRequests[cacheKey], trackedRequest)) {
+          _dashboardRequests.remove(cacheKey);
+        }
+      });
+      _dashboardRequests[cacheKey] = trackedRequest;
+      return trackedRequest;
     }
+
+    return request;
   }
 
   Future<void> updateCartCount() => _cartService.updateCartCount();
@@ -225,19 +268,49 @@ class ApiService {
     return _profileService.deleteAccount(password);
   }
 
-  Future<void> updateNotificationCount() async {
+  Future<void> updateNotificationCount({bool forceRefresh = false}) {
+    if (forceRefresh) {
+      _notificationRefreshGeneration++;
+      _notificationCountUpdate = null;
+      _notificationsRequest = null;
+    }
+
+    if (!forceRefresh && _notificationCountUpdate != null) {
+      return _notificationCountUpdate!;
+    }
+
+    final request = _updateNotificationCount(forceRefresh: forceRefresh);
+    if (!forceRefresh) {
+      late Future<void> trackedRequest;
+      trackedRequest = request.whenComplete(() {
+        if (identical(_notificationCountUpdate, trackedRequest)) {
+          _notificationCountUpdate = null;
+        }
+      });
+      _notificationCountUpdate = trackedRequest;
+      return trackedRequest;
+    }
+    return request;
+  }
+
+  Future<void> _updateNotificationCount({bool forceRefresh = false}) async {
+    final generation = _notificationRefreshGeneration;
     try {
       final token = await getToken();
       if (token == null) {
-        notificationCountNotifier.value = 0;
+        if (generation == _notificationRefreshGeneration) {
+          notificationCountNotifier.value = 0;
+        }
         return;
       }
-      final data = await fetchNotifications();
+      final data = await fetchNotifications(forceRefresh: forceRefresh);
       final notifications = data['notifications'] as List? ?? [];
       final unreadCount = notifications
           .where((n) => n['read_at'] == null)
           .length;
-      notificationCountNotifier.value = unreadCount;
+      if (generation == _notificationRefreshGeneration) {
+        notificationCountNotifier.value = unreadCount;
+      }
     } catch (e) {
       // 后台刷新失败不影响 UI
       AppLogger.warning('updateNotificationCount failed: $e');
@@ -259,40 +332,62 @@ class ApiService {
       }
     }
 
-    final response = await _dio.get('/profile/notifications');
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = response.data;
-      List<dynamic> notifications = List.from(data['notifications'] ?? []);
-
-      if (notifications.isEmpty) {
-        // ✅ [修改] _cache[key] = value  →  _cache.set(key, value, ttl: ...)
-        _cache.set(cacheKey, data, ttl: const Duration(minutes: 1));
-        return data;
-      }
-
-      notifications = NotificationUtils.filterRecentAndPrioritized(
-        notifications,
-      );
-
-      final filteredData = {...data, 'notifications': notifications};
-      // ✅ [修改] _cache[key] = filteredData  →  _cache.set(key, filteredData, ttl: ...)
-      _cache.set(cacheKey, filteredData, ttl: const Duration(minutes: 1));
-      return filteredData;
+    if (!forceRefresh && _notificationsRequest != null) {
+      return _notificationsRequest!;
     }
-    throw Exception('Fetch Notifications Error');
+
+    final request = _fetchNotificationsFromServer(cacheKey);
+    if (!forceRefresh) {
+      late Future<Map<String, dynamic>> trackedRequest;
+      trackedRequest = request.whenComplete(() {
+        if (identical(_notificationsRequest, trackedRequest)) {
+          _notificationsRequest = null;
+        }
+      });
+      _notificationsRequest = trackedRequest;
+      return trackedRequest;
+    }
+    return request;
+  }
+
+  Future<Map<String, dynamic>> _fetchNotificationsFromServer(
+    String cacheKey,
+  ) async {
+    final response = await _dio.get('/profile/notifications');
+    if (response.statusCode != 200) {
+      throw Exception('Fetch Notifications Error');
+    }
+
+    final Map<String, dynamic> data = response.data;
+    List<dynamic> notifications = List.from(data['notifications'] ?? []);
+
+    if (notifications.isEmpty) {
+      // ✅ [修改] _cache[key] = value  →  _cache.set(key, value, ttl: ...)
+      _cache.set(cacheKey, data, ttl: const Duration(minutes: 1));
+      return data;
+    }
+
+    notifications = NotificationUtils.filterRecentAndPrioritized(notifications);
+
+    final filteredData = {...data, 'notifications': notifications};
+    // ✅ [修改] _cache[key] = filteredData  →  _cache.set(key, filteredData, ttl: ...)
+    _cache.set(cacheKey, filteredData, ttl: const Duration(minutes: 1));
+    return filteredData;
   }
 
   Future<void> markNotificationAsRead(String id) async {
     await _dio.post('/profile/notifications/$id/read');
     // ✅ TimedCache.removeWhere() 签名与原 Map.removeWhere() 相同，无需修改
     _cache.removeWhere((key, value) => key.contains('notifications'));
-    updateNotificationCount();
+    _notificationsRequest = null;
+    updateNotificationCount(forceRefresh: true);
   }
 
   Future<void> deleteReadNotifications() async {
     await _dio.post('/profile/notifications/delete-read');
     _cache.removeWhere((key, value) => key.contains('notifications'));
-    updateNotificationCount();
+    _notificationsRequest = null;
+    updateNotificationCount(forceRefresh: true);
   }
 
   Future<void> deleteNotifications(List<String> ids) async {
@@ -302,7 +397,8 @@ class ApiService {
     );
     if (response.statusCode == 200) {
       _cache.removeWhere((key, value) => key.contains('notifications'));
-      await updateNotificationCount();
+      _notificationsRequest = null;
+      await updateNotificationCount(forceRefresh: true);
     }
   }
 
@@ -350,7 +446,30 @@ class ApiService {
     await _dio.delete('/favorites/$favoriteId');
   }
 
-  void clearCache({String? pattern}) => _client.clearCache(pattern: pattern);
+  void _clearInFlightRequests() {
+    _dashboardRefreshGeneration++;
+    _notificationRefreshGeneration++;
+    _dashboardRequests.clear();
+    _notificationsRequest = null;
+    _notificationCountUpdate = null;
+  }
+
+  void clearCache({String? pattern}) {
+    _client.clearCache(pattern: pattern);
+    if (pattern == null) {
+      _clearInFlightRequests();
+    } else {
+      if ('dashboard'.contains(pattern) || pattern.contains('dashboard')) {
+        _dashboardRefreshGeneration++;
+        _dashboardRequests.removeWhere((key, _) => key.contains('dashboard'));
+      }
+      if ('notifications'.contains(pattern) ||
+          pattern.contains('notifications')) {
+        _notificationsRequest = null;
+        _notificationCountUpdate = null;
+      }
+    }
+  }
 
   String getFullImageUrl(dynamic relativePath) {
     return _client.getFullImageUrl(relativePath);

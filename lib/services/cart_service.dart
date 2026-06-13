@@ -6,19 +6,45 @@ import 'api_client.dart';
 
 class CartService {
   final ApiClientContract _client;
+  Future<void>? _countUpdate;
+  int _countRefreshGeneration = 0;
 
   CartService({ApiClientContract? client}) : _client = client ?? ApiClient();
 
-  Future<void> updateCartCount() async {
+  Future<void> updateCartCount({bool forceRefresh = false}) {
+    if (forceRefresh) {
+      _countRefreshGeneration++;
+      _countUpdate = null;
+    }
+
+    if (!forceRefresh && _countUpdate != null) return _countUpdate!;
+
+    final request = _updateCartCount();
+    late Future<void> trackedRequest;
+    trackedRequest = request.whenComplete(() {
+      if (identical(_countUpdate, trackedRequest)) {
+        _countUpdate = null;
+      }
+    });
+    _countUpdate = trackedRequest;
+    return trackedRequest;
+  }
+
+  Future<void> _updateCartCount() async {
+    final generation = _countRefreshGeneration;
     try {
       final token = await _client.getToken();
       if (token == null) {
-        _client.cartCountNotifier.value = 0;
+        if (generation == _countRefreshGeneration) {
+          _client.cartCountNotifier.value = 0;
+        }
         return;
       }
       final cartData = await fetchCart();
-      _client.cartCountNotifier.value =
-          (cartData['cartItems'] as List? ?? []).length;
+      if (generation == _countRefreshGeneration) {
+        _client.cartCountNotifier.value =
+            (cartData['cartItems'] as List? ?? []).length;
+      }
     } catch (e) {
       // Background count refresh should not interrupt the UI.
     }
@@ -47,7 +73,7 @@ class CartService {
         'addons': addons,
       },
     );
-    await updateCartCount();
+    await updateCartCount(forceRefresh: true);
   }
 
   Future<Map<String, dynamic>> updateCartItem(
@@ -68,7 +94,7 @@ class CartService {
       data: {'cart_item_id': cartItemId},
     );
     if (response.statusCode == 200) {
-      updateCartCount();
+      updateCartCount(forceRefresh: true);
       return response.data;
     }
     throw Exception('Remove Error');
@@ -98,7 +124,9 @@ class CartService {
   String _idempotencyKey() {
     final random = Random.secure();
     final values = List<int>.generate(16, (_) => random.nextInt(256));
-    final nonce = values.map((value) => value.toRadixString(16).padLeft(2, '0'));
+    final nonce = values.map(
+      (value) => value.toRadixString(16).padLeft(2, '0'),
+    );
     return 'checkout-${DateTime.now().microsecondsSinceEpoch}-${nonce.join()}';
   }
 

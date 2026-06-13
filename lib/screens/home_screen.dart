@@ -684,37 +684,36 @@ class ProductCategorySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: categories.length,
-      itemBuilder: (context, index) {
-        final category = categories[index];
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                category.name.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
-                  color: context.appTextMain,
+    return CustomScrollView(
+      slivers: [
+        for (final category in categories) ...[
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  category.name.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                    color: context.appTextMain,
+                  ),
                 ),
               ),
             ),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 childAspectRatio: 0.75,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
               ),
-              itemCount: category.products.length,
-              itemBuilder: (context, pIndex) {
+              delegate: SliverChildBuilderDelegate((context, pIndex) {
                 final product = category.products[pIndex];
                 return RepaintBoundary(
                   child: CoffeeCard(
@@ -726,12 +725,12 @@ class ProductCategorySection extends StatelessWidget {
                     ),
                   ),
                 );
-              },
+              }, childCount: category.products.length),
             ),
-            const SizedBox(height: 24),
-          ],
-        );
-      },
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        ],
+      ],
     );
   }
 }
@@ -826,47 +825,51 @@ class CollectionsList extends StatelessWidget {
           );
         }
 
-        return ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                "SAVED COLLECTIONS",
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
-                  color: context.appPrimary,
+        return CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    "SAVED COLLECTIONS",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
+                      color: context.appPrimary,
+                    ),
+                  ),
                 ),
               ),
             ),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.75,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-              ),
-              itemCount: favorites.length,
-              itemBuilder: (context, index) {
-                final favorite = favorites[index];
-                return RepaintBoundary(
-                  child: CoffeeCard(
-                    product: favorite.product,
-                    onTap: () => detail.ProductDetailScreen.show(
-                      context,
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.75,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final favorite = favorites[index];
+                  return RepaintBoundary(
+                    child: CoffeeCard(
                       product: favorite.product,
-                      dynamicOptions: options,
-                      initialFavorite: favorite,
+                      onTap: () => detail.ProductDetailScreen.show(
+                        context,
+                        product: favorite.product,
+                        dynamicOptions: options,
+                        initialFavorite: favorite,
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                }, childCount: favorites.length),
+              ),
             ),
-            const SizedBox(height: 24),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         );
       },
