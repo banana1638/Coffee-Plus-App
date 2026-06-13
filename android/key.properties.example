@@ -1,4 +1,4 @@
 storePassword=change-me
 keyPassword=change-me
 keyAlias=coffee-plus-release
-storeFile=../app/coffee-plus-release.jks
+storeFile=C:/secure-keystores/coffee-plus-release.jks
