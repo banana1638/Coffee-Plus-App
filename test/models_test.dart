@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dio/dio.dart';
+import 'package:coffee_plus_app/core/error_handler.dart';
 import 'package:coffee_plus_app/models/cart_item_model.dart';
 import 'package:coffee_plus_app/models/category_model.dart';
 import 'package:coffee_plus_app/models/favorite_model.dart';
@@ -27,7 +29,7 @@ void main() {
         'oz': '300',
       });
 
-      expect(user.id, 42);
+      expect(user.id, '42');
       expect(user.balance, 12.5);
       expect(user.oz, 300);
     });
@@ -139,6 +141,45 @@ void main() {
       expect(transaction.id, 12);
       expect(transaction.billId, 'BILL-1');
       expect(transaction.rawJson, same(json));
+    });
+  });
+
+  group('ErrorHandler', () {
+    DioException responseError(int statusCode, dynamic data) {
+      return DioException(
+        requestOptions: RequestOptions(path: '/test'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/test'),
+          statusCode: statusCode,
+          data: data,
+        ),
+        type: DioExceptionType.badResponse,
+      );
+    }
+
+    test('surfaces validation field errors', () {
+      final message = ErrorHandler.toUserMessage(
+        responseError(422, {
+          'errors': {
+            'size': ['The selected size is invalid.'],
+          },
+        }),
+      );
+
+      expect(message, 'The selected size is invalid.');
+    });
+
+    test('maps conflict and rate limit responses', () {
+      expect(
+        ErrorHandler.toUserMessage(
+          responseError(409, {'message': 'Payload changed for this key.'}),
+        ),
+        'Payload changed for this key.',
+      );
+      expect(
+        ErrorHandler.toUserMessage(responseError(429, {})),
+        'Too many requests. Please wait before retrying.',
+      );
     });
   });
 }
