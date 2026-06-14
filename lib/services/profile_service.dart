@@ -75,9 +75,14 @@ class ProfileService {
           'password_confirmation': confirmPassword,
         },
       );
-      return response.data;
-    } on DioException catch (e) {
-      throw Exception(e.response?.data?['message'] ?? "Password update failed");
+      final data = Map<String, dynamic>.from(response.data as Map);
+      final token = _extractAccessToken(data);
+      if (token != null) {
+        await _client.persistAuthToken(token);
+      }
+      return data;
+    } on DioException {
+      rethrow;
     }
   }
 
@@ -99,5 +104,22 @@ class ProfileService {
           "Account deletion failed";
       throw Exception(message);
     }
+  }
+
+  String? _extractAccessToken(Map<String, dynamic> data) {
+    final directToken = data['access_token'];
+    if (directToken is String && directToken.trim().isNotEmpty) {
+      return directToken.trim();
+    }
+
+    final nestedData = data['data'];
+    if (nestedData is Map) {
+      final nestedToken = nestedData['access_token'];
+      if (nestedToken is String && nestedToken.trim().isNotEmpty) {
+        return nestedToken.trim();
+      }
+    }
+
+    return null;
   }
 }

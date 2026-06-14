@@ -45,6 +45,8 @@ class ProductDetailScreen extends StatefulWidget {
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
+  static const int _maxQuantity = 20;
+
   // --- 状态变量 ---
   String selectedSize = 'Regular';
   String selectedTemp = 'Hot'; // 对应 Blade 里的 Temperature
@@ -65,6 +67,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       selectedAddons = List.from(widget.initialFavorite!.addons);
       _remarkController.text = widget.initialFavorite!.remark;
     }
+    _ensureValidSelections();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProductDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.product.id != widget.product.id ||
+        oldWidget.dynamicOptions != widget.dynamicOptions) {
+      setState(_ensureValidSelections);
+    }
   }
 
   @override
@@ -75,14 +87,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   // 模拟配置数据 (应从后端 Product model 或 API 获取)
   List<Map<String, dynamic>> get sizeOptions {
-    if (widget.dynamicOptions != null &&
-        widget.dynamicOptions!['sizes'] != null) {
-      return List<Map<String, dynamic>>.from(widget.dynamicOptions!['sizes']);
-    }
-    return [
-      {'name': 'Regular', 'extra': 0.0},
-      {'name': 'Large', 'extra': 2.0},
-    ];
+    final rawSizes = _backendOptions['sizes'];
+    if (rawSizes is! Iterable) return const [];
+
+    return rawSizes
+        .map(_normalizeSizeOption)
+        .whereType<Map<String, dynamic>>()
+        .toList();
+  }
+
+  List<String> get tempOptions {
+    final rawTemps = _backendOptions['temps'];
+    if (rawTemps is! Iterable) return const [];
+    return rawTemps
+        .map((temp) => temp.toString().trim())
+        .where((temp) => temp.isNotEmpty)
+        .toList();
   }
 
   List<Map<String, dynamic>> get addonOptions {
@@ -92,15 +112,47 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           .toList();
     }
 
-    if (widget.dynamicOptions != null &&
-        widget.dynamicOptions!['add_ons'] != null) {
-      return List<Map<String, dynamic>>.from(widget.dynamicOptions!['add_ons']);
+    return const [];
+  }
+
+  Map<String, dynamic> get _backendOptions {
+    return widget.dynamicOptions ?? widget.product.options ?? const {};
+  }
+
+  bool get _hasRequiredOptions =>
+      sizeOptions.isNotEmpty && tempOptions.isNotEmpty;
+
+  Map<String, dynamic>? _normalizeSizeOption(dynamic raw) {
+    if (raw is Map) {
+      final name = raw['name']?.toString().trim();
+      if (name == null || name.isEmpty) return null;
+      return {
+        'name': name,
+        'extra': raw['extra'] is num
+            ? (raw['extra'] as num).toDouble()
+            : double.tryParse(raw['extra']?.toString() ?? '0') ?? 0.0,
+      };
     }
-    return [
-      {'name': 'Extra Shot', 'price': 1.5},
-      {'name': 'Caramel Syrup', 'price': 1.0},
-      {'name': 'Oat Milk', 'price': 2.5},
-    ];
+
+    final name = raw.toString().trim();
+    if (name.isEmpty) return null;
+    return {'name': name, 'extra': 0.0};
+  }
+
+  void _ensureValidSelections() {
+    final validSizes = sizeOptions.map((option) => option['name']).toSet();
+    if (validSizes.isNotEmpty && !validSizes.contains(selectedSize)) {
+      selectedSize = validSizes.first.toString();
+    }
+
+    final validTemps = tempOptions.toSet();
+    if (validTemps.isNotEmpty && !validTemps.contains(selectedTemp)) {
+      selectedTemp = validTemps.first;
+    }
+
+    final validAddons = addonOptions.map((option) => option['name']).toSet();
+    selectedAddons.removeWhere((addon) => !validAddons.contains(addon));
+    quantity = quantity.clamp(1, _maxQuantity).toInt();
   }
 
   // ==========================================
@@ -132,6 +184,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _handleAddToCart() async {
+    if (!_hasRequiredOptions) {
+      _showSnackBar(
+        'Product options are unavailable. Please refresh and try again.',
+        isError: true,
+      );
+      return;
+    }
+
     // 0. Ensure user is logged in
     if (!ApiService().authStateNotifier.value) {
       await AuthModal.show(context);
@@ -162,6 +222,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _handleFavorite() async {
+    if (!_hasRequiredOptions) {
+      _showSnackBar(
+        'Product options are unavailable. Please refresh and try again.',
+        isError: true,
+      );
+      return;
+    }
+
     final String uniqueId = FavoriteItem(
       product: widget.product,
       size: selectedSize,
@@ -219,6 +287,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ),
                 child: TextField(
                   controller: _remarkController,
+                  maxLength: 1000,
                   maxLines: 2,
                   style: const TextStyle(fontSize: 14),
                   decoration: const InputDecoration(
@@ -237,6 +306,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
+                if (_remarkController.text.length > 1000) {
+                  _showSnackBar(
+                    'Note must be 1000 characters or fewer.',
+                    isError: true,
+                  );
+                  return;
+                }
                 Navigator.pop(context);
                 setState(() => _isFavoriting = true);
                 try {
@@ -316,6 +392,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       const SizedBox(height: 30),
                       const SectionTitle(title: "SELECT TEMPERATURE"),
                       TempSelector(
+                        tempOptions: tempOptions,
                         selectedTemp: selectedTemp,
                         onTempSelected: (temp) {
                           setState(() => selectedTemp = temp);
@@ -360,7 +437,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               totalPrice: _totalPrice,
               isAdding: _isAdding,
               onQtyChanged: (newQty) {
-                setState(() => quantity = newQty);
+                setState(
+                  () => quantity = newQty.clamp(1, _maxQuantity).toInt(),
+                );
               },
               onAddToCart: _handleAddToCart,
             ),
@@ -533,11 +612,13 @@ class ProductInfo extends StatelessWidget {
 }
 
 class TempSelector extends StatelessWidget {
+  final List<String> tempOptions;
   final String selectedTemp;
   final ValueChanged<String> onTempSelected;
 
   const TempSelector({
     super.key,
+    required this.tempOptions,
     required this.selectedTemp,
     required this.onTempSelected,
   });
@@ -545,7 +626,7 @@ class TempSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: ['Hot', 'Iced'].map((temp) {
+      children: tempOptions.map((temp) {
         bool isSelected = selectedTemp == temp;
         return Expanded(
           child: GestureDetector(
@@ -554,7 +635,7 @@ class TempSelector extends StatelessWidget {
               onTempSelected(temp);
             },
             child: Container(
-              margin: EdgeInsets.only(right: temp == 'Hot' ? 10 : 0),
+              margin: EdgeInsets.only(right: temp == tempOptions.last ? 0 : 10),
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
                 color: isSelected
@@ -762,7 +843,8 @@ class BottomAction extends StatelessWidget {
                 ),
                 QtyBtn(
                   icon: Icons.add,
-                  onTap: () => onQtyChanged(quantity + 1),
+                  onTap: () =>
+                      quantity < 20 ? onQtyChanged(quantity + 1) : null,
                 ),
               ],
             ),

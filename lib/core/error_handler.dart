@@ -15,14 +15,26 @@ class ErrorHandler {
           return 'Cannot connect to server. Please try again.';
         case DioExceptionType.badResponse:
           final statusCode = error.response?.statusCode;
-          final serverMsg = error.response?.data?['message'];
-          if (serverMsg != null) return serverMsg.toString();
+          final serverMsg = _serverMessage(error.response?.data);
           if (statusCode == 401) return 'Session expired. Please login again.';
-          if (statusCode == 403) return 'You do not have permission to do this.';
+          if (statusCode == 403) {
+            return 'You do not have permission to do this.';
+          }
+          if (statusCode == 409) {
+            return serverMsg ??
+                'This request conflicts with the latest server state.';
+          }
           if (statusCode == 404) return 'Resource not found.';
           if (statusCode == 422) {
-            return 'Invalid input. Please check your details.';
+            return _validationMessage(error.response?.data) ??
+                serverMsg ??
+                'Invalid input. Please check your details.';
           }
+          if (statusCode == 429) {
+            return serverMsg ??
+                'Too many requests. Please wait before retrying.';
+          }
+          if (serverMsg != null) return serverMsg;
           if (statusCode != null && statusCode >= 500) {
             return 'Server error. Please try again later.';
           }
@@ -43,5 +55,30 @@ class ErrorHandler {
     }
 
     return 'An unexpected error occurred.';
+  }
+
+  static String? _serverMessage(dynamic data) {
+    if (data is! Map) return null;
+    final message = data['message'] ?? data['error'];
+    return message?.toString();
+  }
+
+  static String? _validationMessage(dynamic data) {
+    if (data is! Map) return null;
+    final errors = data['errors'];
+    if (errors is! Map || errors.isEmpty) return null;
+
+    final messages = <String>[];
+    for (final entry in errors.entries) {
+      final value = entry.value;
+      if (value is Iterable) {
+        messages.addAll(value.map((item) => item.toString()));
+      } else if (value != null) {
+        messages.add(value.toString());
+      }
+      if (messages.length >= 3) break;
+    }
+
+    return messages.isEmpty ? null : messages.take(3).join('\n');
   }
 }

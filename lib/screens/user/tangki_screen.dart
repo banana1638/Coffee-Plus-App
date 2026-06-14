@@ -20,11 +20,13 @@ class TangkiScreen extends StatefulWidget {
   TangkiScreenState createState() => TangkiScreenState();
 }
 
-class TangkiScreenState extends State<TangkiScreen> {
+class TangkiScreenState extends State<TangkiScreen>
+    with WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
   final TextEditingController _amountController = TextEditingController();
   late Future<Map<String, dynamic>> _tangkiData;
   bool _isLoading = false;
+  bool _paymentPending = false;
 
   // ==========================================
   // 1. 生命周期 (Lifecycle)
@@ -33,15 +35,26 @@ class TangkiScreenState extends State<TangkiScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     refreshData();
     _apiService.authStateNotifier.addListener(_onAuthChanged);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _apiService.authStateNotifier.removeListener(_onAuthChanged);
     _amountController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _paymentPending) {
+      _paymentPending = false;
+      refreshData();
+      _showSnackBar('Payment status refreshed from server.');
+    }
   }
 
   void _onAuthChanged() async {
@@ -109,7 +122,8 @@ class TangkiScreenState extends State<TangkiScreen> {
         throw Exception('Unable to open payment link.');
       }
 
-      _showSnackBar("Opening secure payment checkout...");
+      _paymentPending = true;
+      _showSnackBar("Payment opened. Balance will update after confirmation.");
     } catch (e) {
       if (!mounted) return;
       _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);

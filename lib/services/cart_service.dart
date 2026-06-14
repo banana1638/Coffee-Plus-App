@@ -63,6 +63,12 @@ class CartService {
     required String temp,
     required List<String> addons,
   }) async {
+    _validateCartPayload(
+      quantity: quantity,
+      size: size,
+      temp: temp,
+      addons: addons,
+    );
     await _client.dio.post(
       '/cart/add',
       data: {
@@ -103,22 +109,21 @@ class CartService {
   Future<Map<String, dynamic>> checkoutWithOz(
     List<int> useOzIds, {
     String? couponCode,
+    String? idempotencyKey,
   }) async {
-    try {
-      final response = await _client.dio.post(
-        '/checkout',
-        options: Options(headers: {'Idempotency-Key': _idempotencyKey()}),
-        data: {
-          'use_oz': useOzIds,
-          if (couponCode != null && couponCode.trim().isNotEmpty)
-            'coupon_code': couponCode.trim(),
-        },
-      );
-      _client.clearCache();
-      return response.data;
-    } on DioException catch (e) {
-      throw Exception(e.response?.data?['message'] ?? "Checkout failed");
-    }
+    final response = await _client.dio.post(
+      '/checkout',
+      options: Options(
+        headers: {'Idempotency-Key': idempotencyKey ?? _idempotencyKey()},
+      ),
+      data: {
+        'use_oz': useOzIds,
+        if (couponCode != null && couponCode.trim().isNotEmpty)
+          'coupon_code': couponCode.trim(),
+      },
+    );
+    _client.clearCache();
+    return response.data;
   }
 
   String _idempotencyKey() {
@@ -133,5 +138,29 @@ class CartService {
   Map<String, dynamic> _responseData(dynamic responseData) {
     final data = Map<String, dynamic>.from(responseData as Map);
     return Map<String, dynamic>.from((data['data'] as Map?) ?? data);
+  }
+
+  void _validateCartPayload({
+    required int quantity,
+    required String size,
+    required String temp,
+    required List<String> addons,
+  }) {
+    if (quantity < 1 || quantity > 20) {
+      throw ArgumentError.value(
+        quantity,
+        'quantity',
+        'Must be between 1 and 20',
+      );
+    }
+    if (size.trim().isEmpty) {
+      throw ArgumentError.value(size, 'size', 'Must be provided');
+    }
+    if (temp.trim().isEmpty) {
+      throw ArgumentError.value(temp, 'temp', 'Must be provided');
+    }
+    if (addons.length > 20) {
+      throw ArgumentError.value(addons.length, 'addons', 'Maximum is 20');
+    }
   }
 }

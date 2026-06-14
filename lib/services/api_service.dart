@@ -214,8 +214,13 @@ class ApiService {
   Future<Map<String, dynamic>> checkoutWithOz(
     List<int> useOzIds, {
     String? couponCode,
+    String? idempotencyKey,
   }) {
-    return _cartService.checkoutWithOz(useOzIds, couponCode: couponCode);
+    return _cartService.checkoutWithOz(
+      useOzIds,
+      couponCode: couponCode,
+      idempotencyKey: idempotencyKey,
+    );
   }
 
   Future<Map<String, dynamic>> validateCoupon({
