@@ -7,6 +7,7 @@ import 'package:coffee_plus_app/models/favorite_model.dart';
 import 'package:coffee_plus_app/models/product_model.dart';
 import 'package:coffee_plus_app/models/transaction_model.dart';
 import 'package:coffee_plus_app/models/user_model.dart';
+import 'package:coffee_plus_app/services/payment_service.dart';
 
 void main() {
   group('User.fromJson', () {
@@ -179,6 +180,39 @@ void main() {
       expect(
         ErrorHandler.toUserMessage(responseError(429, {})),
         'Too many requests. Please wait before retrying.',
+      );
+    });
+
+    test('prefers standardized server messages for auth and not found', () {
+      expect(
+        ErrorHandler.toUserMessage(
+          responseError(401, {'status': 'error', 'message': 'Unauthenticated.'}),
+        ),
+        'Unauthenticated.',
+      );
+      expect(
+        ErrorHandler.toUserMessage(
+          responseError(404, {'status': 'error', 'message': 'Not found.'}),
+        ),
+        'Not found.',
+      );
+    });
+  });
+
+  group('PaymentService', () {
+    test('extracts Stripe session id from response data or redirect url', () {
+      expect(
+        PaymentService.extractSessionId({
+          'data': {'session_id': 'cs_test_nested'},
+        }, 'https://checkout.stripe.com/c/pay/cs_test_url'),
+        'cs_test_nested',
+      );
+      expect(
+        PaymentService.extractSessionId(
+          {},
+          'https://checkout.stripe.com/c/pay/cs_test_url#fidkdWxOYHwn',
+        ),
+        'cs_test_url',
       );
     });
   });
