@@ -16,15 +16,17 @@ class ErrorHandler {
         case DioExceptionType.badResponse:
           final statusCode = error.response?.statusCode;
           final serverMsg = _serverMessage(error.response?.data);
-          if (statusCode == 401) return 'Session expired. Please login again.';
+          if (statusCode == 401) {
+            return serverMsg ?? 'Session expired. Please login again.';
+          }
           if (statusCode == 403) {
-            return 'You do not have permission to do this.';
+            return serverMsg ?? 'You do not have permission to do this.';
           }
           if (statusCode == 409) {
             return serverMsg ??
                 'This request conflicts with the latest server state.';
           }
-          if (statusCode == 404) return 'Resource not found.';
+          if (statusCode == 404) return serverMsg ?? 'Resource not found.';
           if (statusCode == 422) {
             return _validationMessage(error.response?.data) ??
                 serverMsg ??

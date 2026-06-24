@@ -1,6 +1,24 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
 
+double _moneyFromCentsOrAmount(
+  Map<String, dynamic> data, {
+  required String centsKey,
+  required String amountKey,
+}) {
+  final cents = num.tryParse(data[centsKey]?.toString() ?? '');
+  if (cents != null) return cents / 100;
+  return double.tryParse(data[amountKey]?.toString() ?? '0') ?? 0.0;
+}
+
+double _numValue(dynamic value) {
+  return double.tryParse(value?.toString() ?? '0') ?? 0.0;
+}
+
+int _intValue(dynamic value, {int fallback = 0}) {
+  return int.tryParse(value?.toString() ?? '') ?? fallback;
+}
+
 class OrderDetailScreen extends StatelessWidget {
   final Map<String, dynamic> order;
   final VoidCallback? onCancel;
@@ -21,8 +39,12 @@ class OrderDetailScreen extends StatelessWidget {
 
     final double subtotal =
         double.tryParse(orderData['subtotal']?.toString() ?? '0') ?? 0.0;
-    final double couponDiscount =
-        double.tryParse(orderData['coupon_discount']?.toString() ?? '0') ?? 0.0;
+    final double couponDiscount = _moneyFromCentsOrAmount(
+      orderData,
+      centsKey: 'discount_cents',
+      amountKey: 'coupon_discount',
+    );
+    final couponCode = orderData['coupon_code']?.toString();
     final double pointsDiscount =
         double.tryParse(orderData['points_discount']?.toString() ?? '0') ?? 0.0;
     final double finalAmount =
@@ -147,7 +169,8 @@ class OrderDetailScreen extends StatelessWidget {
                         // 优惠券折扣
                         if (couponDiscount > 0) ...[
                           OrderRowDetail(
-                            label: "COUPON DISCOUNT",
+                            label:
+                                "COUPON DISCOUNT${couponCode == null || couponCode.isEmpty ? '' : ' ($couponCode)'}",
                             value: "-RM ${couponDiscount.toStringAsFixed(2)}",
                           ),
                           const SizedBox(height: 12),
@@ -490,7 +513,14 @@ class OrderItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    bool isOzPayment = (item['oz_at_time'] ?? 0) > 0;
+    final quantity = _intValue(item['quantity'], fallback: 1);
+    final ozAtTime = _numValue(item['oz_at_time']);
+    final priceAtTime = _moneyFromCentsOrAmount(
+      item,
+      centsKey: 'price_at_time_cents',
+      amountKey: 'price_at_time',
+    );
+    final isOzPayment = ozAtTime > 0;
     Map<String, dynamic> customizations = {};
     if (item['customizations'] != null && item['customizations'] is Map) {
       customizations = Map<String, dynamic>.from(item['customizations']);
@@ -553,7 +583,7 @@ class OrderItemTile extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    "Quantity: ${item['quantity']}",
+                    "Quantity: $quantity",
                     style: TextStyle(
                       color: context.appTextMuted,
                       fontSize: 10,
@@ -569,8 +599,8 @@ class OrderItemTile extends StatelessWidget {
             children: [
               Text(
                 isOzPayment
-                    ? "${((item['oz_at_time'] ?? 0) * (item['quantity'] ?? 1)).toStringAsFixed(1)} OZ"
-                    : "RM ${((item['price_at_time'] ?? 0) * (item['quantity'] ?? 1)).toStringAsFixed(2)}",
+                    ? "${(ozAtTime * quantity).toStringAsFixed(1)} OZ"
+                    : "RM ${(priceAtTime * quantity).toStringAsFixed(2)}",
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 12,
@@ -579,7 +609,7 @@ class OrderItemTile extends StatelessWidget {
               ),
               if (isOzPayment)
                 Text(
-                  "${item['oz_at_time']} OZ / unit",
+                  "${ozAtTime.toStringAsFixed(1)} OZ / unit",
                   style: TextStyle(
                     color: context.appTextMuted,
                     fontSize: 8,
