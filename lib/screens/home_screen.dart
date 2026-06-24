@@ -642,6 +642,13 @@ class CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selectedBackground = context.isDarkMode
+        ? context.appPrimary
+        : context.appDarkAction;
+    final selectedContentColor = context.isDarkMode
+        ? AppColorsDark.background
+        : Colors.white;
+
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: ChoiceChip(
@@ -649,7 +656,7 @@ class CategoryChip extends StatelessWidget {
             ? Icon(
                 icon,
                 size: 14,
-                color: isSelected ? Colors.white : context.appPrimary,
+                color: isSelected ? selectedContentColor : context.appPrimary,
               )
             : null,
         label: Text(label),
@@ -660,9 +667,9 @@ class CategoryChip extends StatelessWidget {
             onSelected(id);
           }
         },
-        selectedColor: context.appDarkAction,
+        selectedColor: selectedBackground,
         labelStyle: TextStyle(
-          color: isSelected ? Colors.white : context.appTextBody,
+          color: isSelected ? selectedContentColor : context.appTextBody,
           fontWeight: FontWeight.w700,
           fontSize: 12,
         ),
