@@ -27,6 +27,8 @@ class TangkiScreenState extends State<TangkiScreen>
   late Future<Map<String, dynamic>> _tangkiData;
   bool _isLoading = false;
   bool _paymentPending = false;
+  bool _isConfirmingPayment = false;
+  String? _pendingPaymentSessionId;
 
   // ==========================================
   // 1. 生命周期 (Lifecycle)
@@ -51,9 +53,7 @@ class TangkiScreenState extends State<TangkiScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _paymentPending) {
-      _paymentPending = false;
-      refreshData();
-      _showSnackBar('Payment status refreshed from server.');
+      _confirmPendingPayment();
     }
   }
 
@@ -122,6 +122,10 @@ class TangkiScreenState extends State<TangkiScreen>
         throw Exception('Unable to open payment link.');
       }
 
+      _pendingPaymentSessionId = _apiService.extractPaymentSessionId(
+        result,
+        redirectUrl,
+      );
       _paymentPending = true;
       _showSnackBar("Payment opened. Balance will update after confirmation.");
     } catch (e) {
@@ -129,6 +133,45 @@ class TangkiScreenState extends State<TangkiScreen>
       _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _confirmPendingPayment() async {
+    if (_isConfirmingPayment) return;
+
+    final sessionId = _pendingPaymentSessionId;
+    if (sessionId == null || sessionId.isEmpty) {
+      refreshData();
+      _showSnackBar(
+        'Payment is pending. Refresh Tangki after Stripe confirms it.',
+      );
+      return;
+    }
+
+    if (mounted) setState(() => _isConfirmingPayment = true);
+
+    try {
+      final snapshot = await _apiService.pollPaymentStatus(
+        sessionId,
+        shouldContinue: () => mounted,
+      );
+      if (!mounted) return;
+
+      if (snapshot.isProcessed) {
+        _paymentPending = false;
+        _pendingPaymentSessionId = null;
+        refreshData();
+        _showSnackBar('Payment confirmed. Balance refreshed from server.');
+      } else if (snapshot.status != 'cancelled') {
+        _showSnackBar(
+          'Payment is still confirming. Pull to refresh in a moment.',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+    } finally {
+      if (mounted) setState(() => _isConfirmingPayment = false);
     }
   }
 
@@ -171,6 +214,13 @@ class TangkiScreenState extends State<TangkiScreen>
                       balance: user.balance,
                     ),
                   ),
+                  if (_paymentPending) ...[
+                    const SizedBox(height: 12),
+                    PaymentPendingBanner(
+                      isConfirming: _isConfirmingPayment,
+                      onRefresh: _confirmPendingPayment,
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   RepaintBoundary(
                     child: ActionButtons(
@@ -256,6 +306,62 @@ class TankStatusCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PaymentPendingBanner extends StatelessWidget {
+  final bool isConfirming;
+  final VoidCallback onRefresh;
+
+  const PaymentPendingBanner({
+    super.key,
+    required this.isConfirming,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: context.appPrimary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.appPrimary.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          isConfirming
+              ? SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: context.appPrimary,
+                  ),
+                )
+              : Icon(Icons.hourglass_top, color: context.appPrimary, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              isConfirming
+                  ? 'Confirming payment with server...'
+                  : 'Payment pending. Balance updates only after Stripe confirms it.',
+              style: TextStyle(
+                color: context.appTextMain,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Refresh payment status',
+            onPressed: isConfirming ? null : onRefresh,
+            icon: Icon(Icons.refresh, color: context.appPrimary),
           ),
         ],
       ),

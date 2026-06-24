@@ -9,6 +9,7 @@ import 'cart_service.dart';
 import 'coupon_service.dart';
 import 'notification_utils.dart';
 import 'order_service.dart';
+import 'payment_service.dart';
 import 'profile_service.dart';
 import 'timed_cache.dart'; // ✅ [新增] 用于 _cache 类型
 
@@ -21,6 +22,7 @@ class ApiService {
   final CartService _cartService = CartService();
   final CouponService _couponService = CouponService();
   final OrderService _orderService = OrderService();
+  final PaymentService _paymentService = PaymentService();
   final ProfileService _profileService = ProfileService();
   final _dashboardRequests = <String, Future<Map<String, dynamic>>>{};
   int _dashboardRefreshGeneration = 0;
@@ -245,6 +247,27 @@ class ApiService {
   Future<Map<String, dynamic>> fetchTangki() => _profileService.fetchTangki();
   Future<Map<String, dynamic>> refillTangki(double amount) {
     return _profileService.refillTangki(amount);
+  }
+
+  Future<PaymentStatusSnapshot> fetchPaymentStatus(String sessionId) {
+    return _paymentService.fetchPaymentStatus(sessionId);
+  }
+
+  Future<PaymentStatusSnapshot> pollPaymentStatus(
+    String sessionId, {
+    bool Function()? shouldContinue,
+  }) {
+    return _paymentService.pollUntilProcessed(
+      sessionId,
+      shouldContinue: shouldContinue,
+    );
+  }
+
+  String? extractPaymentSessionId(
+    Map<String, dynamic> result,
+    String redirectUrl,
+  ) {
+    return PaymentService.extractSessionId(result, redirectUrl);
   }
 
   Future<Map<String, dynamic>> fetchTransactions({String? type}) {
