@@ -135,7 +135,9 @@ class _AuthModalState extends State<AuthModal> {
         _failedAttempts++;
         if (_failedAttempts >= 5) {
           _lockedUntil = DateTime.now().add(const Duration(minutes: 5));
-          _showError('Too many failed attempts. Please try again in 5 minutes.');
+          _showError(
+            'Too many failed attempts. Please try again in 5 minutes.',
+          );
           return;
         }
       }
