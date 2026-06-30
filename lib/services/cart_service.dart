@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 
 import 'api_client.dart';
+import 'api_response.dart';
 
 class CartService {
   final ApiClientContract _client;
@@ -52,7 +53,7 @@ class CartService {
 
   Future<Map<String, dynamic>> fetchCart() async {
     final response = await _client.dio.get('/cart');
-    if (response.statusCode == 200) return _responseData(response.data);
+    if (response.statusCode == 200) return unwrapDataMap(response.data);
     throw Exception('Fetch Cart Error');
   }
 
@@ -133,11 +134,6 @@ class CartService {
       (value) => value.toRadixString(16).padLeft(2, '0'),
     );
     return 'checkout-${DateTime.now().microsecondsSinceEpoch}-${nonce.join()}';
-  }
-
-  Map<String, dynamic> _responseData(dynamic responseData) {
-    final data = Map<String, dynamic>.from(responseData as Map);
-    return Map<String, dynamic>.from((data['data'] as Map?) ?? data);
   }
 
   void _validateCartPayload({

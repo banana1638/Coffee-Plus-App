@@ -1,5 +1,5 @@
-class _CacheEntry {
-  final dynamic data;
+class _CacheEntry<T> {
+  final T data;
   final DateTime expiresAt;
 
   _CacheEntry(this.data, Duration ttl) : expiresAt = DateTime.now().add(ttl);
@@ -7,26 +7,23 @@ class _CacheEntry {
   bool get isExpired => DateTime.now().isAfter(expiresAt);
 }
 
-class TimedCache {
+class TimedCache<T> {
   final int maxSize;
   final Duration defaultTtl;
-  final _store = <String, _CacheEntry>{};
+  final _store = <String, _CacheEntry<T>>{};
 
-  TimedCache({
-    this.maxSize = 50,
-    this.defaultTtl = const Duration(minutes: 5),
-  });
+  TimedCache({this.maxSize = 50, this.defaultTtl = const Duration(minutes: 5)});
 
-  void set(String key, dynamic value, {Duration? ttl}) {
+  void set(String key, T value, {Duration? ttl}) {
     _evictExpired();
 
-    if (_store.length >= maxSize) {
+    if (!_store.containsKey(key) && _store.length >= maxSize) {
       _store.remove(_store.keys.first);
     }
     _store[key] = _CacheEntry(value, ttl ?? defaultTtl);
   }
 
-  dynamic get(String key) {
+  T? get(String key) {
     final entry = _store[key];
     if (entry == null) return null;
     if (entry.isExpired) {
@@ -38,7 +35,7 @@ class TimedCache {
 
   void remove(String key) => _store.remove(key);
 
-  void removeWhere(bool Function(String key, dynamic value) test) {
+  void removeWhere(bool Function(String key, T value) test) {
     _store.removeWhere((key, entry) => test(key, entry.data));
   }
 

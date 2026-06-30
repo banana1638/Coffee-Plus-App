@@ -1,4 +1,5 @@
 import 'api_client.dart';
+import 'api_response.dart';
 
 class PaymentStatusSnapshot {
   final String sessionId;
@@ -24,10 +25,7 @@ class PaymentService {
       '/payments/${Uri.encodeComponent(sessionId)}/status',
     );
     if (response.statusCode == 200) {
-      return _parsePaymentStatus(
-        sessionId,
-        Map<String, dynamic>.from(response.data as Map),
-      );
+      return _parsePaymentStatus(sessionId, requireJsonMap(response.data));
     }
     throw Exception('Payment Status Error');
   }

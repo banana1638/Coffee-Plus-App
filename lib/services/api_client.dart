@@ -14,7 +14,7 @@ abstract class ApiClientContract {
   ValueNotifier<int> get notificationCountNotifier;
   ValueNotifier<bool> get authStateNotifier;
   ValueNotifier<ThemeMode> get themeModeNotifier;
-  TimedCache get cache;
+  TimedCache<Map<String, dynamic>> get cache;
 
   String? get sessionToken;
   set sessionToken(String? value);
@@ -54,8 +54,8 @@ class ApiClient implements ApiClientContract {
   );
 
   @override
-  final TimedCache cache = TimedCache(
-    maxSize: 50,
+  final TimedCache<Map<String, dynamic>> cache = TimedCache(
+    maxSize: 12,
     defaultTtl: const Duration(minutes: 5),
   );
 
@@ -229,11 +229,7 @@ class ApiClient implements ApiClientContract {
     }
   }
 
-  void _logImageUrl(
-    dynamic source,
-    String resolved, {
-    bool allowed = true,
-  }) {
+  void _logImageUrl(dynamic source, String resolved, {bool allowed = true}) {
     _logApiDebug(
       'image-url allowed=$allowed source=${_summarizeValue(source)} '
       'resolved=$resolved',

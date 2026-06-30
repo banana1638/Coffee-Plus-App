@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'api_client.dart';
+import 'api_response.dart';
 
 class ProfileService {
   final ApiClientContract _client;
@@ -75,7 +76,7 @@ class ProfileService {
           'password_confirmation': confirmPassword,
         },
       );
-      final data = Map<String, dynamic>.from(response.data as Map);
+      final data = requireJsonMap(response.data);
       final token = _extractAccessToken(data);
       if (token != null) {
         await _client.persistAuthToken(token);

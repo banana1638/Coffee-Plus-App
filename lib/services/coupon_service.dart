@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'api_client.dart';
+import 'api_response.dart';
 
 class CouponService {
   final ApiClientContract _client;
@@ -19,8 +20,7 @@ class CouponService {
         },
       );
       if (response.statusCode == 200) {
-        final data = response.data['data'] ?? response.data;
-        return Map<String, dynamic>.from(data);
+        return unwrapDataMap(response.data);
       }
       throw Exception('Coupon validation failed');
     } on DioException catch (e) {
