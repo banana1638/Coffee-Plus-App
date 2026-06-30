@@ -1,6 +1,8 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/favorite_model.dart';
 import 'api_service.dart';
 import 'app_logger.dart';
@@ -13,7 +15,16 @@ class FavoriteService {
 
   static const String _storageKey = 'favorite_items';
   final ValueNotifier<List<FavoriteItem>> favoritesNotifier = ValueNotifier([]);
+  final Map<int, ValueNotifier<bool>> _productFavoriteNotifiers = {};
+  Set<int> _favoriteProductIds = const {};
   final ApiService _apiService = ApiService();
+
+  ValueListenable<bool> productFavoriteListenable(int productId) {
+    return _productFavoriteNotifiers.putIfAbsent(
+      productId,
+      () => ValueNotifier(_favoriteProductIds.contains(productId)),
+    );
+  }
 
   Future<void> init() async {
     await loadFavorites();
@@ -30,7 +41,7 @@ class FavoriteService {
           .map((item) => FavoriteItem.fromJson(item as Map<String, dynamic>))
           .toList();
     }
-    favoritesNotifier.value = localFavorites;
+    _publishFavorites(localFavorites);
 
     // 2. If logged in, sync from backend (replaces local with server truth)
     if (_apiService.authStateNotifier.value) {
@@ -40,7 +51,7 @@ class FavoriteService {
             .map((item) => FavoriteItem.fromJson(item))
             .toList();
 
-        favoritesNotifier.value = backendFavorites;
+        _publishFavorites(backendFavorites);
         await _persist();
       } catch (e) {
         AppLogger.warning('Favorite sync failed');
@@ -78,7 +89,7 @@ class FavoriteService {
       current.insert(0, item);
     }
 
-    favoritesNotifier.value = current;
+    _publishFavorites(current);
     await _persist();
   }
 
@@ -100,7 +111,7 @@ class FavoriteService {
 
       // 2. Update local state
       current.removeAt(index);
-      favoritesNotifier.value = current;
+      _publishFavorites(current);
       await _persist();
     }
   }
@@ -110,7 +121,15 @@ class FavoriteService {
   }
 
   bool isProductFavorited(int productId) {
-    return favoritesNotifier.value.any((f) => f.product.id == productId);
+    return _favoriteProductIds.contains(productId);
+  }
+
+  void _publishFavorites(List<FavoriteItem> favorites) {
+    favoritesNotifier.value = favorites;
+    _favoriteProductIds = favorites.map((item) => item.product.id).toSet();
+    for (final entry in _productFavoriteNotifiers.entries) {
+      entry.value.value = _favoriteProductIds.contains(entry.key);
+    }
   }
 
   Future<void> _persist() async {
@@ -125,6 +144,6 @@ class FavoriteService {
   Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_storageKey);
-    favoritesNotifier.value = [];
+    _publishFavorites([]);
   }
 }

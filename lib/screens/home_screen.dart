@@ -81,7 +81,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (forceRefresh || _cachedData == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        CoffeeLoadingOverlay.show(context, fetchFuture);
+        unawaited(
+          CoffeeLoadingOverlay.show(
+            context,
+            fetchFuture,
+          ).then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+        );
       });
     }
 

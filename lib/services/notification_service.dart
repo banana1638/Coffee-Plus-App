@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -23,6 +24,8 @@ class NotificationService with WidgetsBindingObserver {
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 5;
   String? _currentSubscribedUserId;
+  Timer? _reconnectTimer;
+  bool _shouldMaintainConnection = false;
 
   NotificationService._internal() {
     WidgetsBinding.instance.addObserver(this);
@@ -64,8 +67,15 @@ class NotificationService with WidgetsBindingObserver {
   }
 
   Future<void> _connectReverb() async {
+    if (!_shouldMaintainConnection) return;
+
     if (_reverbClient != null) {
-      await _reverbClient?.connect();
+      try {
+        await _reverbClient?.connect();
+      } catch (e) {
+        AppLogger.error('Reverb connect failed', error: e);
+        _scheduleReconnect();
+      }
       return;
     }
 
@@ -88,38 +98,11 @@ class NotificationService with WidgetsBindingObserver {
           };
         },
         onConnected: (socketId) {
+          _reconnectTimer?.cancel();
           _reconnectAttempts = 0;
           AppLogger.info('Reverb connected. Socket: ${_maskId(socketId)}');
         },
-        onDisconnected: () async {
-          if (_reconnectAttempts >= _maxReconnectAttempts) {
-            AppLogger.warning(
-              'Reverb: Max reconnect attempts ($_maxReconnectAttempts) reached.',
-            );
-            return;
-          }
-
-          _reconnectAttempts++;
-          final baseSeconds = (1 << _reconnectAttempts).clamp(1, 60);
-          final jitterMs =
-              (baseSeconds * 1000 * 0.3 * (_random.nextDouble() - 0.5)).toInt();
-          final delay = Duration(
-            milliseconds: (baseSeconds * 1000 + jitterMs).clamp(500, 60000),
-          );
-
-          AppLogger.warning(
-            'Reverb disconnected. '
-            'Attempt $_reconnectAttempts/$_maxReconnectAttempts, '
-            'retry in ${delay.inSeconds}s...',
-          );
-
-          await Future.delayed(delay);
-          try {
-            await _reverbClient?.connect();
-          } catch (e) {
-            AppLogger.error('Reverb reconnection failed', error: e);
-          }
-        },
+        onDisconnected: _scheduleReconnect,
         onError: (error) {
           AppLogger.error('Reverb connection error', error: error);
         },
@@ -129,10 +112,11 @@ class NotificationService with WidgetsBindingObserver {
         await _reverbClient?.connect();
       } catch (e) {
         AppLogger.error('Reverb initial connect failed', error: e);
+        _scheduleReconnect();
       }
-
     } catch (e) {
       AppLogger.error('Reverb init failed', error: e);
+      _scheduleReconnect();
     }
   }
 
@@ -140,16 +124,18 @@ class NotificationService with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     AppLogger.debug('App lifecycle: $state');
 
-    if (state == AppLifecycleState.resumed &&
-        _apiService.authStateNotifier.value &&
-        _reverbClient != null) {
-      AppLogger.debug('App resumed: reconnecting Reverb...');
-      _reverbClient!.connect();
+    if (state == AppLifecycleState.resumed) {
+      if (_apiService.authStateNotifier.value) {
+        _shouldMaintainConnection = true;
+        AppLogger.debug('App resumed: reconnecting Reverb...');
+        unawaited(_connectReverb());
+      }
     }
   }
 
   void _handleAuthChange() async {
     if (_apiService.authStateNotifier.value) {
+      _shouldMaintainConnection = true;
       try {
         await _connectReverb();
         final profile = await _apiService.fetchProfile();
@@ -157,7 +143,11 @@ class NotificationService with WidgetsBindingObserver {
         if (userId != null &&
             userId.isNotEmpty &&
             userId != _currentSubscribedUserId) {
-          _unsubscribeAll();
+          if (_currentSubscribedUserId != null) {
+            _stopReverbConnection();
+            _shouldMaintainConnection = true;
+            await _connectReverb();
+          }
           _subscribeToUserChannel(userId);
           _currentSubscribedUserId = userId;
         }
@@ -168,7 +158,7 @@ class NotificationService with WidgetsBindingObserver {
         );
       }
     } else {
-      _unsubscribeAll();
+      _stopReverbConnection();
       _currentSubscribedUserId = null;
     }
   }
@@ -192,7 +182,51 @@ class NotificationService with WidgetsBindingObserver {
     }
   }
 
-  void _unsubscribeAll() {
+  void _scheduleReconnect() {
+    if (!_shouldMaintainConnection ||
+        !_apiService.authStateNotifier.value ||
+        _reconnectTimer?.isActive == true) {
+      return;
+    }
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      AppLogger.warning(
+        'Reverb: Max reconnect attempts ($_maxReconnectAttempts) reached.',
+      );
+      return;
+    }
+
+    _reconnectAttempts++;
+    final baseSeconds = (1 << _reconnectAttempts).clamp(1, 60);
+    final jitterMs = (baseSeconds * 1000 * 0.3 * (_random.nextDouble() - 0.5))
+        .toInt();
+    final delay = Duration(
+      milliseconds: (baseSeconds * 1000 + jitterMs).clamp(500, 60000),
+    );
+
+    AppLogger.warning(
+      'Reverb disconnected. '
+      'Attempt $_reconnectAttempts/$_maxReconnectAttempts, '
+      'retry in ${delay.inSeconds}s...',
+    );
+
+    _reconnectTimer = Timer(delay, () async {
+      _reconnectTimer = null;
+      if (!_shouldMaintainConnection || !_apiService.authStateNotifier.value) {
+        return;
+      }
+      try {
+        await _reverbClient?.connect();
+      } catch (e) {
+        AppLogger.error('Reverb reconnection failed', error: e);
+        _scheduleReconnect();
+      }
+    });
+  }
+
+  void _stopReverbConnection() {
+    _shouldMaintainConnection = false;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     try {
       AppLogger.debug('Disconnecting from Reverb...');
       _reverbClient?.disconnect();
@@ -269,6 +303,7 @@ class NotificationService with WidgetsBindingObserver {
 
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _unsubscribeAll();
+    _apiService.authStateNotifier.removeListener(_handleAuthChange);
+    _stopReverbConnection();
   }
 }

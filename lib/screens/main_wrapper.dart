@@ -28,12 +28,7 @@ class _MainWrapperState extends State<MainWrapper> {
   final GlobalKey<ProfileScreenState> _profileTabKey =
       GlobalKey<ProfileScreenState>();
 
-  late final List<Widget> _screens = [
-    const HomeScreen(),
-    TangkiScreen(key: _tangkiTabKey),
-    CartIndexScreen(key: _cartTabKey),
-    ProfileScreen(key: _profileTabKey),
-  ];
+  late final List<Widget?> _screens = [const HomeScreen(), null, null, null];
 
   @override
   void initState() {
@@ -80,22 +75,34 @@ class _MainWrapperState extends State<MainWrapper> {
     // 2. 登录拦截逻辑
     if (index > 0 && !loggedIn) {
       await AuthModal.show(context);
+      if (!mounted) return;
       loggedIn = _apiService.authStateNotifier.value;
     }
 
     if (index > 0 && !loggedIn) return;
 
-    // --- 关键修改点 ---
-
-    // 3. 先执行刷新 (不管是不是当前 index)
-    // 注意：如果是新页面，setState 后 IndexedStack 会实例化该页面，
-    // 我们在 PostFrameCallback 中刷新可以确保 Key 已经挂载。
-    _refreshCurrentTab(index);
-
-    // 4. 然后切换索引
-    if (_selectedIndex != index) {
-      setState(() => _selectedIndex = index);
+    final isFirstVisit = _screens[index] == null;
+    if (isFirstVisit || _selectedIndex != index) {
+      setState(() {
+        _screens[index] ??= _createScreen(index);
+        _selectedIndex = index;
+      });
     }
+
+    // Newly mounted screens load once in initState. Revisited tabs refresh.
+    if (!isFirstVisit) {
+      _refreshCurrentTab(index);
+    }
+  }
+
+  Widget _createScreen(int index) {
+    return switch (index) {
+      0 => const HomeScreen(),
+      1 => TangkiScreen(key: _tangkiTabKey),
+      2 => CartIndexScreen(key: _cartTabKey),
+      3 => ProfileScreen(key: _profileTabKey),
+      _ => const SizedBox.shrink(),
+    };
   }
 
   void _refreshCurrentTab(int index) {
@@ -123,7 +130,16 @@ class _MainWrapperState extends State<MainWrapper> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: RepaintBoundary(
-        child: IndexedStack(index: _selectedIndex, children: _screens),
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: [
+            for (var index = 0; index < _screens.length; index++)
+              TickerMode(
+                enabled: index == _selectedIndex,
+                child: _screens[index] ?? const SizedBox.shrink(),
+              ),
+          ],
+        ),
       ),
       bottomNavigationBar: RepaintBoundary(child: _buildBottomNavigation()),
     );

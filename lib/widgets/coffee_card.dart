@@ -2,7 +2,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
-import '../models/favorite_model.dart';
 import '../models/product_model.dart';
 import '../services/app_logger.dart';
 import '../services/api_service.dart';
@@ -111,13 +110,10 @@ class CoffeeCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          ValueListenableBuilder<List<FavoriteItem>>(
-                            valueListenable:
-                                FavoriteService().favoritesNotifier,
-                            builder: (context, favorites, child) {
-                              final isFavorited = favorites.any(
-                                (f) => f.product.id == product.id,
-                              );
+                          ValueListenableBuilder<bool>(
+                            valueListenable: FavoriteService()
+                                .productFavoriteListenable(product.id),
+                            builder: (context, isFavorited, child) {
                               if (!isFavorited) return const SizedBox.shrink();
                               return Icon(
                                 Icons.favorite,

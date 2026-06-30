@@ -15,12 +15,19 @@ import 'screens/user/notification_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  _configureImageCache();
 
   runApp(const MyApp());
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(_initializeDeferredServices());
   });
+}
+
+void _configureImageCache() {
+  final imageCache = PaintingBinding.instance.imageCache;
+  imageCache.maximumSize = 120;
+  imageCache.maximumSizeBytes = 48 << 20;
 }
 
 Future<void> _initializeDeferredServices() async {
