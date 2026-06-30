@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
+import '../models/device_token_model.dart';
 import 'api_client.dart';
+import 'api_response.dart';
 import 'app_config.dart';
 import 'app_logger.dart';
 import 'auth_service.dart';
@@ -11,7 +13,8 @@ import 'notification_utils.dart';
 import 'order_service.dart';
 import 'payment_service.dart';
 import 'profile_service.dart';
-import 'timed_cache.dart'; // ✅ [新增] 用于 _cache 类型
+import 'timed_cache.dart';
+import 'token_service.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -24,6 +27,7 @@ class ApiService {
   final OrderService _orderService = OrderService();
   final PaymentService _paymentService = PaymentService();
   final ProfileService _profileService = ProfileService();
+  final TokenService _tokenService = TokenService();
   final _dashboardRequests = <String, Future<Map<String, dynamic>>>{};
   int _dashboardRefreshGeneration = 0;
   Future<Map<String, dynamic>>? _notificationsRequest;
@@ -36,9 +40,7 @@ class ApiService {
   String get baseImageUrl => _client.baseImageUrl;
   Dio get _dio => _client.dio;
 
-  // ✅ [修改] Map<String, dynamic> → TimedCache
-  //    原因：与 ApiClient 保持类型一致，解锁 TTL 功能
-  TimedCache get _cache => _client.cache;
+  TimedCache<Map<String, dynamic>> get _cache => _client.cache;
 
   ValueNotifier<int> get cartCountNotifier => _client.cartCountNotifier;
   ValueNotifier<int> get notificationCountNotifier =>
@@ -124,7 +126,7 @@ class ApiService {
       final cached = _cache.get(cacheKey);
       if (cached != null) {
         AppLogger.debug('fetchDashboard: cache hit for $cacheKey');
-        return Map<String, dynamic>.from(cached as Map);
+        return Map<String, dynamic>.from(cached);
       }
 
       final pending = _dashboardRequests[cacheKey];
@@ -155,7 +157,7 @@ class ApiService {
               ttl: const Duration(minutes: 2),
             );
           }
-          return Map<String, dynamic>.from(response.data as Map);
+          return requireJsonMap(response.data);
         }
         throw Exception("Status ${response.statusCode}");
       } catch (e) {
@@ -296,6 +298,26 @@ class ApiService {
     return _profileService.deleteAccount(password);
   }
 
+  Future<List<DeviceToken>> fetchDeviceTokens() {
+    return _tokenService.fetchTokens();
+  }
+
+  Future<bool> revokeDeviceToken(DeviceToken token) async {
+    final revokedCurrent = await _tokenService.revokeToken(token.id);
+    final shouldClearLocalCredentials = revokedCurrent || token.isCurrent;
+    if (shouldClearLocalCredentials) {
+      await _tokenService.clearLocalCredentials();
+      _clearInFlightRequests();
+    }
+    return shouldClearLocalCredentials;
+  }
+
+  Future<void> revokeAllDeviceTokens() async {
+    await _tokenService.revokeAllTokens();
+    await _tokenService.clearLocalCredentials();
+    _clearInFlightRequests();
+  }
+
   Future<void> updateNotificationCount({bool forceRefresh = false}) {
     if (forceRefresh) {
       _notificationRefreshGeneration++;
@@ -356,7 +378,7 @@ class ApiService {
       final cached = _cache.get(cacheKey);
       if (cached != null) {
         AppLogger.debug('fetchNotifications: cache hit');
-        return Map<String, dynamic>.from(cached as Map);
+        return Map<String, dynamic>.from(cached);
       }
     }
 
@@ -386,7 +408,7 @@ class ApiService {
       throw Exception('Fetch Notifications Error');
     }
 
-    final Map<String, dynamic> data = response.data;
+    final data = requireJsonMap(response.data);
     List<dynamic> notifications = List.from(data['notifications'] ?? []);
 
     if (notifications.isEmpty) {
@@ -464,8 +486,7 @@ class ApiService {
       },
     );
     if (response.statusCode == 200 || response.statusCode == 201) {
-      final data = Map<String, dynamic>.from(response.data as Map);
-      return Map<String, dynamic>.from((data['data'] as Map?) ?? data);
+      return unwrapDataMap(response.data);
     }
     throw Exception('Add Favorite Error');
   }

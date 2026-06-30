@@ -1,10 +1,17 @@
 import 'package:dio/dio.dart';
+
 import 'api_client.dart';
+import 'device_name_provider.dart';
 
 class AuthService {
   final ApiClientContract _client;
+  final DeviceNameProvider _deviceNameProvider;
 
-  AuthService({ApiClientContract? client}) : _client = client ?? ApiClient();
+  AuthService({
+    ApiClientContract? client,
+    DeviceNameProvider deviceNameProvider = const DeviceNameProvider(),
+  }) : _client = client ?? ApiClient(),
+       _deviceNameProvider = deviceNameProvider;
 
   Future<String?> getToken() => _client.getToken();
 
@@ -33,7 +40,11 @@ class AuthService {
     try {
       final response = await _client.dio.post(
         '/login',
-        data: {'email': email, 'password': password},
+        data: {
+          'email': email,
+          'password': password,
+          'device_name': _deviceNameProvider.getDeviceName(),
+        },
       );
       if (response.statusCode == 200 && response.data['status'] == 'success') {
         final dynamic rawToken = response.data['access_token'];
@@ -54,14 +65,14 @@ class AuthService {
         'success': false,
         'message': response.data['message'] ?? 'Invalid credentials',
       };
-    } on DioException catch (e){ 
+    } on DioException catch (e) {
       if (e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.receiveTimeout) {
         return {'success': false, 'message': 'Connection timed out'};
       }
       final serverMsg = e.response?.data['message'];
       return {'success': false, 'message': serverMsg ?? 'Login failed'};
-    }catch (e) {
+    } catch (e) {
       return {'success': false, 'message': 'Network error'};
     }
   }
@@ -80,11 +91,12 @@ class AuthService {
           'email': email,
           'password': password,
           'password_confirmation': passwordConfirmation,
+          'device_name': _deviceNameProvider.getDeviceName(),
         },
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
         final dynamic rawToken = response.data['access_token'];
-        if (rawToken == null || rawToken.toString().isEmpty){
+        if (rawToken == null || rawToken.toString().isEmpty) {
           return {'success': false, 'message': 'Registration error: no token'};
         }
         await _client.persistAuthToken(rawToken.toString());
@@ -93,17 +105,22 @@ class AuthService {
         return {'success': true};
       }
       return {'success': false, 'message': 'Registration failed'};
-      } on DioException catch (e) {
-        if (e.response?.statusCode == 422) {
-          final errors = e.response?.data?['errors'];
-          if (errors is Map) {
-            final firstError = errors.values.first;
-            return {'success': false, 'message': firstError is List ? firstError.first : firstError.toString(),};
-          }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 422) {
+        final errors = e.response?.data?['errors'];
+        if (errors is Map) {
+          final firstError = errors.values.first;
+          return {
+            'success': false,
+            'message': firstError is List
+                ? firstError.first
+                : firstError.toString(),
+          };
         }
-        return {'success': false, 'message': 'Network error'};
       }
+      return {'success': false, 'message': 'Network error'};
     }
+  }
 
   Future<Map<String, dynamic>> logout() async {
     try {

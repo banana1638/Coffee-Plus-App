@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../core/app_colors.dart';
 import '../../services/api_service.dart';
 import '../../models/user_model.dart';
+import '../../models/device_token_model.dart';
 import '../../widgets/auth_modal.dart';
 import '../../widgets/coffee_loading_overlay.dart';
 import 'order_history_screen.dart';
@@ -27,6 +28,8 @@ class ProfileScreenState extends State<ProfileScreen> {
 
   User? _user;
   bool _isLoading = false;
+  bool _isTokensLoading = false;
+  List<DeviceToken> _deviceTokens = const [];
   String _activeMenu = "Profile Information";
 
   @override
@@ -188,6 +191,89 @@ class ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _loadDeviceTokens({bool force = false}) async {
+    if (_isTokensLoading && !force) return;
+    setState(() => _isTokensLoading = true);
+    try {
+      final tokens = await _apiService.fetchDeviceTokens();
+      if (!mounted) return;
+      setState(() => _deviceTokens = tokens);
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+    } finally {
+      if (mounted) setState(() => _isTokensLoading = false);
+    }
+  }
+
+  Future<void> _handleRevokeToken(DeviceToken token) async {
+    final confirmed = await _confirmTokenRevocation(
+      title: token.isCurrent ? 'Sign out this device?' : 'Revoke this device?',
+      message: token.isCurrent
+          ? 'This device will be signed out immediately.'
+          : '${token.name} will need to sign in again.',
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _isTokensLoading = true);
+    try {
+      final revokedCurrent = await _apiService.revokeDeviceToken(token);
+      if (!mounted) return;
+      if (!revokedCurrent) {
+        _showSnackBar('Device session revoked.');
+        await _loadDeviceTokens(force: true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+    } finally {
+      if (mounted) setState(() => _isTokensLoading = false);
+    }
+  }
+
+  Future<void> _handleRevokeAllTokens() async {
+    final confirmed = await _confirmTokenRevocation(
+      title: 'Sign out all devices?',
+      message:
+          'Every Coffee Plus+ session, including this device, will be revoked.',
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _isTokensLoading = true);
+    try {
+      await _apiService.revokeAllDeviceTokens();
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+    } finally {
+      if (mounted) setState(() => _isTokensLoading = false);
+    }
+  }
+
+  Future<bool> _confirmTokenRevocation({
+    required String title,
+    required String message,
+  }) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('CANCEL'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('REVOKE'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_user == null && !_isLoading) {
@@ -241,6 +327,9 @@ class ProfileScreenState extends State<ProfileScreen> {
                           activeMenu: _activeMenu,
                           onMenuChanged: (menu) {
                             setState(() => _activeMenu = menu);
+                            if (menu == 'Device Sessions') {
+                              _loadDeviceTokens();
+                            }
                           },
                         ),
                       ),
@@ -285,6 +374,22 @@ class ProfileScreenState extends State<ProfileScreen> {
                                 _confirmPasswordController,
                             isLoading: _isLoading,
                             onUpdate: _handleUpdatePassword,
+                          ),
+                        ),
+                      ),
+                    if (_activeMenu == "Device Sessions")
+                      _buildAnimatedItem(
+                        4,
+                        ProfileSection(
+                          title: "Device Sessions",
+                          subtitle:
+                              "Review devices that can access your account.",
+                          child: DeviceSessionsSection(
+                            tokens: _deviceTokens,
+                            isLoading: _isTokensLoading,
+                            onRefresh: _loadDeviceTokens,
+                            onRevoke: _handleRevokeToken,
+                            onRevokeAll: _handleRevokeAllTokens,
                           ),
                         ),
                       ),
@@ -377,10 +482,11 @@ class ProfileScreenState extends State<ProfileScreen> {
                     onPressed: _isLoading
                         ? null
                         : () {
-                          final password = _deletePasswordController.text.trim();
-                          if (password.isEmpty) return;
-                          _handleDeleteAccount(password);
-                        },
+                            final password = _deletePasswordController.text
+                                .trim();
+                            if (password.isEmpty) return;
+                            _handleDeleteAccount(password);
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                     ),
@@ -564,6 +670,12 @@ class QuickLinks extends StatelessWidget {
             label: 'Update Password',
             isActive: activeMenu == 'Update Password',
             onTap: () => onMenuChanged('Update Password'),
+          ),
+          NavLink(
+            icon: Icons.devices_outlined,
+            label: 'Device Sessions',
+            isActive: activeMenu == 'Device Sessions',
+            onTap: () => onMenuChanged('Device Sessions'),
           ),
           const Divider(),
           NavLink(
@@ -893,6 +1005,143 @@ class UpdatePasswordForm extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class DeviceSessionsSection extends StatelessWidget {
+  final List<DeviceToken> tokens;
+  final bool isLoading;
+  final Future<void> Function() onRefresh;
+  final Future<void> Function(DeviceToken token) onRevoke;
+  final Future<void> Function() onRevokeAll;
+
+  const DeviceSessionsSection({
+    super.key,
+    required this.tokens,
+    required this.isLoading,
+    required this.onRefresh,
+    required this.onRevoke,
+    required this.onRevokeAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading && tokens.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${tokens.length} active ${tokens.length == 1 ? 'session' : 'sessions'}',
+                style: TextStyle(color: context.appTextMuted),
+              ),
+            ),
+            IconButton(
+              onPressed: isLoading ? null : onRefresh,
+              tooltip: 'Refresh sessions',
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+        ),
+        if (tokens.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              'No device sessions were returned.',
+              style: TextStyle(color: context.appTextMuted),
+            ),
+          )
+        else
+          for (var index = 0; index < tokens.length; index++) ...[
+            _DeviceTokenTile(
+              token: tokens[index],
+              enabled: !isLoading,
+              onRevoke: () => onRevoke(tokens[index]),
+            ),
+            if (index < tokens.length - 1) const Divider(height: 1),
+          ],
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: isLoading || tokens.isEmpty ? null : onRevokeAll,
+            icon: const Icon(Icons.logout),
+            label: const Text('SIGN OUT ALL DEVICES'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: context.appDanger,
+              side: BorderSide(color: context.appDanger),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DeviceTokenTile extends StatelessWidget {
+  final DeviceToken token;
+  final bool enabled;
+  final VoidCallback onRevoke;
+
+  const _DeviceTokenTile({
+    required this.token,
+    required this.enabled,
+    required this.onRevoke,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final lastActive = token.lastUsedAt ?? token.createdAt;
+    final subtitle = lastActive == null
+        ? 'Activity time unavailable'
+        : 'Last active ${_formatDate(lastActive.toLocal())}';
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        token.isCurrent ? Icons.smartphone : Icons.devices_other,
+        color: token.isCurrent ? context.appPrimary : context.appTextMuted,
+      ),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              token.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          if (token.isCurrent)
+            Text(
+              'CURRENT',
+              style: TextStyle(
+                color: context.appSuccess,
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+        ],
+      ),
+      subtitle: Text(subtitle),
+      trailing: IconButton(
+        onPressed: enabled ? onRevoke : null,
+        tooltip: token.isCurrent ? 'Sign out this device' : 'Revoke session',
+        icon: const Icon(Icons.delete_outline),
+        color: context.appDanger,
+      ),
+    );
+  }
+
+  String _formatDate(DateTime value) {
+    String twoDigits(int number) => number.toString().padLeft(2, '0');
+    return '${value.year}-${twoDigits(value.month)}-${twoDigits(value.day)} '
+        '${twoDigits(value.hour)}:${twoDigits(value.minute)}';
   }
 }
 
