@@ -7,6 +7,8 @@ import 'package:coffee_plus_app/models/favorite_model.dart';
 import 'package:coffee_plus_app/models/product_model.dart';
 import 'package:coffee_plus_app/models/transaction_model.dart';
 import 'package:coffee_plus_app/models/user_model.dart';
+import 'package:coffee_plus_app/models/device_token_model.dart';
+import 'package:coffee_plus_app/services/device_name_provider.dart';
 import 'package:coffee_plus_app/services/payment_service.dart';
 
 void main() {
@@ -186,7 +188,10 @@ void main() {
     test('prefers standardized server messages for auth and not found', () {
       expect(
         ErrorHandler.toUserMessage(
-          responseError(401, {'status': 'error', 'message': 'Unauthenticated.'}),
+          responseError(401, {
+            'status': 'error',
+            'message': 'Unauthenticated.',
+          }),
         ),
         'Unauthenticated.',
       );
@@ -213,6 +218,55 @@ void main() {
           'https://checkout.stripe.com/c/pay/cs_test_url#fidkdWxOYHwn',
         ),
         'cs_test_url',
+      );
+    });
+
+    test('only treats processed status as confirmed', () {
+      const processed = PaymentStatusSnapshot(
+        sessionId: 'cs_processed',
+        status: 'processed',
+        rawData: {},
+      );
+      const failed = PaymentStatusSnapshot(
+        sessionId: 'cs_failed',
+        status: 'failed',
+        rawData: {},
+      );
+
+      expect(processed.isProcessed, isTrue);
+      expect(failed.isProcessed, isFalse);
+    });
+  });
+
+  group('Device token management', () {
+    test('parses current device metadata without a token secret', () {
+      final token = DeviceToken.fromJson({
+        'id': 12,
+        'device_name': 'Android - Coffee Phone',
+        'is_current': true,
+        'last_used_at': '2026-06-28T10:00:00Z',
+      });
+
+      expect(token.id, '12');
+      expect(token.name, 'Android - Coffee Phone');
+      expect(token.isCurrent, isTrue);
+      expect(token.lastUsedAt, isNotNull);
+    });
+
+    test('normalizes device names to the backend length limit', () {
+      final name = DeviceNameProvider.normalize(
+        operatingSystem: 'android',
+        hostName: List.filled(150, 'A').join(),
+      );
+
+      expect(name, startsWith('Android - '));
+      expect(name.length, 100);
+      expect(
+        DeviceNameProvider.normalize(
+          operatingSystem: 'ios',
+          hostName: 'localhost',
+        ),
+        'iOS device',
       );
     });
   });
