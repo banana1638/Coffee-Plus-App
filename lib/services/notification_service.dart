@@ -49,7 +49,7 @@ class NotificationService with WidgetsBindingObserver {
     );
 
     await _localNotifications.initialize(
-      initSettings,
+      settings: initSettings,
       onDidReceiveNotificationResponse: (details) {
         AppLogger.debug('Notification clicked: ${details.payload}');
       },
@@ -60,9 +60,13 @@ class NotificationService with WidgetsBindingObserver {
         >()
         ?.requestNotificationsPermission();
 
-    _apiService.authStateNotifier.removeListener(_handleAuthChange);
-    _apiService.authStateNotifier.addListener(_handleAuthChange);
-    _handleAuthChange();
+    if (AppConfig.reverbEnabled) {
+      _apiService.authStateNotifier.removeListener(_handleAuthChange);
+      _apiService.authStateNotifier.addListener(_handleAuthChange);
+      _handleAuthChange();
+    } else {
+      AppLogger.info('Reverb disabled by environment configuration.');
+    }
     _isInitialized = true;
   }
 
@@ -125,7 +129,7 @@ class NotificationService with WidgetsBindingObserver {
     AppLogger.debug('App lifecycle: $state');
 
     if (state == AppLifecycleState.resumed) {
-      if (_apiService.authStateNotifier.value) {
+      if (AppConfig.reverbEnabled && _apiService.authStateNotifier.value) {
         _shouldMaintainConnection = true;
         AppLogger.debug('App resumed: reconnecting Reverb...');
         unawaited(_connectReverb());
@@ -134,6 +138,9 @@ class NotificationService with WidgetsBindingObserver {
   }
 
   void _handleAuthChange() async {
+    if (!AppConfig.reverbEnabled) {
+      return;
+    }
     if (_apiService.authStateNotifier.value) {
       _shouldMaintainConnection = true;
       try {
@@ -283,10 +290,10 @@ class NotificationService with WidgetsBindingObserver {
 
     try {
       await _localNotifications.show(
-        DateTime.now().microsecondsSinceEpoch % 2147483647,
-        title,
-        body,
-        platformDetails,
+        id: DateTime.now().microsecondsSinceEpoch % 2147483647,
+        title: title,
+        body: body,
+        notificationDetails: platformDetails,
         payload: payload,
       );
       AppLogger.debug('Local notification shown: $title');

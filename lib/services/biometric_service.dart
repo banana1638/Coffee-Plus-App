@@ -26,23 +26,13 @@ class BiometricService {
         authMessages: const <AuthMessages>[
           AndroidAuthMessages(
             signInTitle: 'Verification Required',
-            biometricHint: 'Verify your identity to proceed',
+            signInHint: 'Verify your identity to proceed',
             cancelButton: 'Cancel',
-            deviceCredentialsRequiredTitle: 'Authentication Required',
-            deviceCredentialsSetupDescription:
-                'Please set up a PIN/Password on your device.',
           ),
-          IOSAuthMessages(
-            cancelButton: 'Cancel',
-            lockOut: 'Please re-enable biometrics',
-          ),
+          IOSAuthMessages(cancelButton: 'Cancel'),
         ],
-        options: const AuthenticationOptions(
-          stickyAuth: true,
-          biometricOnly:
-              false, // Allows PIN/Passcode fallback if biometrics fail/unavailable
-          useErrorDialogs: true,
-        ),
+        persistAcrossBackgrounding: true,
+        biometricOnly: false,
       );
       return authenticated;
     } on PlatformException catch (e) {

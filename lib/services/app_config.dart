@@ -14,6 +14,10 @@ class AppConfig {
     'COFFEE_VERBOSE_API_LOGS',
     defaultValue: true,
   );
+  static const reverbEnabled = bool.fromEnvironment(
+    'COFFEE_REVERB_ENABLED',
+    defaultValue: false,
+  );
 
   static const reverbPort = int.fromEnvironment(
     'COFFEE_REVERB_PORT',
