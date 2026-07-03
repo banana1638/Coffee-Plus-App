@@ -13,6 +13,7 @@ import 'notification_utils.dart';
 import 'order_service.dart';
 import 'payment_service.dart';
 import 'profile_service.dart';
+import 'product_service.dart';
 import 'timed_cache.dart';
 import 'token_service.dart';
 
@@ -27,6 +28,7 @@ class ApiService {
   final OrderService _orderService = OrderService();
   final PaymentService _paymentService = PaymentService();
   final ProfileService _profileService = ProfileService();
+  final ProductService _productService = ProductService();
   final TokenService _tokenService = TokenService();
   final _dashboardRequests = <String, Future<Map<String, dynamic>>>{};
   int _dashboardRefreshGeneration = 0;
@@ -190,6 +192,10 @@ class ApiService {
 
   Future<void> updateCartCount() => _cartService.updateCartCount();
   Future<Map<String, dynamic>> fetchCart() => _cartService.fetchCart();
+
+  Future<ProductDetailData> fetchProductDetail(int productId) {
+    return _productService.fetchProductDetail(productId);
+  }
 
   Future<void> addToCart({
     required int productId,

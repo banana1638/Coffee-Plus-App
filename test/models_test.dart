@@ -10,6 +10,7 @@ import 'package:coffee_plus_app/models/user_model.dart';
 import 'package:coffee_plus_app/models/device_token_model.dart';
 import 'package:coffee_plus_app/services/device_name_provider.dart';
 import 'package:coffee_plus_app/services/payment_service.dart';
+import 'package:coffee_plus_app/services/product_service.dart';
 
 void main() {
   group('User.fromJson', () {
@@ -61,6 +62,37 @@ void main() {
       expect(product.options, isNotNull);
       expect(product.addons, hasLength(1));
       expect(product.addons!.single.price, 1.5);
+    });
+
+    test('parses the product detail API response with addons', () {
+      final detail = ProductDetailData.fromResponse({
+        'product': {
+          'id': 2,
+          'name': 'Caffe Latte',
+          'base_price': 10.9,
+          'addons': [
+            {'id': 7, 'name': 'Extra Shot', 'price': '1.50'},
+          ],
+        },
+        'options': {
+          'sizes': ['Regular', 'Large'],
+          'temps': ['Hot', 'Iced'],
+        },
+      });
+
+      expect(detail.product.id, 2);
+      expect(detail.product.addons, hasLength(1));
+      expect(detail.product.addons!.single.name, 'Extra Shot');
+      expect(detail.options['temps'], ['Hot', 'Iced']);
+    });
+
+    test('preserves a missing addons field as unavailable', () {
+      final detail = ProductDetailData.fromResponse({
+        'product': {'id': 2, 'name': 'Caffe Latte', 'base_price': 10.9},
+        'options': {},
+      });
+
+      expect(detail.product.addons, isNull);
     });
   });
 

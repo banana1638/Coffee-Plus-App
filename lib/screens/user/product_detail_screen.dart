@@ -47,6 +47,12 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   static const int _maxQuantity = 20;
 
+  late Product _product;
+  late Map<String, dynamic> _dynamicOptions;
+  bool _isDetailLoading = false;
+  String? _detailLoadError;
+  int _detailRequestGeneration = 0;
+
   // --- 状态变量 ---
   String selectedSize = 'Regular';
   String selectedTemp = 'Hot'; // 对应 Blade 里的 Temperature
@@ -60,6 +66,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _product = widget.product;
+    _dynamicOptions = widget.dynamicOptions ?? widget.product.options ?? {};
     // 恢复收藏的选择 (Restore choices if opened from favorite)
     if (widget.initialFavorite != null) {
       selectedSize = widget.initialFavorite!.size;
@@ -68,6 +76,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       _remarkController.text = widget.initialFavorite!.remark;
     }
     _ensureValidSelections();
+    _loadProductDetail();
   }
 
   @override
@@ -75,7 +84,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.product.id != widget.product.id ||
         oldWidget.dynamicOptions != widget.dynamicOptions) {
-      setState(_ensureValidSelections);
+      _product = widget.product;
+      _dynamicOptions = widget.dynamicOptions ?? widget.product.options ?? {};
+      _ensureValidSelections();
+      _loadProductDetail();
     }
   }
 
@@ -106,8 +118,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   List<Map<String, dynamic>> get addonOptions {
-    if (widget.product.addons != null && widget.product.addons!.isNotEmpty) {
-      return widget.product.addons!
+    if (_product.addons != null && _product.addons!.isNotEmpty) {
+      return _product.addons!
           .map((addon) => {'name': addon.name, 'price': addon.price})
           .toList();
     }
@@ -116,7 +128,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Map<String, dynamic> get _backendOptions {
-    return widget.dynamicOptions ?? widget.product.options ?? const {};
+    return _dynamicOptions;
   }
 
   bool get _hasRequiredOptions =>
@@ -180,7 +192,50 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       } catch (_) {}
     }
 
-    return (widget.product.price + extra) * quantity;
+    return (_product.price + extra) * quantity;
+  }
+
+  Future<void> _loadProductDetail() async {
+    final generation = ++_detailRequestGeneration;
+    if (mounted) {
+      setState(() {
+        _isDetailLoading = true;
+        _detailLoadError = null;
+      });
+    }
+
+    try {
+      final detail = await ApiService().fetchProductDetail(widget.product.id);
+      if (!mounted ||
+          generation != _detailRequestGeneration ||
+          detail.product.id != widget.product.id) {
+        return;
+      }
+
+      setState(() {
+        if (detail.product.addons != null) {
+          _product = detail.product;
+        }
+        if (detail.options.isNotEmpty) {
+          _dynamicOptions = detail.options;
+        }
+        _detailLoadError = detail.product.addons == null
+            ? 'Add-ons are temporarily unavailable. Please try again.'
+            : null;
+        _ensureValidSelections();
+      });
+    } catch (e) {
+      if (!mounted || generation != _detailRequestGeneration) return;
+      setState(() {
+        _detailLoadError =
+            'Some product options could not be loaded. Please try again.';
+      });
+      AppLogger.warning('Product detail load failed: $e');
+    } finally {
+      if (mounted && generation == _detailRequestGeneration) {
+        setState(() => _isDetailLoading = false);
+      }
+    }
   }
 
   Future<void> _handleAddToCart() async {
@@ -202,7 +257,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     HapticFeedback.mediumImpact();
     try {
       await ApiService().addToCart(
-        productId: widget.product.id,
+        productId: _product.id,
         quantity: quantity,
         size: selectedSize,
         temp: selectedTemp,
@@ -231,7 +286,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     final String uniqueId = FavoriteItem(
-      product: widget.product,
+      product: _product,
       size: selectedSize,
       temp: selectedTemp,
       addons: selectedAddons,
@@ -317,7 +372,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 setState(() => _isFavoriting = true);
                 try {
                   final item = FavoriteItem(
-                    product: widget.product,
+                    product: _product,
                     size: selectedSize,
                     temp: selectedTemp,
                     addons: selectedAddons,
@@ -375,7 +430,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             physics: const BouncingScrollPhysics(),
             slivers: [
               ProductAppBar(
-                product: widget.product,
+                product: _product,
                 selectedSize: selectedSize,
                 selectedTemp: selectedTemp,
                 selectedAddons: selectedAddons,
@@ -388,7 +443,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ProductInfo(product: widget.product),
+                      if (_isDetailLoading) ...[
+                        const LinearProgressIndicator(minHeight: 2),
+                        const SizedBox(height: 16),
+                      ],
+                      if (_detailLoadError != null) ...[
+                        ProductDetailLoadBanner(
+                          message: _detailLoadError!,
+                          onRetry: _loadProductDetail,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      ProductInfo(product: _product),
                       const SizedBox(height: 30),
                       const SectionTitle(title: "SELECT TEMPERATURE"),
                       TempSelector(
@@ -467,6 +533,50 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 // ==========================================
 // 4. 独立优化组件 (Standalone Optimized Widgets)
 // ==========================================
+
+class ProductDetailLoadBanner extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const ProductDetailLoadBanner({
+    super.key,
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: context.appWarning.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: context.appWarning.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: context.appWarning, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(color: context.appTextBody, fontSize: 12),
+              ),
+            ),
+            IconButton(
+              onPressed: onRetry,
+              tooltip: 'Retry product details',
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class ProductAppBar extends StatelessWidget {
   final Product product;
