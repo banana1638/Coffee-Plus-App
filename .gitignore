@@ -12,6 +12,11 @@
 .swiftpm/
 migrate_working_dir/
 
+# Local agent/editor state
+.codex/
+.codex-remote-attachments/
+.zeditor/
+
 # IntelliJ related
 *.iml
 *.ipr
