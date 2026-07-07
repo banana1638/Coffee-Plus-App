@@ -177,6 +177,27 @@ void main() {
       expect(transaction.billId, 'BILL-1');
       expect(transaction.rawJson, same(json));
     });
+
+    test('accepts summary payload without embedded order details', () {
+      final json = {
+        'id': 13,
+        'bill_id': 'BILL-2',
+        'type': 'refund',
+        'oz_delta': '+100',
+        'description': 'Refund credited',
+        'time': '2 minutes ago',
+        'timestamp': '2026-07-07 12:00:00',
+      };
+
+      final transaction = Transaction.fromJson(json);
+
+      expect(transaction.id, 13);
+      expect(transaction.billId, 'BILL-2');
+      expect(transaction.type, 'refund');
+      expect(transaction.ozDelta, '+100');
+      expect(transaction.timestamp, '2026-07-07 12:00:00');
+      expect(transaction.rawJson.containsKey('order_details'), isFalse);
+    });
   });
 
   group('ErrorHandler', () {
@@ -191,6 +212,25 @@ void main() {
         type: DioExceptionType.badResponse,
       );
     }
+
+    test('hides network timeout implementation details', () {
+      final message = ErrorHandler.toUserMessage(
+        DioException(
+          requestOptions: RequestOptions(path: '/dashboard'),
+          type: DioExceptionType.connectionTimeout,
+          message:
+              'The request connection took longer than 0:00:10.000000 and it was aborted.',
+        ),
+      );
+
+      expect(
+        message,
+        'Connection timed out. Please check your internet connection and try again.',
+      );
+      expect(message, isNot(contains('DioException')));
+      expect(message, isNot(contains('connectTimeout')));
+      expect(message, isNot(contains('0:00:10')));
+    });
 
     test('surfaces validation field errors', () {
       final message = ErrorHandler.toUserMessage(

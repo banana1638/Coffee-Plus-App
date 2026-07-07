@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
+import '../../core/error_handler.dart';
 import '../../services/api_service.dart';
 import '../../widgets/coffee_loading_overlay.dart';
 import 'order_detail_screen.dart';
@@ -128,7 +129,16 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
           }
 
           if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Text(
+                  ErrorHandler.toUserMessage(snapshot.error),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: context.appTextBody),
+                ),
+              ),
+            );
           }
 
           final orders = snapshot.data ?? [];
@@ -177,7 +187,7 @@ class OrderHistoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = order['status']?.toString() ?? 'pending';
-    final statusColor = _statusColor(status);
+    final statusColor = _statusColor(context, status);
     final finalAmount =
         double.tryParse(order['final_amount']?.toString() ?? '0') ?? 0.0;
 
@@ -281,12 +291,12 @@ class OrderHistoryCard extends StatelessWidget {
     );
   }
 
-  Color _statusColor(String status) {
+  Color _statusColor(BuildContext context, String status) {
     return switch (status) {
       'pending' => Colors.orange,
-      'preparing' => Colors.blue,
+      'preparing' => context.appPrimary,
       'ready_for_pickup' => Colors.green,
-      'completed' => Colors.teal,
+      'completed' => context.appPrimary,
       'cancelled' => Colors.red,
       _ => Colors.grey,
     };

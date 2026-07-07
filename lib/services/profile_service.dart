@@ -5,6 +5,7 @@ import 'api_response.dart';
 
 class ProfileService {
   final ApiClientContract _client;
+  final Map<String, Map<String, dynamic>> _transactionDetailCache = {};
 
   ProfileService({ApiClientContract? client}) : _client = client ?? ApiClient();
 
@@ -39,6 +40,36 @@ class ProfileService {
 
     if (response.statusCode == 200) return response.data;
     throw Exception('Transactions Error');
+  }
+
+  Future<Map<String, dynamic>> fetchRefunds() async {
+    final response = await _client.dio.get('/refunds');
+
+    if (response.statusCode == 200) return requireJsonMap(response.data);
+    throw Exception('Refunds Error');
+  }
+
+  Future<Map<String, dynamic>> fetchTransactionDetail(String billId) async {
+    final trimmedBillId = billId.trim();
+    final cached = _transactionDetailCache[trimmedBillId];
+    if (cached != null) return cached;
+
+    final encodedBillId = Uri.encodeComponent(trimmedBillId);
+    final response = await _client.dio.get('/transactions/$encodedBillId');
+
+    if (response.statusCode == 200) {
+      final data = requireJsonMap(response.data);
+      final order = data['order'];
+      if (order is Map) {
+        final normalized = Map<String, dynamic>.from(order);
+        _transactionDetailCache[trimmedBillId] = normalized;
+        return normalized;
+      }
+
+      throw const FormatException('Transaction detail response missing order.');
+    }
+
+    throw Exception('Transaction Detail Error');
   }
 
   Future<Map<String, dynamic>> fetchProfile() async {

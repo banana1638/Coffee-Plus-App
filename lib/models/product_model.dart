@@ -5,6 +5,9 @@ class Product {
   final String imageUrl;
   final double price;
   final bool isAvailable;
+  final double averageRating;
+  final int reviewsCount;
+  final int ozRedeemValue;
 
   final Map<String, dynamic>? options;
   final List<ProductAddon>? addons;
@@ -16,6 +19,9 @@ class Product {
     required this.imageUrl,
     required this.price,
     required this.isAvailable,
+    this.averageRating = 0,
+    this.reviewsCount = 0,
+    this.ozRedeemValue = 0,
     this.options,
     this.addons,
   });
@@ -37,6 +43,15 @@ class Product {
           : json['is_available'] == 1 ||
                 json['is_available'] == true ||
                 json['is_available'].toString() == "1",
+      averageRating: json['average_rating'] is num
+          ? (json['average_rating'] as num).toDouble()
+          : double.tryParse(json['average_rating']?.toString() ?? '0') ?? 0.0,
+      reviewsCount: json['reviews_count'] is num
+          ? (json['reviews_count'] as num).toInt()
+          : int.tryParse(json['reviews_count']?.toString() ?? '0') ?? 0,
+      ozRedeemValue: json['oz_redeem_value'] is num
+          ? (json['oz_redeem_value'] as num).toInt()
+          : int.tryParse(json['oz_redeem_value']?.toString() ?? '0') ?? 0,
 
       options: json['options'],
       addons: json['addons'] != null

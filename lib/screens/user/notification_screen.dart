@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
+import '../../core/error_handler.dart';
 import '../../services/api_service.dart';
 import '../../services/app_logger.dart';
 import '../../widgets/shimmer_loading.dart';
@@ -91,7 +92,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
 
             if (snapshot.hasError) {
               return NotificationErrorState(
-                error: snapshot.error.toString(),
+                error: ErrorHandler.toUserMessage(snapshot.error),
                 onRetry: _refreshNotifications,
               );
             }

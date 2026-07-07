@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
+import '../../core/app_motion.dart';
+import '../../core/error_handler.dart';
 import '../../services/api_service.dart';
 import '../../models/transaction_model.dart';
 import '../../widgets/coffee_loading_overlay.dart';
@@ -33,6 +35,31 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             return list.map((json) => Transaction.fromJson(json)).toList();
           });
     });
+  }
+
+  Future<void> _openTransactionDetail(Transaction trx) async {
+    if (trx.billId.isEmpty) return;
+
+    try {
+      final order = await CoffeeLoadingOverlay.show(
+        context,
+        _apiService.fetchTransactionDetail(trx.billId),
+      );
+      if (!mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => OrderDetailScreen(order: order)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ErrorHandler.toUserMessage(e)),
+          backgroundColor: context.appDanger,
+        ),
+      );
+    }
   }
 
   // ==========================================
@@ -77,7 +104,16 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   return const CoffeeLoadingIndicator();
                 }
                 if (snapshot.hasError) {
-                  return Center(child: Text("Error: ${snapshot.error}"));
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Text(
+                        ErrorHandler.toUserMessage(snapshot.error),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: context.appTextBody),
+                      ),
+                    ),
+                  );
                 }
                 final transactions = snapshot.data ?? [];
                 if (transactions.isEmpty) {
@@ -95,7 +131,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     itemCount: transactions.length,
                     itemBuilder: (context, index) {
                       return RepaintBoundary(
-                        child: TransactionCard(trx: transactions[index]),
+                        child: TransactionCard(
+                          trx: transactions[index],
+                          onOpenDetail: _openTransactionDetail,
+                        ),
                       );
                     },
                   ),
@@ -178,7 +217,8 @@ class TransactionFilterButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: AppMotion.medium,
+          curve: AppMotion.enter,
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: isActive ? context.appSurface : Colors.transparent,
@@ -213,8 +253,13 @@ class TransactionFilterButton extends StatelessWidget {
 
 class TransactionCard extends StatelessWidget {
   final Transaction trx;
+  final ValueChanged<Transaction> onOpenDetail;
 
-  const TransactionCard({super.key, required this.trx});
+  const TransactionCard({
+    super.key,
+    required this.trx,
+    required this.onOpenDetail,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -258,7 +303,7 @@ class TransactionCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: isCredit
                                 ? Colors.green.withValues(alpha: 0.1)
-                                : Colors.blue.withValues(alpha: 0.1),
+                                : context.appPrimary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -266,7 +311,9 @@ class TransactionCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w900,
-                              color: isCredit ? Colors.green : Colors.blue,
+                              color: isCredit
+                                  ? Colors.green
+                                  : context.appPrimary,
                             ),
                           ),
                         ),
@@ -323,17 +370,13 @@ class TransactionCard extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          OrderDetailScreen(order: trx.rawJson),
-                    ),
-                  );
+                  onOpenDetail(trx);
                 },
                 style: OutlinedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEFF6FF),
-                  side: BorderSide.none,
+                  backgroundColor: context.appPrimary.withValues(alpha: 0.08),
+                  side: BorderSide(
+                    color: context.appPrimary.withValues(alpha: 0.2),
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

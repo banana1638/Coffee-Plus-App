@@ -10,9 +10,9 @@ class ErrorHandler {
         case DioExceptionType.connectionTimeout:
         case DioExceptionType.sendTimeout:
         case DioExceptionType.receiveTimeout:
-          return 'Request timed out. Please check your connection.';
+          return 'Connection timed out. Please check your internet connection and try again.';
         case DioExceptionType.connectionError:
-          return 'Cannot connect to server. Please try again.';
+          return 'Unable to connect. Please check your internet connection and try again.';
         case DioExceptionType.badResponse:
           final statusCode = error.response?.statusCode;
           final serverMsg = _serverMessage(error.response?.data);
@@ -52,6 +52,9 @@ class ErrorHandler {
       // 不要暴露技术细节（包含冒号的通常是技术堆栈）
       if (msg.contains('SocketException') || msg.contains('DioException')) {
         return 'Network error. Please try again.';
+      }
+      if (msg.toLowerCase().contains('timeout')) {
+        return 'Connection timed out. Please check your internet connection and try again.';
       }
       return msg;
     }

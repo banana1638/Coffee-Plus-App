@@ -5,6 +5,7 @@ class Transaction {
   final String ozDelta;
   final String description;
   final String time;
+  final String? timestamp;
   final Map<String, dynamic> rawJson;
 
   Transaction({
@@ -14,6 +15,7 @@ class Transaction {
     required this.ozDelta,
     required this.description,
     required this.time,
+    this.timestamp,
     required this.rawJson,
   });
 
@@ -27,6 +29,7 @@ class Transaction {
       ozDelta: json['oz_delta'] ?? '0',
       description: json['description'] ?? '',
       time: json['time'] ?? '',
+      timestamp: json['timestamp']?.toString(),
       rawJson: json,
     );
   }

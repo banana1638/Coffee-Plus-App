@@ -282,6 +282,14 @@ class ApiService {
     return _profileService.fetchTransactions(type: type);
   }
 
+  Future<Map<String, dynamic>> fetchRefunds() {
+    return _profileService.fetchRefunds();
+  }
+
+  Future<Map<String, dynamic>> fetchTransactionDetail(String billId) {
+    return _profileService.fetchTransactionDetail(billId);
+  }
+
   Future<Map<String, dynamic>> fetchProfile() => _profileService.fetchProfile();
 
   Future<Map<String, dynamic>> updateProfile({String? name, String? email}) {
