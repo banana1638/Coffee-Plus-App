@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/app_colors.dart';
+import '../../core/app_motion.dart';
+import '../../core/app_typography.dart';
 import '../../models/product_model.dart';
 import '../../services/app_logger.dart';
 import '../../services/api_service.dart';
@@ -8,6 +10,7 @@ import 'package:flutter/services.dart';
 import '../../models/favorite_model.dart';
 import '../../services/favorite_service.dart';
 import '../../widgets/auth_modal.dart';
+import '../../widgets/cafe_components.dart';
 import '../../core/error_handler.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -456,7 +459,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ],
                       ProductInfo(product: _product),
                       const SizedBox(height: 30),
-                      const SectionTitle(title: "SELECT TEMPERATURE"),
+                      const SectionTitle(title: "STEP 1 · TEMPERATURE"),
                       TempSelector(
                         tempOptions: tempOptions,
                         selectedTemp: selectedTemp,
@@ -464,7 +467,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           setState(() => selectedTemp = temp);
                         },
                       ),
-                      const SectionTitle(title: "CUP SIZE"),
+                      const SectionTitle(title: "STEP 2 · CUP SIZE"),
                       SizeSelector(
                         sizeOptions: sizeOptions,
                         selectedSize: selectedSize,
@@ -472,7 +475,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           setState(() => selectedSize = size);
                         },
                       ),
-                      const SectionTitle(title: "EXTRA ADD-ONS"),
+                      const SectionTitle(title: "STEP 3 · ADD-ONS"),
                       AddonSelector(
                         addonOptions: addonOptions,
                         selectedAddons: selectedAddons,
@@ -650,9 +653,15 @@ class ProductAppBar extends StatelessWidget {
                     backgroundColor: context.appSurface.withValues(alpha: 0.92),
                     child: IconButton(
                       icon: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        transitionBuilder: (child, anim) =>
-                            ScaleTransition(scale: anim, child: child),
+                        duration: AppMotion.medium,
+                        switchInCurve: AppMotion.enter,
+                        switchOutCurve: AppMotion.exit,
+                        transitionBuilder: (child, anim) {
+                          return FadeTransition(
+                            opacity: anim,
+                            child: ScaleTransition(scale: anim, child: child),
+                          );
+                        },
                         child: Icon(
                           isSaved ? Icons.favorite : Icons.favorite_border,
                           key: ValueKey(isSaved),
@@ -694,21 +703,17 @@ class ProductInfo extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          "PREMIUM SELECTION",
-          style: TextStyle(
+          "MADE TO ORDER",
+          style: AppTypography.sectionLabel(context).copyWith(
             color: context.appPrimary,
-            fontWeight: FontWeight.bold,
             fontSize: 12,
-            letterSpacing: 2,
           ),
         ),
         const SizedBox(height: 8),
         Text(
           product.name,
-          style: TextStyle(
-            fontSize: 30,
-            fontWeight: FontWeight.w700,
-            color: context.appTextMain,
+          style: AppTypography.title(context).copyWith(
+            fontSize: 28,
           ),
         ),
         const SizedBox(height: 12),
@@ -748,21 +753,12 @@ class TempSelector extends StatelessWidget {
               margin: EdgeInsets.only(right: temp == tempOptions.last ? 0 : 10),
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? context.appPrimary.withValues(alpha: 0.08)
-                    : context.appSurface,
+                color: isSelected ? context.appSurfaceSubtle : context.appSurface,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: isSelected ? context.appPrimary : context.appBorder,
                   width: 1.5,
                 ),
-                boxShadow: [
-                  if (isSelected)
-                    BoxShadow(
-                      color: context.appPrimary.withValues(alpha: 0.1),
-                      blurRadius: 10,
-                    ),
-                ],
               ),
               child: Text(
                 temp,
@@ -797,6 +793,7 @@ class SizeSelector extends StatelessWidget {
     return Column(
       children: sizeOptions.map((size) {
         bool isSelected = selectedSize == size['name'];
+        final extra = num.tryParse(size['extra']?.toString() ?? '0') ?? 0;
         return GestureDetector(
           onTap: () {
             HapticFeedback.selectionClick();
@@ -806,9 +803,7 @@ class SizeSelector extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? context.appPrimary.withValues(alpha: 0.08)
-                  : context.appSurface,
+              color: isSelected ? context.appSurfaceSubtle : context.appSurface,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: isSelected ? context.appPrimary : context.appBorder,
@@ -822,11 +817,7 @@ class SizeSelector extends StatelessWidget {
                   size['name'],
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                if (size['extra'] > 0)
-                  Text(
-                    "+ RM ${size['extra'].toStringAsFixed(2)}",
-                    style: TextStyle(color: context.appTextMuted, fontSize: 12),
-                  ),
+                if (extra > 0) CafeMoneyText(amount: extra, fontSize: 12),
               ],
             ),
           ),
@@ -853,6 +844,7 @@ class AddonSelector extends StatelessWidget {
     return Column(
       children: addonOptions.map((addon) {
         bool isSelected = selectedAddons.contains(addon['name']);
+        final price = num.tryParse(addon['price']?.toString() ?? '0') ?? 0;
         return GestureDetector(
           onTap: () {
             HapticFeedback.selectionClick();
@@ -862,9 +854,7 @@ class AddonSelector extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? context.appPrimary.withValues(alpha: 0.08)
-                  : context.appSurface,
+              color: isSelected ? context.appSurfaceSubtle : context.appSurface,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: isSelected ? context.appPrimary : context.appBorder,
@@ -885,12 +875,8 @@ class AddonSelector extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  "+ RM ${addon['price'].toStringAsFixed(2)}",
-                  style: TextStyle(
-                    color: context.appPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
+                  "+ RM ${price.toStringAsFixed(2)}",
+                  style: AppTypography.money(context, fontSize: 12),
                 ),
               ],
             ),
@@ -920,7 +906,7 @@ class BottomAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 32),
       decoration: BoxDecoration(
         color: context.appSurface.withValues(alpha: 0.9),
         border: Border(top: BorderSide(color: context.appBorder)),
@@ -930,8 +916,9 @@ class BottomAction extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: context.appBackground,
+              color: context.appSurfaceSubtle,
               borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: context.appBorder),
             ),
             child: Row(
               children: [
@@ -964,15 +951,13 @@ class BottomAction extends StatelessWidget {
             child: ElevatedButton(
               onPressed: isAdding ? null : onAddToCart,
               style: ElevatedButton.styleFrom(
-                backgroundColor: context.isDarkMode
-                    ? context.appPrimary
-                    : AppColors.darkAction,
+                backgroundColor: context.appPrimary,
                 padding: const EdgeInsets.symmetric(
                   vertical: 18,
                   horizontal: 20,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
                 ),
                 elevation: 0,
               ),
@@ -980,7 +965,7 @@ class BottomAction extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    "ADD TO CART",
+                    "Add to Cart",
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
@@ -993,11 +978,10 @@ class BottomAction extends StatelessWidget {
                     ),
                     child: Text(
                       "RM ${totalPrice.toStringAsFixed(2)}",
-                      style: TextStyle(
-                        color: context.appBackground,
+                      style: AppTypography.money(
+                        context,
                         fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      ).copyWith(color: Colors.white),
                     ),
                   ),
                 ],

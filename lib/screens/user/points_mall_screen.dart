@@ -39,7 +39,7 @@ class _PointsMallScreenState extends State<PointsMallScreen> {
       'description': 'A special badge for your profile.',
       'oz_cost': 1000,
       'image': Icons.verified,
-      'color': Colors.blue,
+      'color': AppColors.primary,
     },
     {
       'id': 4,

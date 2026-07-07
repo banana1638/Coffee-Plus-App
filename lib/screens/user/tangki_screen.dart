@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/app_colors.dart';
+import '../../core/app_motion.dart';
+import '../../core/app_typography.dart';
+import '../../widgets/cafe_components.dart';
 import '../../widgets/tank_visualization.dart';
 import '../../widgets/coffee_loading_overlay.dart';
 import '../../services/api_service.dart';
@@ -67,6 +70,31 @@ class TangkiScreenState extends State<TangkiScreen>
       });
     } else {
       refreshData();
+    }
+  }
+
+  Future<void> _openTransactionDetail(Transaction trx) async {
+    if (trx.billId.isEmpty) return;
+
+    try {
+      final order = await CoffeeLoadingOverlay.show(
+        context,
+        _apiService.fetchTransactionDetail(trx.billId),
+      );
+      if (!mounted) return;
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => OrderDetailScreen(order: order)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ErrorHandler.toUserMessage(e)),
+          backgroundColor: context.appDanger,
+        ),
+      );
     }
   }
 
@@ -204,7 +232,23 @@ class TangkiScreenState extends State<TangkiScreen>
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 500),
+              duration: AppMotion.slow,
+              switchInCurve: AppMotion.enter,
+              switchOutCurve: AppMotion.exit,
+              transitionBuilder: (child, animation) {
+                final offsetAnimation =
+                    Tween<Offset>(
+                      begin: const Offset(0, 0.02),
+                      end: Offset.zero,
+                    ).animate(animation);
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: offsetAnimation,
+                    child: child,
+                  ),
+                );
+              },
               child: Column(
                 key: ValueKey(snapshot.data.hashCode),
                 children: [
@@ -235,7 +279,10 @@ class TangkiScreenState extends State<TangkiScreen>
                     amountController: _amountController,
                   ),
                   const SizedBox(height: 24),
-                  RecentTransactionsList(transactions: transactions),
+                  RecentTransactionsList(
+                    transactions: transactions,
+                    onOpenDetail: _openTransactionDetail,
+                  ),
                 ],
               ),
             ),
@@ -277,13 +324,8 @@ class TankStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return CafeSurface(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: context.appSurface,
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: context.appBorder),
-      ),
       child: Column(
         children: [
           TankVisualization(currentOz: currentOz, size: 180),
@@ -294,7 +336,7 @@ class TankStatusCard extends StatelessWidget {
                 child: TankStatItem(
                   label: "Current Storage",
                   value: "${currentOz.toInt()} oz",
-                  valueColor: AppColors.primary,
+                  valueColor: context.appPrimary,
                 ),
               ),
               Container(width: 1, height: 40, color: context.appBorder),
@@ -325,45 +367,47 @@ class PaymentPendingBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: context.appPrimary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.appPrimary.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        children: [
-          isConfirming
-              ? SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
+      child: CafeSurface(
+        padding: const EdgeInsets.all(14),
+        color: context.appSurfaceSubtle,
+        child: Row(
+          children: [
+            isConfirming
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: context.appPrimary,
+                    ),
+                  )
+                : Icon(
+                    Icons.hourglass_top,
                     color: context.appPrimary,
+                    size: 20,
                   ),
-                )
-              : Icon(Icons.hourglass_top, color: context.appPrimary, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              isConfirming
-                  ? 'Confirming payment with server...'
-                  : 'Payment pending. Balance updates only after Stripe confirms it.',
-              style: TextStyle(
-                color: context.appTextMain,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                isConfirming
+                    ? 'Confirming payment with server...'
+                    : 'Payment pending. Balance updates only after Stripe confirms it.',
+                style: TextStyle(
+                  color: context.appTextMain,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
               ),
             ),
-          ),
-          IconButton(
-            tooltip: 'Refresh payment status',
-            onPressed: isConfirming ? null : onRefresh,
-            icon: Icon(Icons.refresh, color: context.appPrimary),
-          ),
-        ],
+            IconButton(
+              tooltip: 'Refresh payment status',
+              onPressed: isConfirming ? null : onRefresh,
+              icon: Icon(Icons.refresh, color: context.appPrimary),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -387,15 +431,13 @@ class TankStatItem extends StatelessWidget {
       children: [
         Text(
           label.toUpperCase(),
-          style: const TextStyle(
+          style: AppTypography.sectionLabel(context).copyWith(
             fontSize: 8,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textMuted,
           ),
         ),
         Text(
           value,
-          style: TextStyle(
+          style: AppTypography.ledger(context, fontSize: 20).copyWith(
             fontSize: 20,
             fontWeight: FontWeight.w900,
             color: valueColor,
@@ -446,14 +488,9 @@ class SecondaryActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
+      borderRadius: BorderRadius.circular(8),
+      child: CafeSurface(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-        ),
         child: Column(
           children: [
             Icon(icon, color: color, size: 24),
@@ -490,23 +527,15 @@ class RefillSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return CafeSurface(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: context.appSurface,
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: context.appBorder),
-      ),
       child: Column(
         children: [
-          const Text(
+          Text(
             "SELECT TOP-UP AMOUNT",
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: AppTypography.sectionLabel(context).copyWith(
               fontSize: 10,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
-              color: AppColors.textMuted,
             ),
           ),
           const SizedBox(height: 24),
@@ -524,13 +553,13 @@ class RefillSection extends StatelessWidget {
                   onRefill(v.toDouble(), balance);
                 },
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFFE0E7FF)),
+                  side: BorderSide(color: context.appBorder),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  foregroundColor: AppColors.primary,
+                  foregroundColor: context.appAccent,
                 ),
-                child: Text("RM$v"),
+                child: CafeLedgerText(text: "RM$v", color: context.appAccent),
               );
             }).toList(),
           ),
@@ -544,8 +573,8 @@ class RefillSection extends StatelessWidget {
               filled: true,
               fillColor: context.appSurfaceSubtle,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide.none,
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: context.appBorder),
               ),
             ),
           ),
@@ -564,10 +593,10 @@ class RefillSection extends StatelessWidget {
                       );
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: context.appPrimary,
                 foregroundColor: context.appBackground,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 elevation: 0,
               ),
@@ -587,27 +616,27 @@ class RefillSection extends StatelessWidget {
 
 class RecentTransactionsList extends StatelessWidget {
   final List<Transaction> transactions;
+  final ValueChanged<Transaction> onOpenDetail;
 
-  const RecentTransactionsList({super.key, required this.transactions});
+  const RecentTransactionsList({
+    super.key,
+    required this.transactions,
+    required this.onOpenDetail,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return CafeSurface(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: context.appSurface,
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: context.appBorder),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 "Recent Transactions",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                style: AppTypography.title(context).copyWith(fontSize: 18),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -618,12 +647,12 @@ class RecentTransactionsList extends StatelessWidget {
                   color: context.appBackground,
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text(
+                child: Text(
                   'ACTIVITY LOG',
                   style: TextStyle(
                     fontSize: 8,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textMuted,
+                    color: context.appTextMuted,
                   ),
                 ),
               ),
@@ -633,7 +662,12 @@ class RecentTransactionsList extends StatelessWidget {
           ...transactions
               .take(5)
               .map(
-                (trx) => RepaintBoundary(child: TransactionItemTile(trx: trx)),
+                (trx) => RepaintBoundary(
+                  child: TransactionItemTile(
+                    trx: trx,
+                    onOpenDetail: onOpenDetail,
+                  ),
+                ),
               ),
           const SizedBox(height: 16),
           OutlinedButton(
@@ -652,13 +686,13 @@ class RecentTransactionsList extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            child: const Text(
+            child: Text(
               'VIEW MORE ACTIVITY',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 11,
                 letterSpacing: 1.1,
-                color: AppColors.primary,
+                color: context.appPrimary,
               ),
             ),
           ),
@@ -670,8 +704,13 @@ class RecentTransactionsList extends StatelessWidget {
 
 class TransactionItemTile extends StatelessWidget {
   final Transaction trx;
+  final ValueChanged<Transaction> onOpenDetail;
 
-  const TransactionItemTile({super.key, required this.trx});
+  const TransactionItemTile({
+    super.key,
+    required this.trx,
+    required this.onOpenDetail,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -679,17 +718,8 @@ class TransactionItemTile extends StatelessWidget {
     bool hasDetail = trx.billId.isNotEmpty;
 
     return InkWell(
-      onTap: hasDetail
-          ? () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => OrderDetailScreen(order: trx.rawJson),
-                ),
-              );
-            }
-          : null,
-      borderRadius: BorderRadius.circular(16),
+      onTap: hasDetail ? () => onOpenDetail(trx) : null,
+      borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
@@ -699,13 +729,14 @@ class TransactionItemTile extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: isCredit
-                    ? Colors.green.withValues(alpha: 0.1)
-                    : Colors.blue.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16),
+                    ? context.appSuccess.withValues(alpha: 0.1)
+                    : context.appSurfaceSubtle,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: context.appBorder),
               ),
               child: Icon(
                 isCredit ? Icons.add : Icons.shopping_bag_outlined,
-                color: isCredit ? Colors.green : Colors.blue,
+                color: isCredit ? context.appSuccess : context.appPrimary,
                 size: 20,
               ),
             ),
@@ -716,15 +747,16 @@ class TransactionItemTile extends StatelessWidget {
                 children: [
                   Text(
                     trx.description,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 13,
+                      color: context.appTextMain,
                     ),
                   ),
                   Text(
                     trx.time,
-                    style: const TextStyle(
-                      color: AppColors.textMuted,
+                    style: TextStyle(
+                      color: context.appTextMuted,
                       fontSize: 10,
                     ),
                   ),
@@ -738,16 +770,17 @@ class TransactionItemTile extends StatelessWidget {
                   "${trx.ozDelta} oz",
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
-                    color: isCredit ? Colors.green : AppColors.primary,
+                    color: isCredit ? context.appSuccess : context.appPrimary,
+                    fontFamily: AppTypography.monoFamily,
                   ),
                 ),
                 if (hasDetail)
-                  const Text(
+                  Text(
                     "TAP FOR DETAIL",
                     style: TextStyle(
                       fontSize: 7,
                       fontWeight: FontWeight.w900,
-                      color: AppColors.primary,
+                      color: context.appPrimary,
                     ),
                   ),
               ],
@@ -771,22 +804,22 @@ class LoginPlaceholder extends StatelessWidget {
           Icon(
             Icons.cloud_off_outlined,
             size: 80,
-            color: AppColors.textMuted.withValues(alpha: 0.5),
+            color: context.appTextMuted.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             "PLEASE LOGIN TO VIEW TANGKI",
             style: TextStyle(
               fontWeight: FontWeight.w900,
               letterSpacing: 1.2,
-              color: AppColors.textMuted,
+              color: context.appTextMuted,
             ),
           ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () => AuthModal.show(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: context.appPrimary,
               foregroundColor: context.appBackground,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
               shape: RoundedRectangleBorder(

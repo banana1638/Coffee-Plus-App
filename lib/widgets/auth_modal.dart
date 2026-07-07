@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'coffee_loading_overlay.dart';
 import '../services/api_service.dart';
 import '../core/app_colors.dart';
+import '../core/app_typography.dart';
 import '../core/validators.dart';
 
 class AuthModal extends StatefulWidget {
@@ -124,7 +125,7 @@ class _AuthModalState extends State<AuthModal> {
             content: Text(
               isLogin ? "Login successful!" : "Registration successful!",
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: context.appSuccess,
           ),
         );
         // Refresh app state if needed
@@ -149,7 +150,7 @@ class _AuthModalState extends State<AuthModal> {
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
+      SnackBar(content: Text(message), backgroundColor: context.appDanger),
     );
   }
 
@@ -161,7 +162,7 @@ class _AuthModalState extends State<AuthModal> {
       ),
       decoration: BoxDecoration(
         color: context.appBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
       ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(30.0),
@@ -174,7 +175,7 @@ class _AuthModalState extends State<AuthModal> {
               height: 4,
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                color: AppColors.textMuted.withValues(alpha: 0.3),
+                color: context.appTextMuted.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -187,10 +188,9 @@ class _AuthModalState extends State<AuthModal> {
             const SizedBox(height: 20),
             Text(
               isLogin ? "WELCOME BACK" : "CREATE ACCOUNT",
-              style: TextStyle(
+              style: AppTypography.title(context).copyWith(
                 color: context.appPrimary,
                 fontSize: 20,
-                fontWeight: FontWeight.w900,
                 letterSpacing: 2,
               ),
             ),
@@ -270,7 +270,7 @@ class _AuthModalState extends State<AuthModal> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: context.appPrimary,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   elevation: 0,
                 ),
@@ -342,15 +342,15 @@ class AuthTextField extends StatelessWidget {
         filled: true,
         fillColor: context.appSurface,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: context.appBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: context.appBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: context.appPrimary, width: 1),
         ),
       ),

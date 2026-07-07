@@ -6,10 +6,14 @@ import 'package:coffee_plus_app/screens/user/product_detail_screen.dart'
     as detail;
 import '../models/category_model.dart';
 import '../models/user_model.dart';
+import '../core/error_handler.dart';
+import '../core/app_motion.dart';
 import '../services/api_service.dart';
 import '../widgets/coffee_card.dart';
 import '../core/app_colors.dart';
+import '../core/app_typography.dart';
 import '../widgets/auth_modal.dart';
+import '../widgets/cafe_components.dart';
 import '../widgets/tank_visualization.dart';
 import '../widgets/shimmer_loading.dart';
 import '../services/favorite_service.dart';
@@ -117,7 +121,10 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text(
           'Coffee-Plus',
-          style: TextStyle(fontWeight: FontWeight.w700),
+          style: TextStyle(
+            fontFamily: AppTypography.serifFamily,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         centerTitle: false,
         backgroundColor: context.appSurface.withValues(alpha: 0.95),
@@ -180,7 +187,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 return const HomeShimmerSkeleton();
               }
               return HomeErrorState(
-                error: error.toString(),
+                message: ErrorHandler.toUserMessage(error),
                 onRetry: _refreshData,
               );
             }
@@ -234,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 return [
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                       child: RepaintBoundary(
                         child: DashboardHeader(
                           isGuest: isGuest,
@@ -266,10 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0,
-                                vertical: 8.0,
-                              ),
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
                               child: HomeSearchBar(
                                 onChanged: (value) {
                                   _debounceTimer?.cancel();
@@ -292,14 +296,30 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                      minHeight: 132,
-                      maxHeight: 132,
+                      minHeight: 128,
+                      maxHeight: 128,
                     ),
                   ),
                 ];
               },
               body: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 400),
+                duration: AppMotion.slow,
+                switchInCurve: AppMotion.enter,
+                switchOutCurve: AppMotion.exit,
+                transitionBuilder: (child, animation) {
+                  final offsetAnimation =
+                      Tween<Offset>(
+                        begin: const Offset(0, 0.025),
+                        end: Offset.zero,
+                      ).animate(animation);
+                  return FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: offsetAnimation,
+                      child: child,
+                    ),
+                  );
+                },
                 child: _selectedCategory == 'collections'
                     ? CollectionsList(options: data['options'])
                     : categories.isEmpty
@@ -326,10 +346,14 @@ class _HomeScreenState extends State<HomeScreen> {
 // ==========================================
 
 class HomeErrorState extends StatelessWidget {
-  final String error;
+  final String message;
   final VoidCallback onRetry;
 
-  const HomeErrorState({super.key, required this.error, required this.onRetry});
+  const HomeErrorState({
+    super.key,
+    required this.message,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -339,7 +363,14 @@ class HomeErrorState extends StatelessWidget {
         children: [
           Icon(Icons.error_outline, size: 48, color: context.appDanger),
           const SizedBox(height: 11),
-          Text('Data Loading Error: $error'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: context.appTextBody),
+            ),
+          ),
           TextButton(onPressed: onRetry, child: const Text("Retry")),
         ],
       ),
@@ -379,21 +410,9 @@ class DashboardHeader extends StatelessWidget {
           onRefresh();
         }
       },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
+      borderRadius: BorderRadius.circular(8),
+      child: CafeSurface(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: context.appSurface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: context.appBorder),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
         child: isGuest ? const GuestHeader() : MemberHeader(user: user),
       ),
     );
@@ -438,9 +457,8 @@ class MemberHeader extends StatelessWidget {
             ),
             Text(
               user.name,
-              style: TextStyle(
+              style: AppTypography.title(context).copyWith(
                 fontSize: 16,
-                fontWeight: FontWeight.w700,
                 color: context.appPrimary,
               ),
             ),
@@ -475,15 +493,14 @@ class GuestHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "WELCOME GUEST",
-                style: TextStyle(
+                "MADE TO ORDER",
+                style: AppTypography.sectionLabel(context).copyWith(
                   fontSize: 16,
-                  fontWeight: FontWeight.w700,
                   color: context.appPrimary,
                 ),
               ),
               Text(
-                "Sign in to sync your coffee tank",
+                "Sign in to save recipes and track pickup.",
                 style: TextStyle(
                   fontSize: 11,
                   color: context.appTextMuted,
@@ -550,6 +567,7 @@ class StatItem extends StatelessWidget {
             fontSize: 16,
             fontWeight: FontWeight.w700,
             color: valueColor,
+            fontFamily: AppTypography.monoFamily,
           ),
         ),
       ],
@@ -567,16 +585,17 @@ class HomeSearchBar extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: context.appSurface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: context.appBorderStrong),
       ),
       child: TextField(
+        style: TextStyle(color: context.appTextMain),
         decoration: InputDecoration(
           hintText: 'Search coffee...',
           hintStyle: TextStyle(color: context.appTextMuted, fontSize: 13),
           prefixIcon: Icon(Icons.search, size: 20, color: context.appTextMuted),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(vertical: 13),
         ),
         onChanged: onChanged,
       ),
@@ -647,41 +666,46 @@ class CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectedBackground = context.isDarkMode
-        ? context.appPrimary
-        : context.appDarkAction;
+    final selectedBackground = context.appPrimary;
     final selectedContentColor = context.isDarkMode
         ? AppColorsDark.background
         : Colors.white;
 
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        avatar: icon != null
-            ? Icon(
-                icon,
-                size: 14,
-                color: isSelected ? selectedContentColor : context.appPrimary,
-              )
-            : null,
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (selected) {
-          if (selected) {
-            HapticFeedback.selectionClick();
-            onSelected(id);
-          }
-        },
-        selectedColor: selectedBackground,
-        labelStyle: TextStyle(
-          color: isSelected ? selectedContentColor : context.appTextBody,
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
+      child: AnimatedScale(
+        scale: isSelected ? 1.02 : 1,
+        duration: AppMotion.fast,
+        curve: AppMotion.enter,
+        child: ChoiceChip(
+          avatar: icon != null
+              ? Icon(
+                  icon,
+                  size: 14,
+                  color: isSelected ? selectedContentColor : context.appPrimary,
+                )
+              : null,
+          label: Text(label),
+          selected: isSelected,
+          onSelected: (selected) {
+            if (selected) {
+              HapticFeedback.selectionClick();
+              onSelected(id);
+            }
+          },
+          selectedColor: selectedBackground,
+          labelStyle: TextStyle(
+            color: isSelected ? selectedContentColor : context.appTextBody,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
+          backgroundColor: context.appSurface,
+          side: BorderSide(
+            color: isSelected ? context.appPrimary : context.appBorder,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          showCheckmark: false,
         ),
-        backgroundColor: context.appSurface,
-        side: BorderSide(color: context.appBorder),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        showCheckmark: false,
       ),
     );
   }
@@ -710,9 +734,10 @@ class ProductCategorySection extends StatelessWidget {
                 child: Text(
                   category.name.toUpperCase(),
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0,
+                    fontFamily: AppTypography.serifFamily,
                     color: context.appTextMain,
                   ),
                 ),
@@ -724,7 +749,7 @@ class ProductCategorySection extends StatelessWidget {
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                childAspectRatio: 0.75,
+                childAspectRatio: 0.62,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
               ),
@@ -783,7 +808,7 @@ class ShimmerSkeleton extends StatelessWidget {
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: ShimmerLoading(
-                    width: 100,
+                    width: 120,
                     height: 20,
                     borderRadius: 4,
                   ),
@@ -793,7 +818,7 @@ class ShimmerSkeleton extends StatelessWidget {
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: 0.75,
+                    childAspectRatio: 0.62,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                   ),
@@ -848,7 +873,7 @@ class CollectionsList extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Text(
-                    "SAVED COLLECTIONS",
+                    "COLLECTIONS",
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -864,7 +889,7 @@ class CollectionsList extends StatelessWidget {
               sliver: SliverGrid(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 0.75,
+                  childAspectRatio: 0.62,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                 ),

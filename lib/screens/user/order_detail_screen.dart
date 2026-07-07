@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
+import '../../core/app_typography.dart';
+import '../../widgets/cafe_components.dart';
 
 double _moneyFromCentsOrAmount(
   Map<String, dynamic> data, {
@@ -81,16 +83,7 @@ class OrderDetailScreen extends StatelessWidget {
             Container(
               decoration: BoxDecoration(
                 color: context.appSurface,
-                borderRadius: BorderRadius.circular(40),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(
-                      alpha: context.isDarkMode ? 0.4 : 0.05,
-                    ),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: context.appBorder),
               ),
               child: Column(
@@ -155,7 +148,7 @@ class OrderDetailScreen extends StatelessWidget {
                         ),
 
                         const SizedBox(height: 20),
-                        const DashedLine(),
+                        const PerforatedDivider(),
                         const SizedBox(height: 20),
 
                         // 金额统计
@@ -220,10 +213,12 @@ class OrderDetailScreen extends StatelessWidget {
                                 ),
                                 Text(
                                   finalAmount.toStringAsFixed(2),
-                                  style: const TextStyle(
+                                  style: TextStyle(
+                                    color: context.appAccent,
+                                    fontFamily: AppTypography.monoFamily,
                                     fontSize: 32,
                                     fontWeight: FontWeight.w900,
-                                    letterSpacing: -1,
+                                    letterSpacing: 0,
                                   ),
                                 ),
                               ],
@@ -262,8 +257,8 @@ class OrderDetailScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: context.appBackground,
                       borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(40),
-                        bottomRight: Radius.circular(40),
+                        bottomLeft: Radius.circular(8),
+                        bottomRight: Radius.circular(8),
                       ),
                     ),
                     child: Text(
@@ -319,10 +314,10 @@ class OrderStatusSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = switch (status) {
       'pending' => Colors.orange,
-      'preparing' => Colors.blue,
-      'ready_for_pickup' => Colors.green,
-      'completed' => Colors.teal,
-      'cancelled' => Colors.red,
+      'preparing' => context.appPrimary,
+      'ready_for_pickup' => context.appSuccess,
+      'completed' => context.appPrimary,
+      'cancelled' => context.appDanger,
       _ => context.appTextMuted,
     };
     final safeStep = status == 'cancelled' ? 0 : statusStep.clamp(0, 4);
@@ -393,7 +388,7 @@ class PickupInfoCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: context.appPrimary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: context.appPrimary.withValues(alpha: 0.18)),
       ),
       child: Column(
@@ -414,6 +409,7 @@ class PickupInfoCard extends StatelessWidget {
               pickupCode!,
               style: TextStyle(
                 color: context.appTextMain,
+                fontFamily: AppTypography.monoFamily,
                 fontSize: 24,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 2,
@@ -451,8 +447,8 @@ class OrderHeader extends StatelessWidget {
           decoration: BoxDecoration(
             color: context.appSurfaceSubtle,
             borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(40),
-              topRight: Radius.circular(40),
+              topLeft: Radius.circular(8),
+              topRight: Radius.circular(8),
             ),
           ),
           child: Column(
@@ -466,26 +462,24 @@ class OrderHeader extends StatelessWidget {
                   color: Colors.white,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.check,
-                  color: Color(0xFF2563EB),
+                  color: context.appPrimary,
                   size: 32,
                 ),
               ),
               const SizedBox(height: 12),
               Text(
-                "COFFEE PLUS+",
-                style: TextStyle(
+                "Coffee-Plus",
+                style: AppTypography.title(context).copyWith(
                   color: context.appTextMain,
                   fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  fontStyle: FontStyle.italic,
                 ),
               ),
-              const Text(
+              Text(
                 "ORDER DETAIL VERIFIED",
                 style: TextStyle(
-                  color: Color(0xFF93C5FD),
+                  color: context.appPrimaryHover,
                   fontSize: 8,
                   letterSpacing: 2,
                 ),
@@ -498,7 +492,7 @@ class OrderHeader extends StatelessWidget {
           child: Container(
             width: 400,
             height: 4,
-            color: const Color(0xFF3B82F6),
+            color: context.appPrimary,
           ),
         ),
       ],
@@ -569,12 +563,12 @@ class OrderItemTile extends StatelessWidget {
                   ),
                 ),
                 if (isOzPayment)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 2),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
                     child: Text(
                       "PAID WITH TANK BALANCE",
                       style: TextStyle(
-                        color: Color(0xFF2563EB),
+                        color: context.appPrimary,
                         fontSize: 8,
                         fontWeight: FontWeight.w900,
                       ),
@@ -601,12 +595,13 @@ class OrderItemTile extends StatelessWidget {
                 isOzPayment
                     ? "${(ozAtTime * quantity).toStringAsFixed(1)} OZ"
                     : "RM ${(priceAtTime * quantity).toStringAsFixed(2)}",
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 12,
-                  color: isOzPayment ? context.appPrimary : context.appTextMain,
-                ),
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 12,
+                color: isOzPayment ? context.appPrimary : context.appAccent,
+                fontFamily: AppTypography.monoFamily,
               ),
+            ),
               if (isOzPayment)
                 Text(
                   "${ozAtTime.toStringAsFixed(1)} OZ / unit",
@@ -640,6 +635,7 @@ class OptionBadge extends StatelessWidget {
             ? context.appPrimary.withValues(alpha: 0.1)
             : context.appSurfaceSubtle,
         borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: context.appBorder),
       ),
       child: Text(
         text.toUpperCase(),
@@ -664,7 +660,7 @@ class TankDeductionCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: context.appPrimary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: context.appPrimary.withValues(alpha: 0.2)),
       ),
       child: Row(
@@ -732,10 +728,9 @@ class OrderRowDetail extends StatelessWidget {
         ),
         Text(
           value,
-          style: TextStyle(
+          style: AppTypography.ledger(context, fontSize: 13).copyWith(
             fontSize: 13,
             fontWeight: isBold ? FontWeight.w900 : FontWeight.bold,
-            color: context.appTextMain,
           ),
         ),
       ],

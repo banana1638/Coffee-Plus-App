@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/app_colors.dart';
+import '../../core/app_motion.dart';
+import '../../core/app_typography.dart';
 import '../../services/api_service.dart';
 import '../../models/cart_item_model.dart';
 import '../../models/user_model.dart';
 import '../../services/biometric_service.dart';
 import '../../widgets/auth_modal.dart';
+import '../../widgets/cafe_components.dart';
 import '../../widgets/coffee_loading_overlay.dart';
 import '../../core/error_handler.dart';
 
@@ -362,21 +365,9 @@ class OzBalanceHeader extends StatelessWidget {
     double remainingOz = totalOz - totalOzUsed;
     double progress = (totalOz > 0) ? remainingOz / totalOz : 0;
 
-    return Container(
+    return CafeSurface(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: context.appSurface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.appBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: Column(
         children: [
           Row(
@@ -398,9 +389,8 @@ class OzBalanceHeader extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       "${remainingOz.toInt()} / ${totalOz.toInt()} OZ",
-                      style: TextStyle(
+                      style: AppTypography.ledger(context, fontSize: 18).copyWith(
                         fontSize: 18,
-                        fontWeight: FontWeight.w600,
                         color: context.appPrimary,
                       ),
                     ),
@@ -427,14 +417,7 @@ class OzBalanceHeader extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      "RM ${cashBalance.toStringAsFixed(2)}",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: context.appTextMain,
-                      ),
-                    ),
+                    CafeMoneyText(amount: cashBalance, fontSize: 18),
                   ],
                 ),
               ),
@@ -474,14 +457,9 @@ class CartItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Opacity(
       opacity: canToggle ? 1.0 : 0.4,
-      child: Container(
+      child: CafeSurface(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: context.appSurface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: context.appBorder),
-        ),
         child: Row(
           children: [
             CustomCheckbox(
@@ -607,7 +585,7 @@ class ItemPriceLabel extends StatelessWidget {
     }
     return Text(
       "RM ${item.unitPrice.toStringAsFixed(2)}",
-      style: TextStyle(fontWeight: FontWeight.bold, color: context.appTextMain),
+      style: AppTypography.money(context, fontSize: 13),
     );
   }
 }
@@ -646,12 +624,9 @@ class BottomCheckout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return CafeSurface(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
-      decoration: BoxDecoration(
-        color: context.isDarkMode ? context.appSurface : AppColors.darkAction,
-        border: Border(top: BorderSide(color: context.appBorder)),
-      ),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -679,6 +654,8 @@ class BottomCheckout extends StatelessWidget {
             onClear: onClearCoupon,
           ),
           const SizedBox(height: 16),
+          const CafeDivider(),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -687,24 +664,17 @@ class BottomCheckout extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: context.isDarkMode
-                      ? context.appTextMuted
-                      : Colors.white.withValues(alpha: 0.65),
+                  color: context.appTextMuted,
                 ),
               ),
               TweenAnimationBuilder<double>(
                 tween: Tween<double>(begin: 0, end: payableCashPrice),
-                duration: const Duration(milliseconds: 500),
+                duration: AppMotion.slow,
+                curve: AppMotion.standard,
                 builder: (context, value, child) {
                   return Text(
                     "RM ${value.toStringAsFixed(2)}",
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w700,
-                      color: context.isDarkMode
-                          ? context.appTextMain
-                          : Colors.white,
-                    ),
+                    style: AppTypography.money(context, fontSize: 32),
                   );
                 },
               ),
@@ -718,9 +688,7 @@ class BottomCheckout extends StatelessWidget {
                 Text(
                   "Subtotal RM ${totalCashPrice.toStringAsFixed(2)}",
                   style: TextStyle(
-                    color: context.isDarkMode
-                        ? context.appTextMuted
-                        : Colors.white.withValues(alpha: 0.6),
+                    color: context.appTextMuted,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -743,7 +711,7 @@ class BottomCheckout extends StatelessWidget {
               backgroundColor: context.appPrimary,
               minimumSize: const Size(double.infinity, 52),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
             child: const Text(
@@ -787,17 +755,9 @@ class CouponInputCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasAppliedCoupon = couponCode != null;
 
-    return Container(
+    return CafeSurface(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: context.appBackground,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: hasAppliedCoupon
-              ? context.appSuccess.withValues(alpha: 0.35)
-              : context.appBorder,
-        ),
-      ),
+      color: context.appBackground,
       child: Column(
         children: [
           Row(

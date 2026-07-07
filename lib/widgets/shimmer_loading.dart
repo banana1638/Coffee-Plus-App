@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/app_colors.dart';
+import '../core/app_motion.dart';
 
 class ShimmerLoading extends StatefulWidget {
   final double width;
@@ -27,12 +28,12 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1400),
     )..repeat();
 
     // 优化：调整范围使过渡更平滑
     _animation = Tween<double>(begin: -1.5, end: 1.5).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+      CurvedAnimation(parent: _controller, curve: AppMotion.standard),
     );
   }
 

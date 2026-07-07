@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // 用于触觉反馈
 import '../core/app_colors.dart';
+import '../core/app_motion.dart';
 import 'home_screen.dart';
 import 'user/cart_index_screen.dart';
 import 'user/tangki_screen.dart';
@@ -149,12 +150,14 @@ class _MainWrapperState extends State<MainWrapper> {
     return Container(
       decoration: BoxDecoration(
         color: context.appSurface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+        border: Border(top: BorderSide(color: context.appBorder)),
         boxShadow: [
           BoxShadow(
-            color: context.appPrimary.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
+            color: Colors.black.withValues(
+              alpha: context.isDarkMode ? 0.22 : 0.08,
+            ),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
           ),
         ],
       ),
@@ -172,17 +175,17 @@ class _MainWrapperState extends State<MainWrapper> {
               type: BottomNavigationBarType.fixed,
               backgroundColor: Colors.transparent,
               elevation: 0,
-              selectedItemColor: AppColors.primary,
-              unselectedItemColor: AppColors.textMuted.withValues(alpha: 0.4),
+              selectedItemColor: context.appPrimary,
+              unselectedItemColor: context.appTextMuted.withValues(alpha: 0.72),
               showSelectedLabels: true,
               showUnselectedLabels: true,
               selectedLabelStyle: const TextStyle(
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w800,
                 fontSize: 10,
-                letterSpacing: 0.8,
+                letterSpacing: 0,
               ),
               unselectedLabelStyle: const TextStyle(
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w700,
                 fontSize: 10,
               ),
               items: [
@@ -220,14 +223,14 @@ class _MainWrapperState extends State<MainWrapper> {
 
     return BottomNavigationBarItem(
       icon: AnimatedScale(
-        scale: isSelected ? 1.25 : 1.0,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeOutBack,
+        scale: isSelected ? 1.1 : 1.0,
+        duration: AppMotion.medium,
+        curve: AppMotion.enter,
         child: isCart
             ? Badge(
                 label: Text(_cartCount > 99 ? '99+' : _cartCount.toString()),
                 isLabelVisible: _cartCount > 0,
-                backgroundColor: Colors.redAccent,
+                backgroundColor: context.appDanger,
                 child: Icon(isSelected ? activeIcon : icon),
               )
             : Icon(isSelected ? activeIcon : icon),

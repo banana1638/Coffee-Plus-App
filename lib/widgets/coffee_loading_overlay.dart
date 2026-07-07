@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../core/app_colors.dart';
+import '../core/app_motion.dart';
 
 /// 咖啡动画配置类
 class CoffeePainterConfig {
@@ -275,13 +276,31 @@ class _CoffeeLoadingIndicatorState extends State<CoffeeLoadingIndicator>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
+  Color _defaultOutlineColor(BuildContext context) {
+    return context.isDarkMode
+        ? const Color(0xFFFFD9A8)
+        : const Color(0xFF2A1710);
+  }
+
+  Color _defaultLiquidColor(BuildContext context) {
+    return context.isDarkMode
+        ? const Color(0xFFC47B3A)
+        : const Color(0xFF4B2616);
+  }
+
+  Color _defaultSteamColor(BuildContext context) {
+    return context.isDarkMode
+        ? const Color(0xFFFFE7C7)
+        : const Color(0xFFB87E2D);
+  }
+
   @override
   void initState() {
     super.initState();
 
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 1600),
     )..repeat();
   }
 
@@ -301,7 +320,7 @@ class _CoffeeLoadingIndicatorState extends State<CoffeeLoadingIndicator>
           child: AnimatedBuilder(
             animation: _controller,
             builder: (context, child) {
-              final double curvedValue = Curves.easeInOut.transform(
+              final double curvedValue = AppMotion.standard.transform(
                 _controller.value,
               );
 
@@ -309,9 +328,12 @@ class _CoffeeLoadingIndicatorState extends State<CoffeeLoadingIndicator>
                 painter: CartoonCoffeePainter(
                   progress: curvedValue,
                   outlineColor:
-                      widget.config.outlineColor ?? context.appTextMain,
-                  liquidColor: widget.config.liquidColor ?? context.appCoffee,
-                  steamColor: widget.config.steamColor ?? context.appTextMain,
+                      widget.config.outlineColor ??
+                      _defaultOutlineColor(context),
+                  liquidColor:
+                      widget.config.liquidColor ?? _defaultLiquidColor(context),
+                  steamColor:
+                      widget.config.steamColor ?? _defaultSteamColor(context),
                   config: widget.config,
                 ),
               );

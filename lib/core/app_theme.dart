@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
+import 'app_typography.dart';
 
 class AppTheme {
   AppTheme._();
@@ -65,14 +66,34 @@ class AppTheme {
           (isDark
                   ? Typography.material2021().white
                   : Typography.material2021().black)
-              .apply(bodyColor: textBody, displayColor: textMain),
+              .apply(bodyColor: textBody, displayColor: textMain)
+              .copyWith(
+                headlineLarge: TextStyle(
+                  color: textMain,
+                  fontFamily: AppTypography.serifFamily,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+                headlineMedium: TextStyle(
+                  color: textMain,
+                  fontFamily: AppTypography.serifFamily,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+                titleLarge: TextStyle(
+                  color: textMain,
+                  fontFamily: AppTypography.serifFamily,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0,
+                ),
+              ),
       cardTheme: CardThemeData(
         color: surface,
-        elevation: isDark ? 0 : 1,
+        elevation: 0,
         margin: EdgeInsets.zero,
-        shadowColor: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+        shadowColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           side: BorderSide(color: border, width: 1),
         ),
       ),
@@ -108,15 +129,15 @@ class AppTheme {
           vertical: 14,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: primary, width: 1.5),
         ),
         hintStyle: TextStyle(color: textMuted, fontSize: 14),
@@ -127,6 +148,7 @@ class AppTheme {
         foregroundColor: textMain,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: false,
         titleTextStyle: TextStyle(
           color: textMain,
@@ -138,9 +160,7 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: surface,
-        selectedColor: isDark
-            ? AppColorsDark.surfaceSubtle
-            : AppColors.darkAction,
+        selectedColor: primary,
         disabledColor: surfaceSubtle,
         labelStyle: TextStyle(color: textBody, fontSize: 13),
         secondaryLabelStyle: const TextStyle(color: Colors.white, fontSize: 13),
