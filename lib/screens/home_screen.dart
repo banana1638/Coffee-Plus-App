@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:coffee_plus_app/screens/user/product_detail_screen.dart'
     as detail;
 import '../models/category_model.dart';
+import '../models/dashboard_view_model.dart';
 import '../models/user_model.dart';
 import '../core/error_handler.dart';
 import '../core/app_motion.dart';
@@ -20,7 +21,6 @@ import '../services/favorite_service.dart';
 import '../models/favorite_model.dart';
 import '../widgets/coffee_loading_overlay.dart';
 import '../widgets/active_order_card.dart';
-import '../models/transaction_model.dart';
 import 'user/order_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -33,15 +33,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final ApiService _apiService = ApiService();
   final FavoriteService _favoriteService = FavoriteService();
-  late Future<Map<String, dynamic>> _dashboardData;
+  late Future<DashboardViewModel> _dashboardData;
   String _selectedCategory = 'all';
-  Map<String, dynamic>? _cachedData;
+  String _searchQuery = '';
+  DashboardViewModel? _cachedDashboard;
   CancelToken? _cancelToken;
   Timer? _debounceTimer;
-
-  // ==========================================
-  // 1. 生命周期管理 (Lifecycle)
-  // ==========================================
 
   @override
   void initState() {
@@ -59,32 +56,30 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // ==========================================
-  // 2. 数据处理逻辑 (Logic)
-  // ==========================================
-
   void _onAuthChanged() {
-    if (mounted) {
-      _selectedCategory = 'all';
-      _refreshData(forceRefresh: true);
-      _favoriteService.loadFavorites(); // Reload favorites upon login/logout
-      _apiService.updateNotificationCount();
-    }
+    if (!mounted) return;
+    _selectedCategory = 'all';
+    _searchQuery = '';
+    _refreshData(forceRefresh: true);
+    _favoriteService.loadFavorites();
+    _apiService.updateNotificationCount();
   }
 
-  void _refreshData({String? search, bool forceRefresh = false}) {
+  void _refreshData({bool forceRefresh = false}) {
     _cancelToken?.cancel();
     _cancelToken = CancelToken();
 
-    final fetchFuture = _apiService.fetchDashboard(
-      search: search,
-      category: 'all', // Always fetch all categories for client-side filtering
-      cancelToken: _cancelToken,
-      forceRefresh: forceRefresh,
-    );
+    final fetchFuture = _apiService
+        .fetchDashboard(
+          category: 'all',
+          cancelToken: _cancelToken,
+          forceRefresh: forceRefresh,
+        )
+        .then(DashboardViewModel.fromResponse);
 
-    if (forceRefresh || _cachedData == null) {
+    if (forceRefresh || _cachedDashboard == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         unawaited(
           CoffeeLoadingOverlay.show(
             context,
@@ -100,20 +95,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
     fetchFuture
         .then((data) {
-          if (mounted) {
-            setState(() {
-              _cachedData = data;
-            });
-          }
+          if (!mounted) return;
+          setState(() {
+            _cachedDashboard = data;
+          });
         })
-        .catchError((e) {
-          // Handle error if needed
-        });
+        .catchError((_) {});
   }
 
-  // ==========================================
-  // 3. 主界面构建 (Main Build)
-  // ==========================================
+  void _onSearchChanged(String value) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 220), () {
+      if (!mounted) return;
+      setState(() {
+        _searchQuery = value;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -173,13 +171,12 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: FutureBuilder<Map<String, dynamic>>(
+      body: FutureBuilder<DashboardViewModel>(
         future: _dashboardData,
         builder: (context, snapshot) {
-          // Use cached data if available, even while loading
-          final data = _cachedData ?? snapshot.data;
+          final dashboard = _cachedDashboard ?? snapshot.data;
 
-          if (data == null) {
+          if (dashboard == null) {
             if (snapshot.hasError) {
               final error = snapshot.error;
               if (error is DioException &&
@@ -194,42 +191,11 @@ class _HomeScreenState extends State<HomeScreen> {
             return const HomeShimmerSkeleton();
           }
 
-          // 这里的 User 解析直接使用 snapshot 中的数据
-          final user = User.fromJson(
-            data['user'] as Map<String, dynamic>? ?? {},
+          final categories = dashboard.visibleCategories(
+            selectedCategory: _selectedCategory,
+            searchQuery: _searchQuery,
           );
-          final bool isGuest = user.isGuest;
-
-          final menusJson = data['menus'] as List? ?? [];
-          List<Category> categories = menusJson
-              .map((j) => Category.fromJson(j))
-              .toList();
-
-          final List<dynamic> transactionsJson = data['transactions'] ?? [];
-          final List<Transaction> transactions = transactionsJson
-              .map((j) => Transaction.fromJson(j))
-              .toList();
-
-          // 寻找最近的订单 (usage 类型)
-          final activeOrder =
-              transactions.isNotEmpty && transactions.first.type == 'usage'
-              ? transactions.first
-              : null;
-
-          // Client-side filtering logic
-          if (_selectedCategory != 'all' &&
-              _selectedCategory != 'collections') {
-            categories = categories
-                .where(
-                  (c) =>
-                      c.name.toLowerCase() == _selectedCategory.toLowerCase(),
-                )
-                .toList();
-          }
-
-          final allCategoryNames = List<String>.from(
-            data['allCategoryNames'] ?? [],
-          );
+          final activeOrder = dashboard.activeOrder;
 
           return RefreshIndicator(
             onRefresh: () async {
@@ -244,8 +210,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                       child: RepaintBoundary(
                         child: DashboardHeader(
-                          isGuest: isGuest,
-                          user: user,
+                          isGuest: dashboard.isGuest,
+                          user: dashboard.user,
                           onRefresh: () => _refreshData(forceRefresh: true),
                         ),
                       ),
@@ -274,20 +240,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             Padding(
                               padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-                              child: HomeSearchBar(
-                                onChanged: (value) {
-                                  _debounceTimer?.cancel();
-                                  _debounceTimer = Timer(
-                                    const Duration(milliseconds: 300),
-                                    () {
-                                      _refreshData(search: value);
-                                    },
-                                  );
-                                },
-                              ),
+                              child: HomeSearchBar(onChanged: _onSearchChanged),
                             ),
                             CategorySelectionBar(
-                              allCategoryNames: allCategoryNames,
+                              allCategoryNames: dashboard.allCategoryNames,
                               selectedCategory: _selectedCategory,
                               onCategorySelected: (id) {
                                 setState(() => _selectedCategory = id);
@@ -307,11 +263,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 switchInCurve: AppMotion.enter,
                 switchOutCurve: AppMotion.exit,
                 transitionBuilder: (child, animation) {
-                  final offsetAnimation =
-                      Tween<Offset>(
-                        begin: const Offset(0, 0.025),
-                        end: Offset.zero,
-                      ).animate(animation);
+                  final offsetAnimation = Tween<Offset>(
+                    begin: const Offset(0, 0.025),
+                    end: Offset.zero,
+                  ).animate(animation);
                   return FadeTransition(
                     opacity: animation,
                     child: SlideTransition(
@@ -321,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
                 child: _selectedCategory == 'collections'
-                    ? CollectionsList(options: data['options'])
+                    ? CollectionsList(options: dashboard.options)
                     : categories.isEmpty
                     ? const Center(
                         key: ValueKey('no-products'),
@@ -329,8 +284,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       )
                     : ProductCategorySection(
                         categories: categories,
-                        options: data['options'],
-                        key: ValueKey(_selectedCategory),
+                        options: dashboard.options,
+                        key: ValueKey('$_selectedCategory:$_searchQuery'),
                       ),
               ),
             ),
@@ -383,7 +338,7 @@ class HomeShimmerSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ShimmerSkeleton();
+    return const ShimmerTickerScope(child: ShimmerSkeleton());
   }
 }
 
@@ -457,10 +412,9 @@ class MemberHeader extends StatelessWidget {
             ),
             Text(
               user.name,
-              style: AppTypography.title(context).copyWith(
-                fontSize: 16,
-                color: context.appPrimary,
-              ),
+              style: AppTypography.title(
+                context,
+              ).copyWith(fontSize: 16, color: context.appPrimary),
             ),
             const SizedBox(height: 5),
             Icon(Icons.chevron_right_rounded, color: context.appTextMuted),
@@ -494,10 +448,9 @@ class GuestHeader extends StatelessWidget {
             children: [
               Text(
                 "MADE TO ORDER",
-                style: AppTypography.sectionLabel(context).copyWith(
-                  fontSize: 16,
-                  color: context.appPrimary,
-                ),
+                style: AppTypography.sectionLabel(
+                  context,
+                ).copyWith(fontSize: 16, color: context.appPrimary),
               ),
               Text(
                 "Sign in to save recipes and track pickup.",

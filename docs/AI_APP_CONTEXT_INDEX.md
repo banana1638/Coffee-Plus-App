@@ -23,6 +23,7 @@ This file exists to save tokens.
 | lib/services/profile_service.dart | Profile, Tangki, refill, transactions, account actions | Wallet/profile changes |
 | lib/services/notification_service.dart | Local notifications and Reverb private-channel subscription | Realtime/broadcasting changes |
 | lib/models/ | JSON models | Response parsing |
+| lib/models/dashboard_view_model.dart | Parsed Dashboard view data and local product filtering | Home performance/search changes |
 | lib/models/device_token_model.dart | Safe device-token metadata model without token secrets | Device session UI |
 | lib/screens/home_screen.dart | Product browsing home/dashboard | Product browse UI |
 | lib/screens/user/product_detail_screen.dart | Product detail/add-to-cart | Product detail UI |
@@ -38,6 +39,7 @@ This file exists to save tokens.
 | lib/core/app_motion.dart | Shared animation durations and curves | Motion/animation changes |
 | lib/core/app_typography.dart | Serif title, monospace ledger, and money text roles | UI typography changes |
 | lib/widgets/cafe_components.dart | Shared 8px cafe surfaces, section headers, money/ledger text, receipt/ticket dividers | UI refactor/shared component changes |
+| lib/widgets/shimmer_loading.dart | Shared shimmer placeholders and optional shared ticker scope | Loading animation performance |
 | android/app/build.gradle.kts | Android build/signing/cleartext config | Build/signing issues |
 
 ## Common App Debug Paths

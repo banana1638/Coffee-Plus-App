@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:coffee_plus_app/core/error_handler.dart';
 import 'package:coffee_plus_app/models/cart_item_model.dart';
 import 'package:coffee_plus_app/models/category_model.dart';
+import 'package:coffee_plus_app/models/dashboard_view_model.dart';
 import 'package:coffee_plus_app/models/favorite_model.dart';
 import 'package:coffee_plus_app/models/product_model.dart';
 import 'package:coffee_plus_app/models/transaction_model.dart';
@@ -111,6 +112,56 @@ void main() {
       expect(category.name, 'Coffee');
       expect(category.productCount, 1);
       expect(category.products.single.name, 'Americano');
+    });
+  });
+
+  group('DashboardViewModel', () {
+    test('parses once and filters products locally', () {
+      final dashboard = DashboardViewModel.fromResponse({
+        'user': {'name': 'GUEST'},
+        'menus': [
+          {
+            'category_id': 1,
+            'category_name': 'Drink',
+            'product_count': 2,
+            'products': [
+              {
+                'id': 1,
+                'name': 'Matcha Latte',
+                'description': 'Green tea latte',
+                'base_price': 12.9,
+              },
+              {
+                'id': 2,
+                'name': 'Mocha Frappe',
+                'description': 'Chocolate drink',
+                'base_price': 14.9,
+              },
+            ],
+          },
+        ],
+        'transactions': [
+          {
+            'id': 9,
+            'bill_id': 'CP-9',
+            'type': 'usage',
+            'oz_delta': '-100',
+            'description': 'Order paid',
+            'time': 'now',
+          },
+        ],
+        'allCategoryNames': ['Drink'],
+      });
+
+      final filtered = dashboard.visibleCategories(
+        selectedCategory: 'all',
+        searchQuery: 'matcha',
+      );
+
+      expect(dashboard.activeOrder?.billId, 'CP-9');
+      expect(filtered, hasLength(1));
+      expect(filtered.single.products.single.name, 'Matcha Latte');
+      expect(filtered.single.productCount, 1);
     });
   });
 

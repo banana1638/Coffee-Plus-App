@@ -515,6 +515,8 @@ class ApiService {
     _dashboardRequests.clear();
     _notificationsRequest = null;
     _notificationCountUpdate = null;
+    _profileService.clearTransactionDetailCache();
+    _productService.clearCache();
   }
 
   void clearCache({String? pattern}) {
@@ -530,6 +532,12 @@ class ApiService {
           pattern.contains('notifications')) {
         _notificationsRequest = null;
         _notificationCountUpdate = null;
+      }
+      if ('product'.contains(pattern) || pattern.contains('product')) {
+        _productService.clearCache();
+      }
+      if ('transaction'.contains(pattern) || pattern.contains('transaction')) {
+        _profileService.clearTransactionDetailCache();
       }
     }
   }

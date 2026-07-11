@@ -2,6 +2,42 @@
 
 Record meaningful app decisions only.
 
+### 2026-07-11 - Bounded Client-Side Performance Caches
+
+Context:
+- Home rebuilt dashboard JSON into models inside `build`, product detail re-fetched the same add-ons/options on repeat opens, and transaction detail used an unbounded map.
+- Loading skeletons could create multiple independent shimmer animation controllers on slow networks.
+
+Decision:
+- Parse dashboard responses into a dedicated `DashboardViewModel` when the response resolves.
+- Use local dashboard filtering for Home search after the full dashboard is loaded.
+- Add bounded TTL caches and in-flight request dedupe for product detail and transaction detail data.
+- Share one shimmer ticker for grouped skeleton placeholders while preserving standalone shimmer fallback behavior.
+
+Reason:
+- Keeps API contracts unchanged while reducing repeated CPU work, repeated network requests, retained detail payloads, and loading-time ticker count.
+
+Trade-offs:
+- Pros:
+  - Lower rebuild cost on Home.
+  - Fewer repeat `/products/{id}` and `/transactions/{bill_id}` requests.
+  - Bounded memory for detail payloads.
+  - Less animation overhead during skeleton loading.
+- Cons:
+  - Home search now filters the currently loaded dashboard snapshot until refresh.
+  - Recently viewed detail data can remain visible until its short TTL expires or auth/cache reset clears it.
+
+Affected files:
+- lib/models/dashboard_view_model.dart
+- lib/screens/home_screen.dart
+- lib/services/product_service.dart
+- lib/services/profile_service.dart
+- lib/services/api_service.dart
+- lib/widgets/shimmer_loading.dart
+
+Validation:
+- `dart format` passed for changed Dart files, `flutter analyze` passed, and all 29 Flutter tests passed.
+
 ### 2026-07-07 - Mobile Cafe Object UI System
 
 Context:

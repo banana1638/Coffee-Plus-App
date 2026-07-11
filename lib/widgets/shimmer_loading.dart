@@ -1,6 +1,63 @@
 import 'package:flutter/material.dart';
+
 import '../core/app_colors.dart';
 import '../core/app_motion.dart';
+
+class ShimmerTickerScope extends StatefulWidget {
+  final Widget child;
+
+  const ShimmerTickerScope({super.key, required this.child});
+
+  static Animation<double>? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<_InheritedShimmerTicker>()
+        ?.animation;
+  }
+
+  @override
+  State<ShimmerTickerScope> createState() => _ShimmerTickerScopeState();
+}
+
+class _ShimmerTickerScopeState extends State<ShimmerTickerScope>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
+    _animation = _buildShimmerAnimation(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _InheritedShimmerTicker(animation: _animation, child: widget.child);
+  }
+}
+
+class _InheritedShimmerTicker extends InheritedWidget {
+  final Animation<double> animation;
+
+  const _InheritedShimmerTicker({
+    required this.animation,
+    required super.child,
+  });
+
+  @override
+  bool updateShouldNotify(_InheritedShimmerTicker oldWidget) {
+    return animation != oldWidget.animation;
+  }
+}
 
 class ShimmerLoading extends StatefulWidget {
   final double width;
@@ -20,42 +77,45 @@ class ShimmerLoading extends StatefulWidget {
 
 class _ShimmerLoadingState extends State<ShimmerLoading>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
+  AnimationController? _controller;
+  Animation<double>? _fallbackAnimation;
 
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
+  Animation<double> get _animation {
+    final scopedAnimation = ShimmerTickerScope.maybeOf(context);
+    if (scopedAnimation != null) {
+      _controller?.dispose();
+      _controller = null;
+      _fallbackAnimation = null;
+      return scopedAnimation;
+    }
+
+    final existingAnimation = _fallbackAnimation;
+    if (existingAnimation != null) return existingAnimation;
+
+    final controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat();
-
-    // 优化：调整范围使过渡更平滑
-    _animation = Tween<double>(begin: -1.5, end: 1.5).animate(
-      CurvedAnimation(parent: _controller, curve: AppMotion.standard),
-    );
+    _controller = controller;
+    return _fallbackAnimation = _buildShimmerAnimation(controller);
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // 性能优化：将主题颜色计算移出 Builder，减少每帧开销
     final baseColor = context.appBorder;
     final highlightColor = context.appSurfaceSubtle;
 
     return RepaintBoundary(
-      // 核心优化：隔离 Shimmer 动画的重绘区域
       child: AnimatedBuilder(
         animation: _animation,
         builder: (context, child) {
           return DecoratedBox(
-            // 使用更轻量的 DecoratedBox 替代 Container
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(widget.borderRadius),
               gradient: LinearGradient(
@@ -74,8 +134,16 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
   }
 }
 
+Animation<double> _buildShimmerAnimation(AnimationController controller) {
+  return Tween<double>(
+    begin: -1.5,
+    end: 1.5,
+  ).animate(CurvedAnimation(parent: controller, curve: AppMotion.standard));
+}
+
 class _SlidingGradientTransform extends GradientTransform {
   final double slidePercent;
+
   const _SlidingGradientTransform(this.slidePercent);
 
   @override

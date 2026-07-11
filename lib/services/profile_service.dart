@@ -2,10 +2,14 @@ import 'package:dio/dio.dart';
 
 import 'api_client.dart';
 import 'api_response.dart';
+import 'timed_cache.dart';
 
 class ProfileService {
   final ApiClientContract _client;
-  final Map<String, Map<String, dynamic>> _transactionDetailCache = {};
+  final TimedCache<Map<String, dynamic>> _transactionDetailCache = TimedCache(
+    maxSize: 30,
+    defaultTtl: const Duration(minutes: 10),
+  );
 
   ProfileService({ApiClientContract? client}) : _client = client ?? ApiClient();
 
@@ -51,7 +55,7 @@ class ProfileService {
 
   Future<Map<String, dynamic>> fetchTransactionDetail(String billId) async {
     final trimmedBillId = billId.trim();
-    final cached = _transactionDetailCache[trimmedBillId];
+    final cached = _transactionDetailCache.get(trimmedBillId);
     if (cached != null) return cached;
 
     final encodedBillId = Uri.encodeComponent(trimmedBillId);
@@ -62,7 +66,7 @@ class ProfileService {
       final order = data['order'];
       if (order is Map) {
         final normalized = Map<String, dynamic>.from(order);
-        _transactionDetailCache[trimmedBillId] = normalized;
+        _transactionDetailCache.set(trimmedBillId, normalized);
         return normalized;
       }
 
@@ -153,5 +157,9 @@ class ProfileService {
     }
 
     return null;
+  }
+
+  void clearTransactionDetailCache() {
+    _transactionDetailCache.clear();
   }
 }

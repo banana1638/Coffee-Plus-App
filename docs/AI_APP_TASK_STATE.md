@@ -3,13 +3,27 @@
 ## Current Status
 
 Last updated:
-- 2026-07-07
+- 2026-07-11
 
 Current task:
-- Smooth and standardize UI motion for the mobile UI refactor without changing API behavior.
+- Reduce rebuild CPU, repeated API calls, retained detail data, and loading animation ticker count without changing API behavior.
 
 Current phase:
-- Motion pass implemented; validation pending.
+- Performance pass implemented; analyzer/test validation passed.
+
+## 2026-07-11 Low-Memory Performance Pass
+
+- Added `DashboardViewModel` so Home parses dashboard JSON into `User`, `Category`, and `Transaction` objects once when data arrives instead of on every rebuild.
+- Changed Home search to local filtering over the loaded dashboard model; refresh still fetches the backend dashboard, but typing in the search bar no longer starts a new `/dashboard` request.
+- Added bounded 24-entry, 5-minute product detail caching with in-flight request dedupe in `ProductService`.
+- Replaced unbounded transaction detail `Map` with a bounded 30-entry, 10-minute `TimedCache` in `ProfileService`.
+- Clear product and transaction detail caches when auth/in-flight state is reset, preventing stale detail data after login/logout changes.
+- Added `ShimmerTickerScope` so the Home skeleton can share one shimmer animation ticker across placeholders while standalone placeholders still work.
+- API impact: none; endpoint paths, request bodies, auth handling, and backend-owned truth are unchanged.
+- UX impact: search responds from local loaded data; product detail may open with cached add-ons/options for recently viewed products.
+- Token/env impact: none.
+- Validation: `dart format` passed for changed Dart files, `flutter analyze` passed, and all 29 Flutter tests passed.
+- Remaining risk: manual device profiling should confirm lower frame/ticker pressure on slow network and low-end Android hardware.
 
 ## 2026-07-07 Motion Smoothing Pass
 
