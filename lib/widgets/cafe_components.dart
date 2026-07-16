@@ -34,8 +34,71 @@ class CafeSurface extends StatelessWidget {
 
     return Container(
       margin: margin,
-      child: clip ? ClipRRect(borderRadius: borderRadius, child: content) : content,
+      child: clip
+          ? ClipRRect(borderRadius: borderRadius, child: content)
+          : content,
     );
+  }
+}
+
+class CafeMenuPaper extends StatelessWidget {
+  final Widget child;
+  final BorderRadiusGeometry borderRadius;
+  final double opacity;
+
+  const CafeMenuPaper({
+    super.key,
+    required this.child,
+    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+    this.opacity = 0.55,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: CustomPaint(
+        painter: _CafeMenuPaperPainter(
+          lineColor: context.appBorder.withValues(alpha: opacity),
+          crossLineColor: context.appBorder.withValues(alpha: opacity * 0.75),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _CafeMenuPaperPainter extends CustomPainter {
+  final Color lineColor;
+  final Color crossLineColor;
+
+  const _CafeMenuPaperPainter({
+    required this.lineColor,
+    required this.crossLineColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final horizontalPaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 1;
+    final verticalPaint = Paint()
+      ..color = crossLineColor
+      ..strokeWidth = 1;
+
+    const step = 28.0;
+    for (double y = 0; y <= size.height; y += step) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), horizontalPaint);
+    }
+    for (double x = 0; x <= size.width; x += step) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), verticalPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CafeMenuPaperPainter oldDelegate) {
+    return lineColor != oldDelegate.lineColor ||
+        crossLineColor != oldDelegate.crossLineColor;
   }
 }
 
@@ -49,11 +112,19 @@ class CafeSectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: Text(label.toUpperCase(), style: AppTypography.sectionLabel(context))),
+        Expanded(
+          child: Text(
+            label.toUpperCase(),
+            style: AppTypography.sectionLabel(context),
+          ),
+        ),
         if (trailing != null)
           Text(
             trailing!,
-            style: AppTypography.ledger(context, fontSize: 11).copyWith(color: context.appTextMuted),
+            style: AppTypography.ledger(
+              context,
+              fontSize: 11,
+            ).copyWith(color: context.appTextMuted),
           ),
       ],
     );
@@ -101,7 +172,10 @@ class CafeLedgerText extends StatelessWidget {
     return Text(
       text,
       textAlign: textAlign,
-      style: AppTypography.ledger(context, fontSize: fontSize).copyWith(color: color),
+      style: AppTypography.ledger(
+        context,
+        fontSize: fontSize,
+      ).copyWith(color: color),
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // 用于触觉反馈
 import '../core/app_colors.dart';
@@ -20,6 +22,8 @@ class _MainWrapperState extends State<MainWrapper> {
   int _selectedIndex = 0;
   final ApiService _apiService = ApiService();
   int _cartCount = 0;
+  bool _cartBadgePulse = false;
+  Timer? _cartBadgePulseTimer;
 
   // 使用 GlobalKey 确保在切换 Tab 时可以精准触发子页面的 refreshData
   final GlobalKey<TangkiScreenState> _tangkiTabKey =
@@ -45,6 +49,7 @@ class _MainWrapperState extends State<MainWrapper> {
 
   @override
   void dispose() {
+    _cartBadgePulseTimer?.cancel();
     _apiService.cartCountNotifier.removeListener(_onCartCountChanged);
     _apiService.authStateNotifier.removeListener(_onAuthStatusChanged);
     super.dispose();
@@ -52,7 +57,18 @@ class _MainWrapperState extends State<MainWrapper> {
 
   void _onCartCountChanged() {
     if (mounted) {
-      setState(() => _cartCount = _apiService.cartCountNotifier.value);
+      final nextCount = _apiService.cartCountNotifier.value;
+      final shouldPulse = nextCount > _cartCount;
+      setState(() {
+        _cartCount = nextCount;
+        if (shouldPulse) _cartBadgePulse = true;
+      });
+      if (shouldPulse) {
+        _cartBadgePulseTimer?.cancel();
+        _cartBadgePulseTimer = Timer(AppMotion.medium, () {
+          if (mounted) setState(() => _cartBadgePulse = false);
+        });
+      }
     }
   }
 
@@ -149,15 +165,15 @@ class _MainWrapperState extends State<MainWrapper> {
   Widget _buildBottomNavigation() {
     return Container(
       decoration: BoxDecoration(
-        color: context.appSurface,
+        color: context.appSurface.withValues(alpha: 0.96),
         border: Border(top: BorderSide(color: context.appBorder)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(
-              alpha: context.isDarkMode ? 0.22 : 0.08,
+              alpha: context.isDarkMode ? 0.24 : 0.06,
             ),
-            blurRadius: 12,
-            offset: const Offset(0, -2),
+            blurRadius: 18,
+            offset: const Offset(0, -8),
           ),
         ],
       ),
@@ -222,16 +238,34 @@ class _MainWrapperState extends State<MainWrapper> {
     final bool isSelected = _selectedIndex == index;
 
     return BottomNavigationBarItem(
-      icon: AnimatedScale(
-        scale: isSelected ? 1.1 : 1.0,
+      icon: AnimatedContainer(
         duration: AppMotion.medium,
         curve: AppMotion.enter,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? context.appPrimary.withValues(
+                  alpha: context.isDarkMode ? 0.18 : 0.1,
+                )
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? context.appPrimary.withValues(alpha: 0.24)
+                : Colors.transparent,
+          ),
+        ),
         child: isCart
-            ? Badge(
-                label: Text(_cartCount > 99 ? '99+' : _cartCount.toString()),
-                isLabelVisible: _cartCount > 0,
-                backgroundColor: context.appDanger,
-                child: Icon(isSelected ? activeIcon : icon),
+            ? AnimatedScale(
+                scale: _cartBadgePulse ? 1.18 : 1,
+                duration: AppMotion.fast,
+                curve: AppMotion.enter,
+                child: Badge(
+                  label: Text(_cartCount > 99 ? '99+' : _cartCount.toString()),
+                  isLabelVisible: _cartCount > 0,
+                  backgroundColor: context.appDanger,
+                  child: Icon(isSelected ? activeIcon : icon),
+                ),
               )
             : Icon(isSelected ? activeIcon : icon),
       ),

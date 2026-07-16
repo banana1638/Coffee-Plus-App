@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/app_colors.dart';
@@ -10,6 +12,7 @@ import 'package:flutter/services.dart';
 import '../../models/favorite_model.dart';
 import '../../services/favorite_service.dart';
 import '../../widgets/auth_modal.dart';
+import '../../widgets/cart_flight_feedback.dart';
 import '../../widgets/cafe_components.dart';
 import '../../core/error_handler.dart';
 
@@ -20,14 +23,42 @@ class ProductDetailScreen extends StatefulWidget {
     Map<String, dynamic>? dynamicOptions,
     FavoriteItem? initialFavorite,
   }) {
-    return showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ProductDetailScreen(
-        product: product,
-        dynamicOptions: dynamicOptions,
-        initialFavorite: initialFavorite,
+    final dragProgress = ValueNotifier<double>(0);
+    return Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        opaque: false,
+        barrierDismissible: true,
+        barrierColor: Colors.transparent,
+        transitionDuration: AppMotion.route,
+        reverseTransitionDuration: AppMotion.medium,
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return _ProductDetailRouteShell(
+            dragProgress: dragProgress,
+            child: ProductDetailScreen(
+              product: product,
+              dynamicOptions: dynamicOptions,
+              initialFavorite: initialFavorite,
+              dragProgressNotifier: dragProgress,
+            ),
+          );
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: AppMotion.routeEnter,
+            reverseCurve: AppMotion.routeExit,
+          );
+          return FadeTransition(
+            opacity: Tween<double>(begin: 0, end: 1).animate(curved),
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.08),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          );
+        },
       ),
     );
   }
@@ -35,16 +66,67 @@ class ProductDetailScreen extends StatefulWidget {
   final Product product;
   final Map<String, dynamic>? dynamicOptions;
   final FavoriteItem? initialFavorite;
+  final ValueNotifier<double>? dragProgressNotifier;
 
   const ProductDetailScreen({
     super.key,
     required this.product,
     this.dynamicOptions,
     this.initialFavorite,
+    this.dragProgressNotifier,
   });
 
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
+}
+
+class _ProductDetailRouteShell extends StatefulWidget {
+  final ValueNotifier<double> dragProgress;
+  final Widget child;
+
+  const _ProductDetailRouteShell({
+    required this.dragProgress,
+    required this.child,
+  });
+
+  @override
+  State<_ProductDetailRouteShell> createState() =>
+      _ProductDetailRouteShellState();
+}
+
+class _ProductDetailRouteShellState extends State<_ProductDetailRouteShell> {
+  @override
+  void dispose() {
+    widget.dragProgress.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ValueListenableBuilder<double>(
+              valueListenable: widget.dragProgress,
+              builder: (context, progress, _) {
+                return GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: ColoredBox(
+                    color: Colors.black.withValues(
+                      alpha: 0.38 * (1 - progress.clamp(0.0, 1.0)),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Align(alignment: Alignment.bottomCenter, child: widget.child),
+        ],
+      ),
+    );
+  }
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
@@ -62,7 +144,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   List<String> selectedAddons = []; // 选中的加料名称
   int quantity = 1;
   bool _isAdding = false;
+  bool _isAddConfirmed = false;
   bool _isFavoriting = false;
+  bool _isSheetDragging = false;
+  double _sheetDragOffset = 0;
+  final GlobalKey _addButtonKey = GlobalKey();
   final TextEditingController _remarkController = TextEditingController();
   final FavoriteService _favoriteService = FavoriteService();
 
@@ -256,7 +342,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       if (!ApiService().authStateNotifier.value) return;
     }
 
-    setState(() => _isAdding = true);
+    setState(() {
+      _isAdding = true;
+      _isAddConfirmed = false;
+    });
     HapticFeedback.mediumImpact();
     try {
       await ApiService().addToCart(
@@ -269,14 +358,48 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
       if (mounted) {
         HapticFeedback.heavyImpact();
-        _showSnackBar("Added to cart successfully!", isError: false);
-        Navigator.pop(context);
+        unawaited(
+          CartFlightFeedback.playFrom(context, sourceKey: _addButtonKey),
+        );
+        setState(() {
+          _isAdding = false;
+          _isAddConfirmed = true;
+        });
+        await Future<void>.delayed(const Duration(milliseconds: 220));
+        if (mounted) {
+          _showSnackBar("Added to cart successfully!", isError: false);
+          Navigator.pop(context);
+        }
       }
     } catch (e) {
       if (mounted) _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
-      if (mounted) setState(() => _isAdding = false);
+      if (mounted && !_isAddConfirmed) setState(() => _isAdding = false);
     }
+  }
+
+  void _onSheetDragUpdate(DragUpdateDetails details) {
+    final nextOffset = (_sheetDragOffset + details.delta.dy).clamp(0.0, 220.0);
+    if (nextOffset == _sheetDragOffset && _isSheetDragging) return;
+    widget.dragProgressNotifier?.value = (nextOffset / 160).clamp(0.0, 1.0);
+    setState(() {
+      _isSheetDragging = true;
+      _sheetDragOffset = nextOffset;
+    });
+  }
+
+  void _onSheetDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (_sheetDragOffset > 96 || velocity > 700) {
+      Navigator.pop(context);
+      return;
+    }
+
+    setState(() {
+      _isSheetDragging = false;
+      _sheetDragOffset = 0;
+    });
+    widget.dragProgressNotifier?.value = 0;
   }
 
   Future<void> _handleFavorite() async {
@@ -421,7 +544,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final sheet = Container(
       height: MediaQuery.of(context).size.height * 0.9,
       decoration: BoxDecoration(
         color: context.appBackground,
@@ -498,13 +621,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ],
           ),
           Positioned(
+            top: 8,
+            left: 0,
+            right: 0,
+            child: SheetDragHandle(
+              onDragUpdate: _onSheetDragUpdate,
+              onDragEnd: _onSheetDragEnd,
+            ),
+          ),
+          Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: BottomAction(
+              addButtonKey: _addButtonKey,
               quantity: quantity,
               totalPrice: _totalPrice,
               isAdding: _isAdding,
+              isConfirmed: _isAddConfirmed,
               onQtyChanged: (newQty) {
                 setState(
                   () => quantity = newQty.clamp(1, _maxQuantity).toInt(),
@@ -515,6 +649,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ],
       ),
+    );
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: _sheetDragOffset),
+      duration: _isSheetDragging ? Duration.zero : AppMotion.medium,
+      curve: AppMotion.routeExit,
+      builder: (context, offset, child) {
+        return Transform.translate(offset: Offset(0, offset), child: child);
+      },
+      child: sheet,
     );
   }
 
@@ -553,9 +697,7 @@ class ProductDetailLoadBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: context.appWarning.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: context.appWarning.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: context.appWarning.withValues(alpha: 0.35)),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
@@ -575,6 +717,48 @@ class ProductDetailLoadBanner extends StatelessWidget {
               icon: const Icon(Icons.refresh),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class SheetDragHandle extends StatelessWidget {
+  final GestureDragUpdateCallback onDragUpdate;
+  final GestureDragEndCallback onDragEnd;
+
+  const SheetDragHandle({
+    super.key,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onVerticalDragUpdate: onDragUpdate,
+        onVerticalDragEnd: onDragEnd,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 8),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: context.appSurface.withValues(alpha: 0.86),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: context.appBorder),
+            ),
+            child: SizedBox(
+              width: 44,
+              height: 5,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: context.appTextMuted.withValues(alpha: 0.48),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -612,9 +796,15 @@ class ProductAppBar extends StatelessWidget {
         background: RepaintBoundary(
           child: Hero(
             tag: 'product-image-${product.id}',
+            transitionOnUserGestures: true,
+            placeholderBuilder: (context, size, child) {
+              return ColoredBox(color: context.appSurfaceSubtle, child: child);
+            },
             child: CachedNetworkImage(
               imageUrl: imageUrl,
               fit: BoxFit.cover,
+              fadeInDuration: AppMotion.fast,
+              fadeOutDuration: AppMotion.fast,
               memCacheWidth: 800,
               errorWidget: (context, url, error) {
                 AppLogger.error(
@@ -704,17 +894,14 @@ class ProductInfo extends StatelessWidget {
       children: [
         Text(
           "MADE TO ORDER",
-          style: AppTypography.sectionLabel(context).copyWith(
-            color: context.appPrimary,
-            fontSize: 12,
-          ),
+          style: AppTypography.sectionLabel(
+            context,
+          ).copyWith(color: context.appPrimary, fontSize: 12),
         ),
         const SizedBox(height: 8),
         Text(
           product.name,
-          style: AppTypography.title(context).copyWith(
-            fontSize: 28,
-          ),
+          style: AppTypography.title(context).copyWith(fontSize: 28),
         ),
         const SizedBox(height: 12),
         Text(
@@ -749,11 +936,15 @@ class TempSelector extends StatelessWidget {
               HapticFeedback.selectionClick();
               onTempSelected(temp);
             },
-            child: Container(
+            child: AnimatedContainer(
+              duration: AppMotion.medium,
+              curve: AppMotion.standard,
               margin: EdgeInsets.only(right: temp == tempOptions.last ? 0 : 10),
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
-                color: isSelected ? context.appSurfaceSubtle : context.appSurface,
+                color: isSelected
+                    ? context.appSurfaceSubtle
+                    : context.appSurface,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: isSelected ? context.appPrimary : context.appBorder,
@@ -799,7 +990,9 @@ class SizeSelector extends StatelessWidget {
             HapticFeedback.selectionClick();
             onSizeSelected(size['name']);
           },
-          child: Container(
+          child: AnimatedContainer(
+            duration: AppMotion.medium,
+            curve: AppMotion.standard,
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -850,7 +1043,9 @@ class AddonSelector extends StatelessWidget {
             HapticFeedback.selectionClick();
             onAddonToggled(addon['name'], !isSelected);
           },
-          child: Container(
+          child: AnimatedContainer(
+            duration: AppMotion.medium,
+            curve: AppMotion.standard,
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -888,17 +1083,21 @@ class AddonSelector extends StatelessWidget {
 }
 
 class BottomAction extends StatelessWidget {
+  final GlobalKey addButtonKey;
   final int quantity;
   final double totalPrice;
   final bool isAdding;
+  final bool isConfirmed;
   final ValueChanged<int> onQtyChanged;
   final VoidCallback onAddToCart;
 
   const BottomAction({
     super.key,
+    required this.addButtonKey,
     required this.quantity,
     required this.totalPrice,
     required this.isAdding,
+    required this.isConfirmed,
     required this.onQtyChanged,
     required this.onAddToCart,
   });
@@ -928,13 +1127,28 @@ class BottomAction extends StatelessWidget {
                 ),
                 SizedBox(
                   width: 30,
-                  child: Text(
-                    "$quantity",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: context.appTextMain,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
+                  child: AnimatedSwitcher(
+                    duration: AppMotion.fast,
+                    transitionBuilder: (child, animation) {
+                      return ScaleTransition(
+                        scale: Tween<double>(begin: 0.82, end: 1).animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: AppMotion.enter,
+                          ),
+                        ),
+                        child: FadeTransition(opacity: animation, child: child),
+                      );
+                    },
+                    child: Text(
+                      "$quantity",
+                      key: ValueKey(quantity),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: context.appTextMain,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                 ),
@@ -949,42 +1163,83 @@ class BottomAction extends StatelessWidget {
           const SizedBox(width: 16),
           Expanded(
             child: ElevatedButton(
-              onPressed: isAdding ? null : onAddToCart,
+              key: addButtonKey,
+              onPressed: isAdding || isConfirmed ? null : onAddToCart,
               style: ElevatedButton.styleFrom(
-                backgroundColor: context.appPrimary,
+                backgroundColor: isConfirmed
+                    ? context.appSuccess
+                    : context.appPrimary,
                 padding: const EdgeInsets.symmetric(
                   vertical: 18,
                   horizontal: 20,
                 ),
                 shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 elevation: 0,
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "Add to Cart",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.only(left: 12),
-                    decoration: const BoxDecoration(
-                      border: Border(left: BorderSide(color: Colors.white24)),
-                    ),
-                    child: Text(
-                      "RM ${totalPrice.toStringAsFixed(2)}",
-                      style: AppTypography.money(
-                        context,
-                        fontSize: 16,
-                      ).copyWith(color: Colors.white),
-                    ),
-                  ),
-                ],
+              child: AnimatedSwitcher(
+                duration: AppMotion.fast,
+                switchInCurve: AppMotion.enter,
+                switchOutCurve: AppMotion.exit,
+                child: isAdding
+                    ? const _AddButtonStatus(
+                        key: ValueKey('adding'),
+                        label: 'Adding',
+                        icon: SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        ),
+                      )
+                    : isConfirmed
+                    ? const _AddButtonStatus(
+                        key: ValueKey('added'),
+                        label: 'Added',
+                        icon: Icon(
+                          Icons.check_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      )
+                    : Row(
+                        key: const ValueKey('ready'),
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "Add to Cart",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.only(left: 12),
+                            decoration: const BoxDecoration(
+                              border: Border(
+                                left: BorderSide(color: Colors.white24),
+                              ),
+                            ),
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween<double>(end: totalPrice),
+                              duration: AppMotion.medium,
+                              curve: AppMotion.standard,
+                              builder: (context, value, _) {
+                                return Text(
+                                  "RM ${value.toStringAsFixed(2)}",
+                                  style: AppTypography.money(
+                                    context,
+                                    fontSize: 16,
+                                  ).copyWith(color: Colors.white),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ),
@@ -994,22 +1249,62 @@ class BottomAction extends StatelessWidget {
   }
 }
 
-class QtyBtn extends StatelessWidget {
+class _AddButtonStatus extends StatelessWidget {
+  final String label;
+  final Widget icon;
+
+  const _AddButtonStatus({super.key, required this.label, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        icon,
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class QtyBtn extends StatefulWidget {
   final IconData icon;
   final VoidCallback onTap;
 
   const QtyBtn({super.key, required this.icon, required this.onTap});
 
   @override
+  State<QtyBtn> createState() => _QtyBtnState();
+}
+
+class _QtyBtnState extends State<QtyBtn> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
       onTap: () {
         HapticFeedback.lightImpact();
-        onTap();
+        widget.onTap();
       },
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        child: Icon(icon, size: 18, color: context.appTextMain),
+      child: AnimatedScale(
+        scale: _pressed ? 0.88 : 1,
+        duration: AppMotion.fast,
+        curve: AppMotion.enter,
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          child: Icon(widget.icon, size: 18, color: context.appTextMain),
+        ),
       ),
     );
   }

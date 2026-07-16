@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
@@ -39,6 +40,9 @@ class _HomeScreenState extends State<HomeScreen> {
   DashboardViewModel? _cachedDashboard;
   CancelToken? _cancelToken;
   Timer? _debounceTimer;
+  int _contentMotionDirection = 1;
+  final Map<String, ScrollController> _categoryScrollControllers = {};
+  final Set<int> _prewarmedProductImageIds = {};
 
   @override
   void initState() {
@@ -53,6 +57,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _apiService.authStateNotifier.removeListener(_onAuthChanged);
     _cancelToken?.cancel();
     _debounceTimer?.cancel();
+    for (final controller in _categoryScrollControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -99,6 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             _cachedDashboard = data;
           });
+          unawaited(_precacheDashboardImages(data));
         })
         .catchError((_) {});
   }
@@ -111,6 +119,15 @@ class _HomeScreenState extends State<HomeScreen> {
         _searchQuery = value;
       });
     });
+  }
+
+  Future<void> _handleRefresh() async {
+    _refreshData(forceRefresh: true);
+    await _dashboardData;
+    if (!mounted) return;
+
+    HapticFeedback.selectionClick();
+    _showRefreshCompleteOverlay();
   }
 
   @override
@@ -175,20 +192,31 @@ class _HomeScreenState extends State<HomeScreen> {
         future: _dashboardData,
         builder: (context, snapshot) {
           final dashboard = _cachedDashboard ?? snapshot.data;
+          Widget transition(Widget child) {
+            return AnimatedSwitcher(
+              duration: AppMotion.medium,
+              switchInCurve: AppMotion.enter,
+              switchOutCurve: AppMotion.exit,
+              child: child,
+            );
+          }
 
           if (dashboard == null) {
             if (snapshot.hasError) {
               final error = snapshot.error;
               if (error is DioException &&
                   error.type == DioExceptionType.cancel) {
-                return const HomeShimmerSkeleton();
+                return transition(const HomeShimmerSkeleton());
               }
-              return HomeErrorState(
-                message: ErrorHandler.toUserMessage(error),
-                onRetry: _refreshData,
+              return transition(
+                HomeErrorState(
+                  key: const ValueKey('home-error'),
+                  message: ErrorHandler.toUserMessage(error),
+                  onRetry: _refreshData,
+                ),
               );
             }
-            return const HomeShimmerSkeleton();
+            return transition(const HomeShimmerSkeleton());
           }
 
           final categories = dashboard.visibleCategories(
@@ -197,100 +225,237 @@ class _HomeScreenState extends State<HomeScreen> {
           );
           final activeOrder = dashboard.activeOrder;
 
-          return RefreshIndicator(
-            onRefresh: () async {
-              _refreshData(forceRefresh: true);
-              await _dashboardData;
-            },
-            child: NestedScrollView(
-              headerSliverBuilder: (context, innerBoxIsScrolled) {
-                return [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                      child: RepaintBoundary(
-                        child: DashboardHeader(
-                          isGuest: dashboard.isGuest,
-                          user: dashboard.user,
-                          onRefresh: () => _refreshData(forceRefresh: true),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (activeOrder != null)
+          return transition(
+            RefreshIndicator(
+              key: const ValueKey('home-content'),
+              onRefresh: _handleRefresh,
+              child: NestedScrollView(
+                headerSliverBuilder: (context, innerBoxIsScrolled) {
+                  return [
                     SliverToBoxAdapter(
-                      child: ActiveOrderCard(
-                        order: activeOrder,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                OrderDetailScreen(order: activeOrder.rawJson),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                        child: RepaintBoundary(
+                          child: DashboardHeader(
+                            isGuest: dashboard.isGuest,
+                            user: dashboard.user,
+                            onRefresh: () => _refreshData(forceRefresh: true),
                           ),
                         ),
                       ),
                     ),
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _SliverAppBarDelegate(
-                      child: Container(
-                        color: Theme.of(context).scaffoldBackgroundColor,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-                              child: HomeSearchBar(onChanged: _onSearchChanged),
+                    if (activeOrder != null)
+                      SliverToBoxAdapter(
+                        child: ActiveOrderCard(
+                          order: activeOrder,
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  OrderDetailScreen(order: activeOrder.rawJson),
                             ),
-                            CategorySelectionBar(
-                              allCategoryNames: dashboard.allCategoryNames,
-                              selectedCategory: _selectedCategory,
-                              onCategorySelected: (id) {
-                                setState(() => _selectedCategory = id);
-                              },
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                      minHeight: 128,
-                      maxHeight: 128,
-                    ),
-                  ),
-                ];
-              },
-              body: AnimatedSwitcher(
-                duration: AppMotion.slow,
-                switchInCurve: AppMotion.enter,
-                switchOutCurve: AppMotion.exit,
-                transitionBuilder: (child, animation) {
-                  final offsetAnimation = Tween<Offset>(
-                    begin: const Offset(0, 0.025),
-                    end: Offset.zero,
-                  ).animate(animation);
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(
-                      position: offsetAnimation,
-                      child: child,
-                    ),
-                  );
-                },
-                child: _selectedCategory == 'collections'
-                    ? CollectionsList(options: dashboard.options)
-                    : categories.isEmpty
-                    ? const Center(
-                        key: ValueKey('no-products'),
-                        child: Text("No products found"),
-                      )
-                    : ProductCategorySection(
-                        categories: categories,
-                        options: dashboard.options,
-                        key: ValueKey('$_selectedCategory:$_searchQuery'),
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _SliverAppBarDelegate(
+                        child: Container(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  8,
+                                  16,
+                                  6,
+                                ),
+                                child: HomeSearchBar(
+                                  onChanged: _onSearchChanged,
+                                ),
+                              ),
+                              CategorySelectionBar(
+                                allCategoryNames: dashboard.allCategoryNames,
+                                selectedCategory: _selectedCategory,
+                                onCategorySelected: (id) {
+                                  setState(() {
+                                    _contentMotionDirection =
+                                        _categoryMotionDirection(
+                                          dashboard.allCategoryNames,
+                                          from: _selectedCategory,
+                                          to: id,
+                                        );
+                                    _selectedCategory = id;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        minHeight: 128,
+                        maxHeight: 128,
                       ),
+                    ),
+                  ];
+                },
+                body: AnimatedSwitcher(
+                  duration: AppMotion.slow,
+                  switchInCurve: AppMotion.enter,
+                  switchOutCurve: AppMotion.exit,
+                  transitionBuilder: (child, animation) {
+                    final offsetAnimation = Tween<Offset>(
+                      begin: Offset(0.035 * _contentMotionDirection, 0),
+                      end: Offset.zero,
+                    ).animate(animation);
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: offsetAnimation,
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: _selectedCategory == 'collections'
+                      ? CollectionsList(
+                          key: const ValueKey('collections'),
+                          options: dashboard.options,
+                          controller: _scrollControllerFor('collections'),
+                        )
+                      : categories.isEmpty
+                      ? const Center(
+                          key: ValueKey('no-products'),
+                          child: Text("No products found"),
+                        )
+                      : ProductCategorySection(
+                          categories: categories,
+                          options: dashboard.options,
+                          controller: _scrollControllerFor(_selectedCategory),
+                          key: ValueKey(_selectedCategory),
+                        ),
+                ),
               ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  int _categoryMotionDirection(
+    List<String> allCategoryNames, {
+    required String from,
+    required String to,
+  }) {
+    final order = ['all', 'collections', ...allCategoryNames];
+    final fromIndex = order.indexOf(from);
+    final toIndex = order.indexOf(to);
+    if (fromIndex == -1 || toIndex == -1 || fromIndex == toIndex) return 1;
+    return toIndex > fromIndex ? 1 : -1;
+  }
+
+  ScrollController _scrollControllerFor(String categoryId) {
+    return _categoryScrollControllers.putIfAbsent(
+      categoryId,
+      ScrollController.new,
+    );
+  }
+
+  Future<void> _precacheDashboardImages(DashboardViewModel dashboard) async {
+    if (!mounted) return;
+    final products = dashboard.categories
+        .expand((category) => category.products)
+        .where((product) => product.imageUrl.isNotEmpty)
+        .where((product) => !_prewarmedProductImageIds.contains(product.id))
+        .take(6)
+        .toList(growable: false);
+
+    for (final product in products) {
+      if (!mounted) return;
+      _prewarmedProductImageIds.add(product.id);
+      final url = _apiService.getFullImageUrl(product.imageUrl);
+      await precacheImage(CachedNetworkImageProvider(url), context);
+    }
+  }
+
+  void _showRefreshCompleteOverlay() {
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay == null) return;
+
+    late final OverlayEntry entry;
+    entry = OverlayEntry(builder: (context) => const _RefreshCompleteOverlay());
+    overlay.insert(entry);
+    Timer(const Duration(milliseconds: 1400), entry.remove);
+  }
+}
+
+class _RefreshCompleteOverlay extends StatelessWidget {
+  const _RefreshCompleteOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: MediaQuery.of(context).padding.top + 58,
+      left: 0,
+      right: 0,
+      child: IgnorePointer(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: 1),
+          duration: AppMotion.medium,
+          curve: AppMotion.enter,
+          builder: (context, value, child) {
+            final opacity = value < 0.82 ? value : (1 - value) / 0.18;
+            return Opacity(
+              opacity: opacity.clamp(0.0, 1.0),
+              child: Transform.translate(
+                offset: Offset(0, -12 * (1 - value)),
+                child: child,
+              ),
+            );
+          },
+          child: Center(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: context.appSurface,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: context.appBorder),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 14,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 13,
+                  vertical: 8,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 16,
+                      color: context.appPrimary,
+                    ),
+                    const SizedBox(width: 7),
+                    Text(
+                      'Updated',
+                      style: TextStyle(
+                        color: context.appTextMain,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -334,7 +499,7 @@ class HomeErrorState extends StatelessWidget {
 }
 
 class HomeShimmerSkeleton extends StatelessWidget {
-  const HomeShimmerSkeleton({super.key});
+  const HomeShimmerSkeleton({super.key = const ValueKey('home-loading')});
 
   @override
   Widget build(BuildContext context) {
@@ -367,8 +532,14 @@ class DashboardHeader extends StatelessWidget {
       },
       borderRadius: BorderRadius.circular(8),
       child: CafeSurface(
-        padding: const EdgeInsets.all(20),
-        child: isGuest ? const GuestHeader() : MemberHeader(user: user),
+        padding: EdgeInsets.zero,
+        clip: true,
+        child: CafeMenuPaper(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: isGuest ? const GuestHeader() : MemberHeader(user: user),
+          ),
+        ),
       ),
     );
   }
@@ -528,29 +699,67 @@ class StatItem extends StatelessWidget {
   }
 }
 
-class HomeSearchBar extends StatelessWidget {
+class HomeSearchBar extends StatefulWidget {
   final ValueChanged<String> onChanged;
 
   const HomeSearchBar({super.key, required this.onChanged});
 
   @override
+  State<HomeSearchBar> createState() => _HomeSearchBarState();
+}
+
+class _HomeSearchBarState extends State<HomeSearchBar> {
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_handleFocusChanged);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_handleFocusChanged);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleFocusChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
+    final isFocused = _focusNode.hasFocus;
+    return AnimatedContainer(
+      duration: AppMotion.fast,
+      curve: AppMotion.enter,
       decoration: BoxDecoration(
-        color: context.appSurface,
+        color: isFocused ? context.appSurfaceSubtle : context.appSurface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: context.appBorderStrong),
+        border: Border.all(
+          color: isFocused ? context.appPrimary : context.appBorderStrong,
+          width: isFocused ? 1.5 : 1,
+        ),
       ),
       child: TextField(
+        focusNode: _focusNode,
         style: TextStyle(color: context.appTextMain),
         decoration: InputDecoration(
           hintText: 'Search coffee...',
-          hintStyle: TextStyle(color: context.appTextMuted, fontSize: 13),
-          prefixIcon: Icon(Icons.search, size: 20, color: context.appTextMuted),
+          hintStyle: TextStyle(
+            color: context.appTextMuted.withValues(alpha: isFocused ? 0.68 : 1),
+            fontSize: 13,
+          ),
+          prefixIcon: Icon(
+            Icons.search,
+            size: 20,
+            color: isFocused ? context.appPrimary : context.appTextMuted,
+          ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 13),
         ),
-        onChanged: onChanged,
+        onChanged: widget.onChanged,
       ),
     );
   }
@@ -572,23 +781,23 @@ class CategorySelectionBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          CategoryChip(
+          CategoryTab(
             id: 'all',
             label: 'All Items',
             isSelected: selectedCategory == 'all',
             onSelected: onCategorySelected,
           ),
-          CategoryChip(
+          CategoryTab(
             id: 'collections',
             label: 'Collections',
             isSelected: selectedCategory == 'collections',
             onSelected: onCategorySelected,
           ),
           ...allCategoryNames.map(
-            (name) => CategoryChip(
+            (name) => CategoryTab(
               id: name,
               label: name,
               isSelected: selectedCategory == name,
@@ -601,14 +810,14 @@ class CategorySelectionBar extends StatelessWidget {
   }
 }
 
-class CategoryChip extends StatelessWidget {
+class CategoryTab extends StatelessWidget {
   final String id;
   final String label;
   final bool isSelected;
   final ValueChanged<String> onSelected;
   final IconData? icon;
 
-  const CategoryChip({
+  const CategoryTab({
     super.key,
     required this.id,
     required this.label,
@@ -619,45 +828,36 @@ class CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectedBackground = context.appPrimary;
-    final selectedContentColor = context.isDarkMode
-        ? AppColorsDark.background
-        : Colors.white;
-
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: AnimatedScale(
-        scale: isSelected ? 1.02 : 1,
-        duration: AppMotion.fast,
-        curve: AppMotion.enter,
-        child: ChoiceChip(
-          avatar: icon != null
-              ? Icon(
-                  icon,
-                  size: 14,
-                  color: isSelected ? selectedContentColor : context.appPrimary,
-                )
-              : null,
-          label: Text(label),
-          selected: isSelected,
-          onSelected: (selected) {
-            if (selected) {
-              HapticFeedback.selectionClick();
-              onSelected(id);
-            }
-          },
-          selectedColor: selectedBackground,
-          labelStyle: TextStyle(
-            color: isSelected ? selectedContentColor : context.appTextBody,
-            fontWeight: FontWeight.w700,
-            fontSize: 12,
+      padding: const EdgeInsets.only(right: 24),
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onSelected(id);
+        },
+        borderRadius: BorderRadius.circular(4),
+        child: AnimatedContainer(
+          duration: AppMotion.fast,
+          curve: AppMotion.enter,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: isSelected ? context.appPrimary : Colors.transparent,
+                width: 2,
+              ),
+            ),
           ),
-          backgroundColor: context.appSurface,
-          side: BorderSide(
-            color: isSelected ? context.appPrimary : context.appBorder,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected
+                  ? context.appPrimaryHover
+                  : context.appTextMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          showCheckmark: false,
         ),
       ),
     );
@@ -667,32 +867,65 @@ class CategoryChip extends StatelessWidget {
 class ProductCategorySection extends StatelessWidget {
   final List<Category> categories;
   final Map<String, dynamic>? options;
+  final ScrollController controller;
 
   const ProductCategorySection({
     super.key,
     required this.categories,
     required this.options,
+    required this.controller,
   });
 
   @override
   Widget build(BuildContext context) {
     return CustomScrollView(
+      controller: controller,
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
       slivers: [
         for (final category in categories) ...[
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  category.name.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                    fontFamily: AppTypography.serifFamily,
-                    color: context.appTextMain,
-                  ),
+                padding: const EdgeInsets.fromLTRB(0, 18, 0, 18),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Made to order',
+                            style: AppTypography.sectionLabel(
+                              context,
+                            ).copyWith(color: context.appPrimary),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            category.name,
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0,
+                              height: 1,
+                              fontFamily: AppTypography.serifFamily,
+                              color: context.appTextMain,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${category.products.length} items',
+                      style: AppTypography.ledger(
+                        context,
+                        fontSize: 12,
+                      ).copyWith(color: context.appTextMuted),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -702,9 +935,9 @@ class ProductCategorySection extends StatelessWidget {
             sliver: SliverGrid(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                childAspectRatio: 0.62,
+                childAspectRatio: 0.56,
                 crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
+                mainAxisSpacing: 28,
               ),
               delegate: SliverChildBuilderDelegate((context, pIndex) {
                 final product = category.products[pIndex];
@@ -794,8 +1027,13 @@ class ShimmerSkeleton extends StatelessWidget {
 
 class CollectionsList extends StatelessWidget {
   final Map<String, dynamic>? options;
+  final ScrollController controller;
 
-  const CollectionsList({super.key, required this.options});
+  const CollectionsList({
+    super.key,
+    required this.options,
+    required this.controller,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -819,6 +1057,10 @@ class CollectionsList extends StatelessWidget {
         }
 
         return CustomScrollView(
+          controller: controller,
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
           slivers: [
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -826,13 +1068,8 @@ class CollectionsList extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Text(
-                    "COLLECTIONS",
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
-                      color: context.appPrimary,
-                    ),
+                    "Saved recipes",
+                    style: AppTypography.title(context).copyWith(fontSize: 28),
                   ),
                 ),
               ),
@@ -842,9 +1079,9 @@ class CollectionsList extends StatelessWidget {
               sliver: SliverGrid(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 0.62,
+                  childAspectRatio: 0.56,
                   crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
+                  mainAxisSpacing: 28,
                 ),
                 delegate: SliverChildBuilderDelegate((context, index) {
                   final favorite = favorites[index];
