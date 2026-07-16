@@ -30,6 +30,8 @@ class CartIndexScreenState extends State<CartIndexScreen> {
   String? _appliedCouponCode;
   String? _couponMessage;
   double _couponDiscount = 0.0;
+  final Set<int> _mutatingItemIds = <int>{};
+  CartTotals _cartTotals = CartTotals.empty;
 
   // ==========================================
   // 1. 生命周期 (Lifecycle)
@@ -52,10 +54,14 @@ class CartIndexScreenState extends State<CartIndexScreen> {
   // ==========================================
 
   Future<void> refreshData() async {
+    await _loadCartAndProfile(showLoading: true);
+  }
+
+  Future<void> _loadCartAndProfile({required bool showLoading}) async {
     final token = await _apiService.getToken();
     if (token == null) return;
 
-    if (mounted) setState(() => _isLoading = true);
+    if (mounted && showLoading) setState(() => _isLoading = true);
     try {
       // 优化点：使用 Future.wait 同时获取购物车和用户信息，减少总等待时间
       final results = await Future.wait([
@@ -69,62 +75,173 @@ class CartIndexScreenState extends State<CartIndexScreen> {
       if (mounted) {
         setState(() {
           _user = User.fromJson(userResult['user']);
-          _cartItems = (cartResult['cartItems'] as List)
-              .map((item) => CartItem.fromJson(item))
-              .toList();
+          _setCartItemsFromPayload(cartResult);
         });
       }
     } catch (e) {
       // ✅ 替换所有 "$e" 的错误显示
       _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && showLoading) setState(() => _isLoading = false);
     }
   }
 
-  int get totalOzUsed {
-    return _cartItems
-        .where((item) => item.isOz)
-        .fold(0, (sum, item) => sum + item.ozNeeded);
+  Future<void> _loadCartOnly({required bool showLoading}) async {
+    final token = await _apiService.getToken();
+    if (token == null) return;
+
+    if (mounted && showLoading) setState(() => _isLoading = true);
+    try {
+      final cartResult = await _apiService.fetchCart();
+      if (mounted) {
+        setState(() => _setCartItemsFromPayload(cartResult));
+      }
+    } catch (e) {
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+    } finally {
+      if (mounted && showLoading) setState(() => _isLoading = false);
+    }
   }
 
-  double get totalCashPrice {
-    return _cartItems
-        .where((item) => !item.isOz)
-        .fold(0.0, (sum, item) => sum + item.totalItemPrice);
+  void _setCartItemsFromPayload(Map<String, dynamic> cartResult) {
+    final items = (cartResult['cartItems'] as List)
+        .map((item) => CartItem.fromJson(item))
+        .toList();
+    _setCartItems(items);
   }
 
-  double get payableCashPrice {
-    return (totalCashPrice - _couponDiscount)
-        .clamp(0.0, double.infinity)
-        .toDouble();
+  void _setCartItems(List<CartItem> items) {
+    _cartItems = items;
+    _cartTotals = CartTotals.fromItems(items, couponDiscount: _couponDiscount);
   }
+
+  int get totalOzUsed => _cartTotals.totalOzUsed;
+
+  double get totalCashPrice => _cartTotals.totalCashPrice;
+
+  double get payableCashPrice => _cartTotals.payableCashPrice;
 
   // ==========================================
   // 3. 业务动作 (Actions)
   // ==========================================
 
   Future<void> _handleRemoveItem(int cartItemId, int index) async {
+    if (_mutatingItemIds.contains(cartItemId)) return;
     HapticFeedback.lightImpact();
     final removedItem = _cartItems[index];
 
-    setState(() {
-      _cartItems.removeAt(index);
-    });
+    setState(() => _mutatingItemIds.add(cartItemId));
 
     try {
       await _apiService.removeFromCart(cartItemId);
+      if (!mounted) return;
+
+      setState(() {
+        _mutatingItemIds.remove(cartItemId);
+        _setCartItems(
+          _cartItems.where((item) => item.id != cartItemId).toList(),
+        );
+      });
       _apiService.cartCountNotifier.value =
           (_apiService.cartCountNotifier.value - 1).clamp(0, 99999);
       if (_appliedCouponCode != null) {
         _clearCoupon();
       }
+
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      final controller = messenger.showSnackBar(
+        SnackBar(
+          content: Text('${removedItem.product.name} removed'),
+          backgroundColor: context.appTextMain,
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'UNDO',
+            textColor: context.appAccent,
+            onPressed: () {},
+          ),
+        ),
+      );
+
+      final reason = await controller.closed;
+      if (!mounted || reason != SnackBarClosedReason.action) return;
+
+      setState(() => _mutatingItemIds.add(cartItemId));
+      try {
+        await _apiService.addToCart(
+          productId: removedItem.product.id,
+          quantity: removedItem.quantity,
+          size: removedItem.size,
+          temp: removedItem.temp,
+          addons: removedItem.addons,
+        );
+        await _loadCartOnly(showLoading: false);
+      } catch (e) {
+        if (mounted) {
+          _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _mutatingItemIds.remove(cartItemId));
+        }
+      }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _cartItems.insert(index, removedItem);
-        });
+        setState(() => _mutatingItemIds.remove(cartItemId));
         _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+      }
+    }
+  }
+
+  Future<void> _handleQuantityChanged(CartItem item, int nextQuantity) async {
+    if (_mutatingItemIds.contains(item.id)) return;
+    if (nextQuantity < 1 ||
+        nextQuantity > 20 ||
+        nextQuantity == item.quantity) {
+      return;
+    }
+
+    HapticFeedback.selectionClick();
+    final index = _cartItems.indexWhere((candidate) => candidate.id == item.id);
+    if (index == -1) return;
+    final previousItem = _cartItems[index];
+    final nextItem = item.copyWith(
+      quantity: nextQuantity,
+      totalItemPrice: item.unitPrice * nextQuantity,
+      isOz: item.isOz,
+    );
+
+    setState(() {
+      _mutatingItemIds.add(item.id);
+      _cartItems[index] = nextItem;
+      _cartTotals = CartTotals.fromItems(
+        _cartItems,
+        couponDiscount: _couponDiscount,
+      );
+    });
+    if (_appliedCouponCode != null) {
+      _clearCoupon();
+    }
+
+    try {
+      await _apiService.updateCartItem(item.id, nextQuantity);
+      await _loadCartOnly(showLoading: false);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        final rollbackIndex = _cartItems.indexWhere(
+          (candidate) => candidate.id == item.id,
+        );
+        if (rollbackIndex != -1) _cartItems[rollbackIndex] = previousItem;
+        _cartTotals = CartTotals.fromItems(
+          _cartItems,
+          couponDiscount: _couponDiscount,
+        );
+      });
+      _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _mutatingItemIds.remove(item.id));
       }
     }
   }
@@ -136,6 +253,10 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         _appliedCouponCode = null;
         _couponDiscount = 0.0;
         _couponMessage = null;
+        _cartTotals = CartTotals.fromItems(
+          _cartItems,
+          couponDiscount: _couponDiscount,
+        );
       });
       return;
     }
@@ -167,6 +288,10 @@ class CartIndexScreenState extends State<CartIndexScreen> {
             ? double.tryParse(result['discount']?.toString() ?? '0') ?? 0.0
             : 0.0;
         _couponMessage = result['message']?.toString();
+        _cartTotals = CartTotals.fromItems(
+          _cartItems,
+          couponDiscount: _couponDiscount,
+        );
       });
 
       _showSnackBar(
@@ -179,6 +304,10 @@ class CartIndexScreenState extends State<CartIndexScreen> {
         _appliedCouponCode = null;
         _couponDiscount = 0.0;
         _couponMessage = null;
+        _cartTotals = CartTotals.fromItems(
+          _cartItems,
+          couponDiscount: _couponDiscount,
+        );
       });
       _showSnackBar(ErrorHandler.toUserMessage(e), isError: true);
     } finally {
@@ -192,6 +321,10 @@ class CartIndexScreenState extends State<CartIndexScreen> {
       _appliedCouponCode = null;
       _couponDiscount = 0.0;
       _couponMessage = null;
+      _cartTotals = CartTotals.fromItems(
+        _cartItems,
+        couponDiscount: _couponDiscount,
+      );
     });
   }
 
@@ -289,19 +422,34 @@ class CartIndexScreenState extends State<CartIndexScreen> {
                                   item.isOz ||
                                   (totalOzUsed + needed <= (_user?.oz ?? 0));
                               return RepaintBoundary(
-                                child: CartItemTile(
-                                  item: item,
-                                  canToggle: canToggle,
-                                  onToggle: (val) {
-                                    setState(() {
-                                      item.isOz = val;
-                                    });
-                                    if (_appliedCouponCode != null) {
-                                      _clearCoupon();
-                                    }
-                                  },
-                                  onRemove: () =>
-                                      _handleRemoveItem(item.id, index),
+                                child: AnimatedSwitcher(
+                                  duration: AppMotion.medium,
+                                  switchInCurve: AppMotion.enter,
+                                  switchOutCurve: AppMotion.exit,
+                                  child: CartItemTile(
+                                    key: ValueKey(item.id),
+                                    item: item,
+                                    canToggle: canToggle,
+                                    isPending: _mutatingItemIds.contains(
+                                      item.id,
+                                    ),
+                                    onToggle: (val) {
+                                      setState(() {
+                                        item.isOz = val;
+                                        _cartTotals = CartTotals.fromItems(
+                                          _cartItems,
+                                          couponDiscount: _couponDiscount,
+                                        );
+                                      });
+                                      if (_appliedCouponCode != null) {
+                                        _clearCoupon();
+                                      }
+                                    },
+                                    onQuantityChanged: (quantity) =>
+                                        _handleQuantityChanged(item, quantity),
+                                    onRemove: () =>
+                                        _handleRemoveItem(item.id, index),
+                                  ),
                                 ),
                               );
                             },
@@ -348,6 +496,48 @@ class CartIndexScreenState extends State<CartIndexScreen> {
 // 6. 独立优化组件 (Standalone Optimized Widgets)
 // ==========================================
 
+class CartTotals {
+  final int totalOzUsed;
+  final double totalCashPrice;
+  final double payableCashPrice;
+
+  const CartTotals({
+    required this.totalOzUsed,
+    required this.totalCashPrice,
+    required this.payableCashPrice,
+  });
+
+  static const empty = CartTotals(
+    totalOzUsed: 0,
+    totalCashPrice: 0,
+    payableCashPrice: 0,
+  );
+
+  factory CartTotals.fromItems(
+    List<CartItem> items, {
+    required double couponDiscount,
+  }) {
+    var totalOzUsed = 0;
+    var totalCashPrice = 0.0;
+
+    for (final item in items) {
+      if (item.isOz) {
+        totalOzUsed += item.ozNeeded;
+      } else {
+        totalCashPrice += item.totalItemPrice;
+      }
+    }
+
+    return CartTotals(
+      totalOzUsed: totalOzUsed,
+      totalCashPrice: totalCashPrice,
+      payableCashPrice: (totalCashPrice - couponDiscount)
+          .clamp(0.0, double.infinity)
+          .toDouble(),
+    );
+  }
+}
+
 class OzBalanceHeader extends StatelessWidget {
   final double totalOz;
   final double totalOzUsed;
@@ -389,10 +579,10 @@ class OzBalanceHeader extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       "${remainingOz.toInt()} / ${totalOz.toInt()} OZ",
-                      style: AppTypography.ledger(context, fontSize: 18).copyWith(
+                      style: AppTypography.ledger(
+                        context,
                         fontSize: 18,
-                        color: context.appPrimary,
-                      ),
+                      ).copyWith(fontSize: 18, color: context.appPrimary),
                     ),
                   ],
                 ),
@@ -442,77 +632,207 @@ class OzBalanceHeader extends StatelessWidget {
 class CartItemTile extends StatelessWidget {
   final CartItem item;
   final bool canToggle;
+  final bool isPending;
   final ValueChanged<bool> onToggle;
+  final ValueChanged<int> onQuantityChanged;
   final VoidCallback onRemove;
 
   const CartItemTile({
     super.key,
     required this.item,
     required this.canToggle,
+    required this.isPending,
     required this.onToggle,
+    required this.onQuantityChanged,
     required this.onRemove,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: canToggle ? 1.0 : 0.4,
+    final effectiveOpacity = (!canToggle || isPending) ? 0.48 : 1.0;
+    return AnimatedOpacity(
+      opacity: effectiveOpacity,
+      duration: AppMotion.fast,
       child: CafeSurface(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Stack(
           children: [
-            CustomCheckbox(
-              value: item.isOz,
-              enabled: canToggle,
-              onChanged: onToggle,
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.product.name,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                      color: context.appTextMain,
-                    ),
-                  ),
-                  if (item.addons.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        "Add-ons: ${item.addons.join(', ')}",
+            Row(
+              children: [
+                CustomCheckbox(
+                  value: item.isOz,
+                  enabled: canToggle && !isPending,
+                  onChanged: onToggle,
+                ),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.product.name,
                         style: TextStyle(
-                          color: context.appTextMuted,
-                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          color: context.appTextMain,
                         ),
                       ),
-                    ),
-                  const SizedBox(height: 4),
-                  ItemPriceLabel(item: item),
-                ],
-              ),
+                      if (item.addons.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            "Add-ons: ${item.addons.join(', ')}",
+                            style: TextStyle(
+                              color: context.appTextMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          ItemPriceLabel(item: item),
+                          const SizedBox(width: 10),
+                          Text(
+                            "${item.ozNeeded} OZ",
+                            style: TextStyle(
+                              color: context.appTextMuted,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      QuantityStepper(
+                        quantity: item.quantity,
+                        enabled: !isPending,
+                        onChanged: onQuantityChanged,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.delete_outline,
+                    color: context.appDanger,
+                    size: 20,
+                  ),
+                  onPressed: isPending ? null : onRemove,
+                ),
+              ],
             ),
-            Text(
-              "${item.ozNeeded} OZ",
-              style: TextStyle(
-                color: context.appTextMuted,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
+            Positioned(
+              right: 42,
+              top: 2,
+              child: AnimatedSwitcher(
+                duration: AppMotion.fast,
+                child: isPending
+                    ? SizedBox(
+                        key: const ValueKey('cart-row-pending'),
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: context.appPrimary,
+                        ),
+                      )
+                    : const SizedBox.shrink(key: ValueKey('cart-row-ready')),
               ),
-            ),
-            IconButton(
-              icon: Icon(
-                Icons.delete_outline,
-                color: context.appDanger,
-                size: 20,
-              ),
-              onPressed: onRemove,
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class QuantityStepper extends StatelessWidget {
+  final int quantity;
+  final bool enabled;
+  final ValueChanged<int> onChanged;
+
+  const QuantityStepper({
+    super.key,
+    required this.quantity,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: context.appBackground,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: context.appBorder),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _CartQtyButton(
+            icon: Icons.remove_rounded,
+            enabled: enabled && quantity > 1,
+            onTap: () => onChanged(quantity - 1),
+          ),
+          SizedBox(
+            width: 34,
+            child: AnimatedSwitcher(
+              duration: AppMotion.fast,
+              transitionBuilder: (child, animation) {
+                return ScaleTransition(
+                  scale: Tween<double>(begin: 0.86, end: 1).animate(
+                    CurvedAnimation(parent: animation, curve: AppMotion.enter),
+                  ),
+                  child: FadeTransition(opacity: animation, child: child),
+                );
+              },
+              child: Text(
+                '$quantity',
+                key: ValueKey(quantity),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: context.appTextMain,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+          _CartQtyButton(
+            icon: Icons.add_rounded,
+            enabled: enabled && quantity < 20,
+            onTap: () => onChanged(quantity + 1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CartQtyButton extends StatelessWidget {
+  final IconData icon;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _CartQtyButton({
+    required this.icon,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.all(7),
+        child: Icon(
+          icon,
+          size: 17,
+          color: enabled ? context.appPrimary : context.appTextMuted,
         ),
       ),
     );

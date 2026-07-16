@@ -48,5 +48,29 @@ class CartItem {
     );
   }
 
+  CartItem copyWith({
+    int? id,
+    Product? product,
+    int? quantity,
+    String? size,
+    String? temp,
+    List<String>? addons,
+    double? unitPrice,
+    double? totalItemPrice,
+    bool? isOz,
+  }) {
+    return CartItem(
+      id: id ?? this.id,
+      product: product ?? this.product,
+      quantity: quantity ?? this.quantity,
+      size: size ?? this.size,
+      temp: temp ?? this.temp,
+      addons: addons ?? List<String>.from(this.addons),
+      unitPrice: unitPrice ?? this.unitPrice,
+      totalItemPrice: totalItemPrice ?? this.totalItemPrice,
+      isOz: isOz ?? this.isOz,
+    );
+  }
+
   int get ozNeeded => (totalItemPrice * 100).toInt();
 }
