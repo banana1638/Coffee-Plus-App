@@ -1,14 +1,15 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:pusher_reverb_flutter/pusher_reverb_flutter.dart';
 
+import '../models/realtime_notification.dart';
 import 'api_service.dart';
 import 'app_config.dart';
 import 'app_logger.dart';
+import 'notification_deduplicator.dart';
 
 class NotificationService with WidgetsBindingObserver {
   static final NotificationService _instance = NotificationService._internal();
@@ -18,14 +19,22 @@ class NotificationService with WidgetsBindingObserver {
       FlutterLocalNotificationsPlugin();
   final ApiService _apiService = ApiService();
   final _random = Random();
+  final NotificationDeduplicator _deduplicator = NotificationDeduplicator();
+  final StreamController<RealtimeNotification> _events =
+      StreamController<RealtimeNotification>.broadcast();
 
   ReverbClient? _reverbClient;
   bool _isInitialized = false;
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 5;
   String? _currentSubscribedUserId;
+  String? _currentChannelName;
+  StreamSubscription<dynamic>? _channelEventSubscription;
   Timer? _reconnectTimer;
   bool _shouldMaintainConnection = false;
+  int _authChangeGeneration = 0;
+
+  Stream<RealtimeNotification> get events => _events.stream;
 
   NotificationService._internal() {
     WidgetsBinding.instance.addObserver(this);
@@ -63,6 +72,12 @@ class NotificationService with WidgetsBindingObserver {
     if (AppConfig.reverbEnabled) {
       _apiService.authStateNotifier.removeListener(_handleAuthChange);
       _apiService.authStateNotifier.addListener(_handleAuthChange);
+      _apiService.authSessionGenerationNotifier.removeListener(
+        _handleAuthSessionChanged,
+      );
+      _apiService.authSessionGenerationNotifier.addListener(
+        _handleAuthSessionChanged,
+      );
       _handleAuthChange();
     } else {
       AppLogger.info('Reverb disabled by environment configuration.');
@@ -128,16 +143,27 @@ class NotificationService with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     AppLogger.debug('App lifecycle: $state');
 
-    if (state == AppLifecycleState.resumed) {
-      if (AppConfig.reverbEnabled && _apiService.authStateNotifier.value) {
-        _shouldMaintainConnection = true;
-        AppLogger.debug('App resumed: reconnecting Reverb...');
-        unawaited(_connectReverb());
-      }
+    if (!AppConfig.reverbEnabled) return;
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        if (_apiService.authStateNotifier.value) {
+          _shouldMaintainConnection = true;
+          AppLogger.debug('App resumed: reconnecting Reverb...');
+          _handleAuthChange();
+        }
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        _stopReverbConnection(clearCurrentSubscription: true);
+        break;
     }
   }
 
   void _handleAuthChange() async {
+    final generation = ++_authChangeGeneration;
     if (!AppConfig.reverbEnabled) {
       return;
     }
@@ -145,15 +171,18 @@ class NotificationService with WidgetsBindingObserver {
       _shouldMaintainConnection = true;
       try {
         await _connectReverb();
+        if (generation != _authChangeGeneration) return;
         final profile = await _apiService.fetchProfile();
-        final userId = profile['user']?['id']?.toString();
+        if (generation != _authChangeGeneration) return;
+        final userId = _extractRealtimeUserId(profile);
         if (userId != null &&
             userId.isNotEmpty &&
             userId != _currentSubscribedUserId) {
           if (_currentSubscribedUserId != null) {
-            _stopReverbConnection();
+            _stopReverbConnection(clearCurrentSubscription: true);
             _shouldMaintainConnection = true;
             await _connectReverb();
+            if (generation != _authChangeGeneration) return;
           }
           _subscribeToUserChannel(userId);
           _currentSubscribedUserId = userId;
@@ -165,25 +194,51 @@ class NotificationService with WidgetsBindingObserver {
         );
       }
     } else {
-      _stopReverbConnection();
+      _stopReverbConnection(
+        clearCurrentSubscription: true,
+        clearDeduplication: true,
+      );
       _currentSubscribedUserId = null;
     }
+  }
+
+  void _handleAuthSessionChanged() {
+    if (!AppConfig.reverbEnabled) return;
+    if (!_apiService.authStateNotifier.value) {
+      _stopReverbConnection(
+        clearCurrentSubscription: true,
+        clearDeduplication: true,
+      );
+      return;
+    }
+
+    _stopReverbConnection(clearCurrentSubscription: true);
+    _shouldMaintainConnection = true;
+    _handleAuthChange();
   }
 
   void _subscribeToUserChannel(String userId) {
     if (_reverbClient == null) return;
 
     final channelName = "private-App.Models.User.$userId";
+    if (_currentChannelName == channelName &&
+        _channelEventSubscription != null) {
+      return;
+    }
+
     try {
+      _channelEventSubscription?.cancel();
+      _channelEventSubscription = null;
       AppLogger.debug('Subscribing to: $channelName');
       final channel = _reverbClient!.subscribeToPrivateChannel(channelName);
 
-      channel
+      _channelEventSubscription = channel
           .on('Illuminate\\Notifications\\Events\\BroadcastNotificationCreated')
           .listen((event) {
             AppLogger.debug('Notification event received: ${event.eventName}');
             _onNotificationReceived(event);
           });
+      _currentChannelName = channelName;
     } catch (e) {
       AppLogger.error('Reverb subscribe error', error: e);
     }
@@ -230,10 +285,22 @@ class NotificationService with WidgetsBindingObserver {
     });
   }
 
-  void _stopReverbConnection() {
+  void _stopReverbConnection({
+    bool clearCurrentSubscription = false,
+    bool clearDeduplication = false,
+  }) {
     _shouldMaintainConnection = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    _channelEventSubscription?.cancel();
+    _channelEventSubscription = null;
+    _currentChannelName = null;
+    if (clearCurrentSubscription) {
+      _currentSubscribedUserId = null;
+    }
+    if (clearDeduplication) {
+      _deduplicator.clear();
+    }
     try {
       AppLogger.debug('Disconnecting from Reverb...');
       _reverbClient?.disconnect();
@@ -244,22 +311,38 @@ class NotificationService with WidgetsBindingObserver {
 
   void _onNotificationReceived(ChannelEvent event) {
     try {
-      final data = event.data;
-      if (data is Map) {
-        final message = data['message'] ?? "You have a new notification";
-        _showLocalNotification(
-          "Order Notification",
-          message,
-          payload: jsonEncode(data),
-        );
-      } else if (data is String) {
-        final decoded = jsonDecode(data);
-        final message = decoded['message'] ?? "You have a new notification";
-        _showLocalNotification("Order Notification", message, payload: data);
+      final notification = RealtimeNotification.fromPayload(event.data);
+      if (!_deduplicator.markIfNew(notification.id)) {
+        AppLogger.debug('Duplicate realtime notification ignored.');
+        return;
       }
-      _apiService.updateNotificationCount();
+
+      _invalidateFor(notification);
+      if (!_events.isClosed) {
+        _events.add(notification);
+      }
+      _showLocalNotification(
+        notification.title,
+        notification.message,
+        payload: notification.toPayloadJson(),
+      );
     } catch (e) {
       AppLogger.error('Failed to process notification event', error: e);
+    }
+  }
+
+  void _invalidateFor(RealtimeNotification notification) {
+    _apiService.invalidateNotifications();
+
+    if (notification.affectsOrders) {
+      _apiService.invalidateOrders();
+      _apiService.invalidateTransactions();
+      _apiService.invalidateDashboard();
+    }
+
+    if (notification.affectsWallet) {
+      _apiService.invalidateTangki();
+      _apiService.invalidateTransactions();
     }
   }
 
@@ -308,9 +391,27 @@ class NotificationService with WidgetsBindingObserver {
     return '${id.substring(0, 4)}****';
   }
 
+  String? _extractRealtimeUserId(Map<String, dynamic> profile) {
+    final user = profile['user'];
+    if (user is! Map) return null;
+
+    for (final key in const ['uuid', 'user_uuid', 'public_id', 'id']) {
+      final value = user[key]?.toString().trim();
+      if (value != null && value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _apiService.authStateNotifier.removeListener(_handleAuthChange);
-    _stopReverbConnection();
+    _apiService.authSessionGenerationNotifier.removeListener(
+      _handleAuthSessionChanged,
+    );
+    _stopReverbConnection(
+      clearCurrentSubscription: true,
+      clearDeduplication: true,
+    );
+    _events.close();
   }
 }

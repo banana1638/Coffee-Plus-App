@@ -48,6 +48,8 @@ class ApiService {
   ValueNotifier<int> get notificationCountNotifier =>
       _client.notificationCountNotifier;
   ValueNotifier<bool> get authStateNotifier => _client.authStateNotifier;
+  ValueNotifier<int> get authSessionGenerationNotifier =>
+      _client.authSessionGenerationNotifier;
   ValueNotifier<ThemeMode> get themeModeNotifier => _client.themeModeNotifier;
 
   Future<void> loadThemeMode() => _client.loadThemeMode();
@@ -517,6 +519,36 @@ class ApiService {
     _notificationCountUpdate = null;
     _profileService.clearTransactionDetailCache();
     _productService.clearCache();
+  }
+
+  void invalidateDashboard() {
+    _client.clearCache(pattern: 'dashboard');
+    _dashboardRefreshGeneration++;
+    _dashboardRequests.removeWhere((key, _) => key.contains('dashboard'));
+  }
+
+  void invalidateOrders() {
+    _client.clearCache(pattern: 'orders');
+    _profileService.clearTransactionDetailCache();
+  }
+
+  void invalidateTangki() {
+    _client.clearCache(pattern: 'tangki');
+    invalidateDashboard();
+    _profileService.clearTransactionDetailCache();
+  }
+
+  void invalidateTransactions() {
+    _client.clearCache(pattern: 'transactions');
+    _profileService.clearTransactionDetailCache();
+  }
+
+  void invalidateNotifications() {
+    _notificationRefreshGeneration++;
+    _notificationsRequest = null;
+    _notificationCountUpdate = null;
+    _client.clearCache(pattern: 'notifications');
+    updateNotificationCount(forceRefresh: true);
   }
 
   void clearCache({String? pattern}) {

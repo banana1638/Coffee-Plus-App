@@ -13,6 +13,7 @@ abstract class ApiClientContract {
   ValueNotifier<int> get cartCountNotifier;
   ValueNotifier<int> get notificationCountNotifier;
   ValueNotifier<bool> get authStateNotifier;
+  ValueNotifier<int> get authSessionGenerationNotifier;
   ValueNotifier<ThemeMode> get themeModeNotifier;
   TimedCache<Map<String, dynamic>> get cache;
 
@@ -48,6 +49,10 @@ class ApiClient implements ApiClientContract {
   final ValueNotifier<int> notificationCountNotifier = ValueNotifier<int>(0);
   @override
   final ValueNotifier<bool> authStateNotifier = ValueNotifier<bool>(false);
+  @override
+  final ValueNotifier<int> authSessionGenerationNotifier = ValueNotifier<int>(
+    0,
+  );
   @override
   final ValueNotifier<ThemeMode> themeModeNotifier = ValueNotifier<ThemeMode>(
     ThemeMode.system,
@@ -134,6 +139,7 @@ class ApiClient implements ApiClientContract {
   Future<void> persistAuthToken(String token) async {
     await storage.write(key: 'auth_token', value: token);
     sessionToken = token;
+    _bumpAuthSessionGeneration();
   }
 
   @override
@@ -172,6 +178,11 @@ class ApiClient implements ApiClientContract {
     cartCountNotifier.value = 0;
     notificationCountNotifier.value = 0;
     authStateNotifier.value = false;
+    _bumpAuthSessionGeneration();
+  }
+
+  void _bumpAuthSessionGeneration() {
+    authSessionGenerationNotifier.value++;
   }
 
   @override
